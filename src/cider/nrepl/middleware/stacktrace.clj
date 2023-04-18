@@ -33,13 +33,23 @@
   [{:keys [session ::print/print-fn] :as msg}]
   (send-analysis msg (analyzer/analyze (@session #'*e) print-fn)))
 
+(defn- print-analysis-error [stacktrace exception]
+  (println "Stacktrace analysis failed for the following exception:")
+  (println stacktrace)
+  (println "Thrown exception:")
+  (flush)
+  (.printStackTrace exception))
+
 (defn- handle-analyze-last-stacktrace-op
   "Handle the analyze last stacktrace op."
   [{:keys [session] :as msg}]
-  (if (and session (@session #'*e))
-    (analyze-last-stacktrace msg)
-    (no-error msg))
-  (done msg))
+  (try (if (and session (@session #'*e))
+         (analyze-last-stacktrace msg)
+         (no-error msg))
+       (catch Exception e
+         (print-analysis-error (@session #'*e) e))
+       (finally
+         (done msg))))
 
 ;; Analyze stacktrace
 
@@ -53,10 +63,13 @@
 (defn- handle-analyze-stacktrace-op
   "Handle the analyze stacktrace op."
   [{:keys [stacktrace] :as msg}]
-  (if (not (str/blank? stacktrace))
-    (analyze-stacktrace msg)
-    (no-error msg))
-  (done msg))
+  (try (if (not (str/blank? stacktrace))
+         (analyze-stacktrace msg)
+         (no-error msg))
+       (catch Exception e
+         (print-analysis-error stacktrace e))
+       (finally
+         (done msg))))
 
 ;; Stacktrace
 
