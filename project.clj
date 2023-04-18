@@ -69,12 +69,15 @@
 
   :profiles {:provided {:dependencies [[org.clojure/clojure "1.10.3"]
                                        [org.clojure/clojurescript "1.11.4" :scope "provided"]
+                                       [ch.qos.logback/logback-classic "1.4.6"]
                                        [com.cognitect/transit-clj "1.0.324"]
                                        [com.fasterxml.jackson.core/jackson-core "2.13.1"]
                                        [commons-codec "1.15"]
                                        [com.cognitect/transit-java "1.0.343"]
                                        [com.google.errorprone/error_prone_annotations "2.11.0"]
-                                       [com.google.code.findbugs/jsr305 "3.0.2"]]
+                                       [com.google.code.findbugs/jsr305 "3.0.2"]
+                                       [org.apache.logging.log4j/log4j-api "2.20.0"]
+                                       [org.apache.logging.log4j/log4j-core "2.20.0"]]
                         :test-paths ["test/spec"]}
 
              :1.8 {:dependencies [[org.clojure/clojure "1.8.0"]
