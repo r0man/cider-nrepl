@@ -118,7 +118,7 @@
                                        :appender "my-appender"
                                        :event-id (:id event)})]
         (is (= #{"done"} (:status response)))
-        (is (re-matches (re-pattern (format "(?s).*%s.*"(:id event)))
+        (is (re-matches (re-pattern (format "(?s).*%s.*" (:id event)))
                         (first (:value response))))))
     (remove-appender framework "my-appender")))
 
@@ -153,7 +153,7 @@
   (doseq [framework (frameworks)]
     (add-appender framework "my-appender")
     (framework/log framework {:logger "LOGGER-A" :level :info :message "a-1"})
-    (framework/log framework {:logger "LOGGER-A":level  :warn :message "a-2"})
+    (framework/log framework {:logger "LOGGER-A" :level  :warn :message "a-2"})
     (framework/log framework {:logger "LOGGER-A" :level :error :message "a-3"
                               :exception (IllegalArgumentException. "BOOM")})
     (framework/log framework {:logger "LOGGER-B" :level :trace :message "b-1"})
@@ -185,7 +185,7 @@
   (doseq [framework (frameworks)]
     (add-appender framework "my-appender")
     (framework/log framework {:logger "LOGGER-A" :level :info :message "a-1"})
-    (framework/log framework {:logger "LOGGER-A":level  :warn :message "a-2"})
+    (framework/log framework {:logger "LOGGER-A" :level  :warn :message "a-2"})
     (framework/log framework {:logger "LOGGER-A" :level :error :message "a-3"
                               :exception (IllegalArgumentException. "BOOM")})
     (framework/log framework {:logger "LOGGER-B" :level :trace :message "b-1"})
@@ -210,7 +210,7 @@
   (doseq [framework (frameworks)]
     (add-appender framework "my-appender")
     (framework/log framework {:logger "LOGGER-A" :level :info :message "a-1"})
-    (framework/log framework {:logger "LOGGER-A":level  :warn :message "a-2"})
+    (framework/log framework {:logger "LOGGER-A" :level  :warn :message "a-2"})
     (framework/log framework {:logger "LOGGER-A" :level :error :message "a-3"
                               :exception (IllegalArgumentException. "BOOM")})
     (framework/log framework {:logger "LOGGER-B" :level :trace :message "b-1"})
