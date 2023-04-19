@@ -16,5 +16,4 @@
   (-appenders [framework])
   (-log [framework message])
   (-remove-appender [framework appender])
-  (-update-appender [framework appender])
   (-update-consumer [framework appender consumer]))

@@ -1,8 +1,6 @@
 (ns cider.nrepl.middleware.log
   (:require [cider.nrepl.middleware.inspect :as middleware.inspect]
             [cider.nrepl.middleware.util.error-handling :refer [with-safe-transport]]
-            [nrepl.middleware :as middleware :refer [set-descriptor!]]
-            [nrepl.middleware.session :as middleware.session]
             [nrepl.misc :refer [response-for]]
             [nrepl.transport :as transport]
             [orchard.inspect :as orchard.inspect]

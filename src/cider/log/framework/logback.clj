@@ -82,15 +82,14 @@
 
 (defrecord Logback [name appenders]
   p/Framework
-  (-appenders [framework]
+  (-appenders [_]
     (vals appenders))
   (-add-appender [framework appender]
     (add-appender framework appender))
   (-log [framework message]
     (log framework message))
   (-remove-appender [framework appender]
-    (remove-appender framework appender))
-  (-update-appender [framework appender]))
+    (remove-appender framework appender)))
 
 (defn framework []
   (map->Logback {:id :logback

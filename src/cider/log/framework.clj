@@ -21,9 +21,6 @@
 (defn remove-appender [framework appender]
   (p/-remove-appender framework appender))
 
-(defn update-appender [framework appender]
-  (p/-update-appender framework appender))
-
 (defn update-consumer [framework appender consumer]
   (p/-update-consumer framework appender consumer))
 
