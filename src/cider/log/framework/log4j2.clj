@@ -353,8 +353,7 @@
   (-log [framework message]
     (log framework message))
   (-remove-appender [framework appender]
-    (remove-appender framework appender))
-  (-update-appender [framework appender]))
+    (remove-appender framework appender)))
 
 (defn framework []
   (map->Log4j {:id :log4j2
