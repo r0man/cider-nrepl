@@ -284,6 +284,105 @@ Depending on the type of the return value of the evaluation this middleware may 
                           "var-name" "The var name"}
                :returns {"status" "\"done\""}}}}))
 
+(def-wrapper wrap-log cider.nrepl.middleware.log/handle-log
+  {:doc "Middleware that captures log events and makes them inspect-able."
+   :requires #{#'session}
+   :handles
+   {"log/add-appender"
+    {:doc "Add an appender to a logging framework."
+     :requires {"framework" "The id of the logging framework."
+                "appender" "The name of the appender."
+                "level" "The log level used by the appender."}
+     :returns {"status" "done"
+               "add-appender" "The appender that was added."}}
+
+    "log/add-consumer"
+    {:doc "Add a consumer to an appender of a logging framework."
+     :requires {"framework" "The id of the logging framework."
+                "appender" "The name of the appender."
+                "consumer" "The name of the consumer."
+                "level" "The log level used by the consumer."}
+     :returns {"status" "done"
+               "add-consumer" "The consumer that was added."}}
+
+    "log/clear-appender"
+    {:doc "Clear all events of an appender."
+     :requires {"framework" "The id of the logging framework."
+                "appender" "The name of the appender."}
+     :returns {"status" "done"
+               "clear-appender" "The appender that was cleared."}}
+
+    "log/exceptions"
+    {:doc "Return the exceptions and their frequencies for the given framework and appender."
+     :requires {"framework" "The id of the logging framework."
+                "appender" "The name of the appender."}
+     :returns {"status" "done"
+               "exceptions" "A map from exception name to event frequency."}}
+
+    "log/frameworks"
+    {:doc "Return the available logging frameworks."
+     :returns {"status" "done"
+               "frameworks" "The available logging frameworks indexed by id."}}
+
+    "log/inspect"
+    {:doc "Inspect a log event."
+     :requires {"framework" "The id of the logging framework."
+                "appender" "The name of the appender."
+                "event-id" "The id of the event to inspect."}
+     :returns {"status" "done"
+               "value" "The inspection result."}}
+
+    "log/levels"
+    {:doc "Return the log levels and their frequencies for the given framework and appender."
+     :requires {"framework" "The id of the logging framework."
+                "appender" "The name of the appender."}
+     :returns {"status" "done"
+               "levels" "A map from log level to event frequency."}}
+
+    "log/loggers"
+    {:doc "Return the loggers and their frequencies for the given framework and appender."
+     :requires {"framework" "The id of the logging framework."
+                "appender" "The name of the appender."}
+     :returns {"status" "done"
+               "loggers" "A map from logger name to event frequency."}}
+
+    "log/remove-consumer"
+    {:doc "Remove a consumer from an appender of a logging framework."
+     :requires {"framework" "The id of the logging framework."
+                "appender" "The name of the appender."
+                "consumer" "The name of the consumer."}
+     :returns {"status" "done"
+               "add-consumer" "The removed consumer."}}
+
+    "log/remove-appender"
+    {:doc "Remove an appender from a logging framework."
+     :requires {"framework" "The id of the logging framework."
+                "appender" "The name of the appender."}
+     :returns {"status" "done"
+               "remove-appender" "The removed appender."}}
+
+    "log/search"
+    {:doc "Search the log events of an appender."
+     :requires {"framework" "The id of the logging framework."
+                "appender" "The name of the appender."}
+     :optional {"end-time" "Filter events with a timestamp less than end time."
+                "exceptions" "The list of exception names used to filter records."
+                "levels" "The list of log levels used to filter records."
+                "limit" "Number of records to return."
+                "loggers" "The list of logger names used to filter records."
+                "pattern" "The regular expression used to filter records."
+                "start-time" "Filter events with a timestamp greater than start time."
+                "threads" "The list of thread names used to filter records."}
+     :returns {"status" "done"
+               "search" "The list of log events matching the search."}}
+
+    "log/threads"
+    {:doc "Return the threads and their frequencies for the given framework and appender."
+     :requires {"framework" "The id of the logging framework."
+                "appender" "The name of the appender."}
+     :returns {"status" "done"
+               "threads" "A map from thread name to event frequency."}}}})
+
 (def-wrapper wrap-macroexpand cider.nrepl.middleware.macroexpand/handle-macroexpand
   (cljs/requires-piggieback
    {:doc "Macroexpansion middleware."

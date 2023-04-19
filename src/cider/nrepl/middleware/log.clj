@@ -140,120 +140,19 @@
 (defn threads-reply [msg]
   {:threads (event/thread-frequencies (appender/events (appender msg)))})
 
-(defn wrap-log [handler]
-  (fn [{:keys [session] :as msg}]
-    (when-not (contains? (meta session) ::frameworks)
-      (alter-meta! session assoc ::frameworks (framework/resolve-frameworks)))
-    (with-safe-transport handler msg
-      "stem.log/add-appender" add-appender-reply
-      "stem.log/add-consumer" add-consumer-reply
-      "stem.log/clear-appender" clear-appender-reply
-      "stem.log/exceptions" exceptions-reply
-      "stem.log/frameworks" frameworks-reply
-      "stem.log/inspect" inspect-reply
-      "stem.log/levels" levels-reply
-      "stem.log/loggers" loggers-reply
-      "stem.log/remove-appender" remove-appender-reply
-      "stem.log/remove-consumer" remove-consumer-reply
-      "stem.log/search" search-reply
-      "stem.log/threads" threads-reply)))
-
-(def descriptor
-  {:requires #{#'middleware.session/session}
-   :handles
-   {"stem.log/add-appender"
-    {:doc "Add an appender to a logging framework."
-     :requires {"framework" "The id of the logging framework."
-                "appender" "The name of the appender."
-                "level" "The log level used by the appender."}
-     :returns {"status" "done"
-               "add-appender" "The appender that was added."}}
-
-    "stem.log/add-consumer"
-    {:doc "Add a consumer to an appender of a logging framework."
-     :requires {"framework" "The id of the logging framework."
-                "appender" "The name of the appender."
-                "consumer" "The name of the consumer."
-                "level" "The log level used by the consumer."}
-     :returns {"status" "done"
-               "add-consumer" "The consumer that was added."}}
-
-    "stem.log/clear-appender"
-    {:doc "Clear all events of an appender."
-     :requires {"framework" "The id of the logging framework."
-                "appender" "The name of the appender."}
-     :returns {"status" "done"
-               "clear-appender" "The appender that was cleared."}}
-
-    "stem.log/exceptions"
-    {:doc "Return the exceptions and their frequencies for the given framework and appender."
-     :requires {"framework" "The id of the logging framework."
-                "appender" "The name of the appender."}
-     :returns {"status" "done"
-               "exceptions" "A map from exception name to event frequency."}}
-
-    "stem.log/frameworks"
-    {:doc "Return the available logging frameworks."
-     :returns {"status" "done"
-               "frameworks" "The available logging frameworks indexed by id."}}
-
-    "stem.log/inspect"
-    {:doc "Inspect a log event."
-     :requires {"framework" "The id of the logging framework."
-                "appender" "The name of the appender."
-                "event-id" "The id of the event to inspect."}
-     :returns {"status" "done"
-               "value" "The inspection result."}}
-
-    "stem.log/levels"
-    {:doc "Return the log levels and their frequencies for the given framework and appender."
-     :requires {"framework" "The id of the logging framework."
-                "appender" "The name of the appender."}
-     :returns {"status" "done"
-               "levels" "A map from log level to event frequency."}}
-
-    "stem.log/loggers"
-    {:doc "Return the loggers and their frequencies for the given framework and appender."
-     :requires {"framework" "The id of the logging framework."
-                "appender" "The name of the appender."}
-     :returns {"status" "done"
-               "loggers" "A map from logger name to event frequency."}}
-
-    "stem.log/remove-consumer"
-    {:doc "Remove a consumer from an appender of a logging framework."
-     :requires {"framework" "The id of the logging framework."
-                "appender" "The name of the appender."
-                "consumer" "The name of the consumer."}
-     :returns {"status" "done"
-               "add-consumer" "The removed consumer."}}
-
-    "stem.log/remove-appender"
-    {:doc "Remove an appender from a logging framework."
-     :requires {"framework" "The id of the logging framework."
-                "appender" "The name of the appender."}
-     :returns {"status" "done"
-               "remove-appender" "The removed appender."}}
-
-    "stem.log/search"
-    {:doc "Search the log events of an appender."
-     :requires {"framework" "The id of the logging framework."
-                "appender" "The name of the appender."}
-     :optional {"end-time" "Filter events with a timestamp less than end time."
-                "exceptions" "The list of exception names used to filter records."
-                "levels" "The list of log levels used to filter records."
-                "limit" "Number of records to return."
-                "loggers" "The list of logger names used to filter records."
-                "pattern" "The regular expression used to filter records."
-                "start-time" "Filter events with a timestamp greater than start time."
-                "threads" "The list of thread names used to filter records."}
-     :returns {"status" "done"
-               "search" "The list of log events matching the search."}}
-
-    "stem.log/threads"
-    {:doc "Return the threads and their frequencies for the given framework and appender."
-     :requires {"framework" "The id of the logging framework."
-                "appender" "The name of the appender."}
-     :returns {"status" "done"
-               "threads" "A map from thread name to event frequency."}}}})
-
-(set-descriptor! #'wrap-log descriptor)
+(defn handle-log [handler {:keys [session] :as msg}]
+  (when-not (contains? (meta session) ::frameworks)
+    (alter-meta! session assoc ::frameworks (framework/resolve-frameworks)))
+  (with-safe-transport handler msg
+    "log/add-appender" add-appender-reply
+    "log/add-consumer" add-consumer-reply
+    "log/clear-appender" clear-appender-reply
+    "log/exceptions" exceptions-reply
+    "log/frameworks" frameworks-reply
+    "log/inspect" inspect-reply
+    "log/levels" levels-reply
+    "log/loggers" loggers-reply
+    "log/remove-appender" remove-appender-reply
+    "log/remove-consumer" remove-consumer-reply
+    "log/search" search-reply
+    "log/threads" threads-reply))
