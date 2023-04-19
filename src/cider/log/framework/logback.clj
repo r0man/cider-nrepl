@@ -1,22 +1,21 @@
 (ns cider.log.framework.logback
-  (:require [clojure.set :as set]
-            [cider.log.appender :as appender]
-            [cider.log.framework :as framework]
-            [cider.log.protocols :as p])
+  (:require [cider.log.appender :as appender]
+            [cider.log.protocols :as p]
+            [clojure.set :as set])
   (:import [ch.qos.logback.classic Level Logger LoggerContext]
            [ch.qos.logback.classic.spi ILoggingEvent LoggingEvent ThrowableProxy]
-           [ch.qos.logback.core AppenderBase]
-           [org.slf4j LoggerFactory MarkerFactory]))
+           [ch.qos.logback.core Appender AppenderBase]
+           [org.slf4j LoggerFactory Marker MarkerFactory]))
 
 (defn- logger-context
   "Return the Logback logger context."
   ^LoggerContext []
   (LoggerFactory/getILoggerFactory))
 
-(defn- root-logger
-  "Return the Logback root logger."
-  ^Logger [^LoggerContext context]
-  (.getLogger context Logger/ROOT_LOGGER_NAME))
+(defn- get-logger
+  "Return the logger by `name` from the logger `context`."
+  ^Logger [^LoggerContext context ^String name]
+  (.getLogger context name))
 
 (def ^:private level-to-keyword
   {Level/TRACE :trace
@@ -46,7 +45,7 @@
       exception (assoc :exception exception))))
 
 (defn- add-appender
-  "Attach the Logback appenders."
+  "Attach the Logback appender."
   [framework appender]
   (let [atom-appender (appender/make-atom-appender appender)
         instance (doto (proxy [AppenderBase] []
@@ -55,7 +54,7 @@
                    (.setName (:name appender))
                    (.start))]
     (swap! (:base atom-appender) assoc :instance instance)
-    (doto ^Logger (root-logger (:context framework))
+    (doto ^Logger (get-logger (:context framework) Logger/ROOT_LOGGER_NAME)
       (.addAppender instance))
     (assoc-in framework [:appenders (:name appender)] atom-appender)))
 
@@ -63,10 +62,10 @@
   (some-> level keyword-to-level Level/toLocationAwareLoggerInteger))
 
 (defn- log [framework {:keys [arguments exception level logger marker message]}]
-  (let [logger-instance (.getLogger (:context framework) (or logger Logger/ROOT_LOGGER_NAME))]
-    (.log logger-instance
+  (let [logger (get-logger (:context framework) (or logger Logger/ROOT_LOGGER_NAME))]
+    (.log logger
           (some-> marker MarkerFactory/getMarker)
-          (.getName logger-instance) ;;TODO: What is "fqcn"?
+          ^String (.getName logger) ;;TODO: What is "fqcn"?
           (level-int (or level :info))
           message
           (into-array Object arguments)
@@ -76,8 +75,8 @@
   "Remove `appender` from the Logback `framework`."
   [framework appender]
   (when-let [appender (get-in framework [:appenders (:name appender)])]
-    (.stop (:instance @(:base appender))))
-  (doto ^Logger (root-logger (:context framework))
+    (.stop ^Appender (:instance @(:base appender))))
+  (doto ^Logger (get-logger (:context framework) Logger/ROOT_LOGGER_NAME)
     (.detachAppender ^String (:name appender)))
   (update framework :appenders dissoc (:name appender)))
 
