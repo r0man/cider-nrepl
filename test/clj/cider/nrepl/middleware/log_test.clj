@@ -13,13 +13,13 @@
        (catch Exception _)))
 
 (defn- add-appender [framework appender & [opts]]
-  (session/message (merge {:op "log/add-appender"
+  (session/message (merge {:op "log-add-appender"
                            :framework (:id framework)
                            :appender appender}
                           opts)))
 
 (defn- remove-appender [framework appender]
-  (session/message {:op "log/remove-appender"
+  (session/message {:op "log-remove-appender"
                     :framework (:id framework)
                     :appender appender}))
 
@@ -32,13 +32,13 @@
               :level "debug"
               :name "my-appender"}
              ;; TODO: Strip namespace from keyword
-             (:log/add-appender response))))
+             (:log-add-appender response))))
     (remove-appender framework "my-appender")))
 
 (deftest test-add-consumer
   (doseq [framework (frameworks)]
     (add-appender framework "my-appender")
-    (let [response (session/message {:op "log/add-consumer"
+    (let [response (session/message {:op "log-add-consumer"
                                      :framework (:id framework)
                                      :appender "my-appender"
                                      :consumer "my-consumer"})]
@@ -56,7 +56,7 @@
   (doseq [framework (frameworks)]
     (add-appender framework "my-appender")
     (framework/log framework {:message "a-1"})
-    (let [response (session/message {:op "log/clear-appender"
+    (let [response (session/message {:op "log-clear-appender"
                                      :framework (:id framework)
                                      :appender "my-appender"})]
       (is (= #{"done"} (:status response)))
@@ -72,7 +72,7 @@
     (framework/log framework {:message "a-1" :exception (IllegalArgumentException. "BOOM")})
     (framework/log framework {:message "b-1" :exception (IllegalStateException. "BOOM")})
     (framework/log framework {:message "b-2" :exception (IllegalStateException. "BOOM")})
-    (let [response (session/message {:op "log/exceptions"
+    (let [response (session/message {:op "log-exceptions"
                                      :framework (:id framework)
                                      :appender "my-appender"})]
       (is (= #{"done"} (:status response)))
@@ -83,7 +83,7 @@
 
 (deftest test-frameworks
   (doseq [framework (frameworks)]
-    (let [response (session/message {:op "log/frameworks"})]
+    (let [response (session/message {:op "log-frameworks"})]
       (is (= #{"done"} (:status response)))
       (is (= {:logback
               {:appenders []
@@ -92,7 +92,7 @@
                :name "Logback"}}
              (:frameworks response))))
     (add-appender framework "my-appender" {:level :debug})
-    (let [response (session/message {:op "log/frameworks"})]
+    (let [response (session/message {:op "log-frameworks"})]
       (is (= #{"done"} (:status response)))
       (is (= {:logback
               {:appenders [{:consumers []
@@ -110,10 +110,10 @@
     (add-appender framework "my-appender")
     (framework/log framework {:message "a-1"})
     (framework/log framework {:message "a-2"})
-    (doseq [event (:search (session/message {:op "log/search"
+    (doseq [event (:search (session/message {:op "log-search"
                                              :framework (:id framework)
                                              :appender "my-appender"}))]
-      (let [response (session/message {:op "log/inspect"
+      (let [response (session/message {:op "log-inspect"
                                        :framework (:id framework)
                                        :appender "my-appender"
                                        :event-id (:id event)})]
@@ -128,7 +128,7 @@
     (framework/log framework {:level :info :message "a-1"})
     (framework/log framework {:level :info :message "b-1"})
     (framework/log framework {:level :debug :message "b-2"})
-    (let [response (session/message {:op "log/levels"
+    (let [response (session/message {:op "log-levels"
                                      :framework (:id framework)
                                      :appender "my-appender"})]
       (is (= #{"done"} (:status response)))
@@ -138,11 +138,10 @@
 (deftest test-loggers
   (doseq [framework (frameworks)]
     (add-appender framework "my-appender")
-    (session/message {:op "log/attach"})
     (framework/log framework {:logger "LOGGER-A" :message "a-1"})
     (framework/log framework {:logger "LOGGER-B" :message "b-1"})
     (framework/log framework {:logger "LOGGER-B" :message "b-2"})
-    (let [response (session/message {:op "log/loggers"
+    (let [response (session/message {:op "log-loggers"
                                      :framework (:id framework)
                                      :appender "my-appender"})]
       (is (= #{"done"} (:status response)))
@@ -160,7 +159,7 @@
     (framework/log framework {:logger "LOGGER-B" :level :debug :message "b-2"})
     (framework/log framework {:logger "LOGGER-B" :level :error :message "b-3"
                               :exception (IllegalArgumentException. "BOOM")})
-    (let [response (session/message {:op "log/search"
+    (let [response (session/message {:op "log-search"
                                      :framework (:id framework)
                                      :appender "my-appender"
                                      :levels ["INFO" "DEBUG"]})]
@@ -192,7 +191,7 @@
     (framework/log framework {:logger "LOGGER-B" :level :debug :message "b-2"})
     (framework/log framework {:logger "LOGGER-B" :level :error :message "b-3"
                               :exception (IllegalStateException. "BOOM")})
-    (let [response (session/message {:op "log/search"
+    (let [response (session/message {:op "log-search"
                                      :framework (:id framework)
                                      :appender "my-appender"
                                      :exceptions ["java.lang.IllegalStateException"]})]
@@ -217,7 +216,7 @@
     (framework/log framework {:logger "LOGGER-B" :level :debug :message "b-2"})
     (framework/log framework {:logger "LOGGER-B" :level :error :message "b-3"
                               :exception (IllegalStateException. "BOOM")})
-    (let [response (session/message {:op "log/search"
+    (let [response (session/message {:op "log-search"
                                      :framework (:id framework)
                                      :appender "my-appender"
                                      :pattern "b-3"})]
@@ -235,21 +234,20 @@
 (deftest test-search-by-start-and-end-time
   (doseq [framework (frameworks)]
     (add-appender framework "my-appender")
-    (session/message {:op "log/attach"})
     (framework/log framework {:message "a-1"})
     (Thread/sleep 100)
     (framework/log framework {:message "a-2"})
     (Thread/sleep 100)
     (framework/log framework {:message "a-3"})
-    (let [response (session/message {:op "log/search"
+    (let [response (session/message {:op "log-search"
                                      :framework (:id framework)
                                      :appender "my-appender"})]
       (is (= #{"done"} (:status response)))
       (let [[event-3 event-2 event-1]
-            (:search (session/message {:op "log/search"
+            (:search (session/message {:op "log-search"
                                        :framework (:id framework)
                                        :appender "my-appender"}))]
-        (let [response (session/message {:op "log/search"
+        (let [response (session/message {:op "log-search"
                                          :framework (:id framework)
                                          :appender "my-appender"
                                          :start-time (inc (:timestamp event-1))
@@ -269,7 +267,7 @@
   (doseq [framework (frameworks)]
     (add-appender framework "my-appender")
     (framework/log framework {:message "a-1"})
-    (let [response (session/message {:op "log/threads"
+    (let [response (session/message {:op "log-threads"
                                      :framework (:id framework)
                                      :appender "my-appender"})]
       (is (= #{"done"} (:status response)))
@@ -286,16 +284,16 @@
               :events 0
               :level []
               :name "my-appender"}
-             (:log/remove-appender response))))))
+             (:log-remove-appender response))))))
 
 (deftest test-remove-consumer
   (doseq [framework (frameworks)]
     (add-appender framework "my-appender")
-    (session/message {:op "log/add-consumer"
+    (session/message {:op "log-add-consumer"
                       :framework (:id framework)
                       :appender "my-appender"
                       :consumer "my-consumer"})
-    (let [response (session/message {:op "log/remove-consumer"
+    (let [response (session/message {:op "log-remove-consumer"
                                      :framework (:id framework)
                                      :appender "my-appender"
                                      :consumer "my-consumer"})]

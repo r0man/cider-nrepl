@@ -142,15 +142,15 @@
   (when-not (contains? (meta session) ::frameworks)
     (alter-meta! session assoc ::frameworks (framework/resolve-frameworks)))
   (with-safe-transport handler msg
-    "log/add-appender" add-appender-reply
-    "log/add-consumer" add-consumer-reply
-    "log/clear-appender" clear-appender-reply
-    "log/exceptions" exceptions-reply
-    "log/frameworks" frameworks-reply
-    "log/inspect" inspect-reply
-    "log/levels" levels-reply
-    "log/loggers" loggers-reply
-    "log/remove-appender" remove-appender-reply
-    "log/remove-consumer" remove-consumer-reply
-    "log/search" search-reply
-    "log/threads" threads-reply))
+    "log-add-appender" add-appender-reply
+    "log-add-consumer" add-consumer-reply
+    "log-clear-appender" clear-appender-reply
+    "log-exceptions" exceptions-reply
+    "log-frameworks" frameworks-reply
+    "log-inspect" inspect-reply
+    "log-levels" levels-reply
+    "log-loggers" loggers-reply
+    "log-remove-appender" remove-appender-reply
+    "log-remove-consumer" remove-consumer-reply
+    "log-search" search-reply
+    "log-threads" threads-reply))
