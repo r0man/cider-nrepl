@@ -277,30 +277,35 @@
 
 (deftest test-remove-appender
   (doseq [framework (frameworks)]
-    (add-appender framework "my-appender")
-    (let [response (remove-appender framework "my-appender")]
-      (is (= #{"done"} (:status response)))
-      (is (= {:consumers []
-              :events 0
-              :level []
-              :name "my-appender"}
-             (:log-remove-appender response))))))
+    (testing "remove unregistered appender"
+      (let [response (remove-appender framework "unknown")]
+        (is (= #{"log-remove-appender-error" "done"} (:status response)))))
+    (testing "remove registered appender"
+      (add-appender framework "my-appender")
+      (let [response (remove-appender framework "my-appender")]
+        (is (= #{"done"} (:status response)))
+        (is (= {:consumers []
+                :events 0
+                :level []
+                :name "my-appender"}
+               (:log-remove-appender response)))))))
 
 (deftest test-remove-consumer
   (doseq [framework (frameworks)]
     (add-appender framework "my-appender")
-    (session/message {:op "log-add-consumer"
-                      :framework (:id framework)
-                      :appender "my-appender"
-                      :consumer "my-consumer"})
-    (let [response (session/message {:op "log-remove-consumer"
-                                     :framework (:id framework)
-                                     :appender "my-appender"
-                                     :consumer "my-consumer"})]
-      (is (= #{"done"} (:status response)))
-      (is (= {:consumers []
-              :events 0
-              :level []
-              :name "my-appender"}
-             (:remove-consumer response))))
+    (testing "remove registered consumer"
+      (session/message {:op "log-add-consumer"
+                        :framework (:id framework)
+                        :appender "my-appender"
+                        :consumer "my-consumer"})
+      (let [response (session/message {:op "log-remove-consumer"
+                                       :framework (:id framework)
+                                       :appender "my-appender"
+                                       :consumer "my-consumer"})]
+        (is (= #{"done"} (:status response)))
+        (is (= {:consumers []
+                :events 0
+                :level []
+                :name "my-appender"}
+               (:remove-consumer response)))))
     (remove-appender framework "my-appender")))
