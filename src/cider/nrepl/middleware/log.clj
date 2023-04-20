@@ -42,7 +42,7 @@
   "Lookup the framework from the `msg`."
   [{:keys [session framework]}]
   (or (get-in (meta session) [::frameworks (keyword framework)])
-      (throw (ex-info "Logging framework not found"
+      (throw (ex-info "Log framework not found"
                       {:error :logging-framework-not-found
                        :framework framework}))))
 
@@ -50,7 +50,7 @@
   "Lookup the appender from the `msg`."
   [{:keys [appender] :as msg}]
   (or (some-> msg framework (framework/appender appender))
-      (throw (ex-info "Logging appender not found"
+      (throw (ex-info "Log appender not found"
                       {:error :logging-appender-not-found
                        :framework (:framework msg)
                        :appender appender}))))
@@ -61,7 +61,7 @@
     (-> (:session msg)
         (alter-meta! update-in [::frameworks (:id framework)] #(apply f % args))
         (get-in [::frameworks (:id framework)]))
-    (throw (ex-info "Logging framework not found"
+    (throw (ex-info "Log framework not found"
                     {:type :logging-framework-not-found
                      :framework (:framework msg)}))))
 
