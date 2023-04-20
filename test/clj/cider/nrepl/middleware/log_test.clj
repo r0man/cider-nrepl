@@ -162,7 +162,7 @@
     (let [response (session/message {:op "log-search"
                                      :framework (:id framework)
                                      :appender "my-appender"
-                                     :levels ["INFO" "DEBUG"]})]
+                                     :levels [:info :debug]})]
       (is (= #{"done"} (:status response)))
       (let [events (:search response)]
         (is (= 2 (count events)))
