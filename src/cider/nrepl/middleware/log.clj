@@ -117,14 +117,14 @@
 (defn loggers-reply [msg]
   {:loggers (event/logger-frequencies (appender/events (appender msg)))})
 
-(defn remove-consumer-reply
-  [{:keys [consumer] :as msg}]
-  {:remove-consumer (select-appender (appender/remove-consumer (appender msg) {:name consumer}))})
-
 (defn remove-appender-reply [msg]
   (let [appender (appender msg)]
     (swap-framework! msg framework/remove-appender {:name (:appender msg)})
     (response msg (select-appender appender))))
+
+(defn remove-consumer-reply
+  [{:keys [consumer] :as msg}]
+  {:remove-consumer (select-appender (appender/remove-consumer (appender msg) {:name consumer}))})
 
 (defn search-reply
   [{:keys [end-time exceptions levels loggers limit pattern start-time threads] :as msg}]
