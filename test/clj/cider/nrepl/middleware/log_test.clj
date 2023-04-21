@@ -319,8 +319,19 @@
 
 (deftest test-log-something
   (doseq [framework (frameworks)]
-    (framework/log framework {:message "a-1"})))
+    (framework/log framework {:message (str (java.util.UUID/randomUUID))})))
 
-(dotimes [n 10]
-  (framework/log (first (frameworks)) {:message (format "a-%s" n)
-                                       :level :info}))
+(deftest test-log-future
+  (doseq [framework (frameworks)]
+    (dotimes [n 10]
+      (framework/log framework {:message (str (java.util.UUID/randomUUID))})
+      (Thread/sleep 1000))))
+
+(comment
+
+  (def my-future
+    (future (dotimes [n 1000]
+              (framework/log (first (frameworks)) {:message (str (java.util.UUID/randomUUID))})
+              (Thread/sleep 500))))
+
+  (comment (future-cancel my-future)))
