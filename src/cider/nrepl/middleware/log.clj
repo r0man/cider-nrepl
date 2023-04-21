@@ -19,8 +19,12 @@
    :name (appender/name appender)})
 
 (defn- select-framework [framework]
-  (-> (select-keys framework [:id :name :description])
-      (assoc :appenders (map select-appender (framework/appenders framework)))))
+  {:appenders (map select-appender (framework/appenders framework))
+   :description (framework/description framework)
+   :id (framework/id framework)
+   :javadoc-url (framework/javadoc-url framework)
+   :name (framework/name framework)
+   :website-url (framework/website-url framework)})
 
 (defn- to-wire [{:keys [data id] :as record}]
   (cond-> (select-keys record [:level :logger :message :id :thread :timestamp])
@@ -94,7 +98,7 @@
   [msg]
   {:clear-appender (select-appender (appender/clear (appender msg)))})
 
-(defn inspect-reply
+(defn inspect-event-reply
   [{:keys [event-id] :as msg}]
   (inspect-value msg (appender/event (appender msg) (UUID/fromString event-id))))
 
@@ -147,7 +151,7 @@
     "log-clear-appender" clear-appender-reply
     "log-exceptions" exceptions-reply
     "log-frameworks" frameworks-reply
-    "log-inspect" inspect-reply
+    "log-inspect-event" inspect-event-reply
     "log-levels" levels-reply
     "log-loggers" loggers-reply
     "log-remove-appender" remove-appender-reply

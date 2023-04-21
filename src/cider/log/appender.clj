@@ -1,6 +1,6 @@
 (ns cider.log.appender
   (:refer-clojure :exclude [name])
-  (:require [cider.log.protocols :as p]))
+  (:require [cider.log.protocol.appender :as p]))
 
 (defrecord BaseAppender [consumers name events event-index level]
   p/Appender
@@ -84,7 +84,7 @@
   (p/-consumers appender))
 
 (defn event
-  "Return the event by `id` from the `appender`."
+  "Lookup the event by `id` from the log `appender`."
   [appender id]
   (p/-event appender id))
 

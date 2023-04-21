@@ -324,7 +324,7 @@ Depending on the type of the return value of the evaluation this middleware may 
      :returns {"status" "done"
                "frameworks" "The available logging frameworks indexed by id."}}
 
-    "log-inspect"
+    "log-inspect-event"
     {:doc "Inspect a log event."
      :requires {"framework" "The id of the logging framework."
                 "appender" "The name of the appender."

@@ -87,21 +87,28 @@
       (is (= #{"done"} (:status response)))
       (is (= {:logback
               {:appenders []
-               :description "The Logback logging framework."
-               :id "logback"
-               :name "Logback"}}
-             (:frameworks response))))
+               :description (framework/description framework)
+               :id (framework/id framework)
+               :javadoc-url (framework/javadoc-url framework)
+               :name (framework/name framework)
+               :website-url (framework/website-url framework)}}
+             (:frameworks response))))))
+
+(deftest test-frameworks-add-appender
+  (doseq [framework (frameworks)]
     (add-appender framework "my-appender" {:level :debug})
     (let [response (session/message {:op "log-frameworks"})]
       (is (= #{"done"} (:status response)))
-      (is (= {:logback
+      (is (= {(keyword (framework/id framework))
               {:appenders [{:consumers []
                             :events 0
                             :level "debug"
                             :name "my-appender"}]
-               :description "The Logback logging framework."
-               :id "logback"
-               :name "Logback"}}
+               :description (framework/description framework)
+               :id (framework/id framework)
+               :javadoc-url (framework/javadoc-url framework)
+               :name (framework/name framework)
+               :website-url (framework/website-url framework)}}
              (:frameworks response))))
     (remove-appender framework "my-appender")))
 
@@ -113,7 +120,7 @@
     (doseq [event (:search (session/message {:op "log-search"
                                              :framework (:id framework)
                                              :appender "my-appender"}))]
-      (let [response (session/message {:op "log-inspect"
+      (let [response (session/message {:op "log-inspect-event"
                                        :framework (:id framework)
                                        :appender "my-appender"
                                        :event-id (:id event)})]
@@ -309,3 +316,11 @@
                 :name "my-appender"}
                (:remove-consumer response)))))
     (remove-appender framework "my-appender")))
+
+(deftest test-log-something
+  (doseq [framework (frameworks)]
+    (framework/log framework {:message "a-1"})))
+
+(dotimes [n 10]
+  (framework/log (first (frameworks)) {:message (format "a-%s" n)
+                                       :level :info}))

@@ -1,5 +1,6 @@
 (ns cider.log.framework
-  (:require [cider.log.protocols :as p]))
+  (:refer-clojure :exclude [name])
+  (:require [cider.log.protocol.framework :as p]))
 
 (def ^:dynamic *frameworks*
   ['cider.log.framework.logback/framework
@@ -9,20 +10,50 @@
 (defn appender [framework name]
   (some #(and (= name (:name %)) %) (p/-appenders framework)))
 
-(defn appenders [framework]
+(defn appenders
+  "Return the appenders of the log `framework`."
+  [framework]
   (p/-appenders framework))
 
-(defn add-appender [framework appender]
+(defn add-appender
+  "Add the log `appender` to the `framework`."
+  [framework appender]
   (p/-add-appender framework appender))
 
-(defn log [framework data]
+(defn log
+  "Log the `event` with the `framework`."
+  [framework data]
   (p/-log framework data))
 
-(defn remove-appender [framework appender]
+(defn description
+  "Return the description of the `framework`."
+  [framework]
+  (p/-description framework))
+
+(defn name
+  "Return the name of the `framework`."
+  [framework]
+  (p/-name framework))
+
+(defn id
+  "Return the id of the log `framework`."
+  [framework]
+  (p/-id framework))
+
+(defn javadoc-url
+  "Return the Javadoc url of the log `framework`."
+  [framework]
+  (p/-javadoc-url framework))
+
+(defn remove-appender
+  "Remove the log `appender` from the `framework`."
+  [framework appender]
   (p/-remove-appender framework appender))
 
-(defn update-consumer [framework appender consumer]
-  (p/-update-consumer framework appender consumer))
+(defn website-url
+  "Return the website url of the log `framework`."
+  [framework]
+  (p/-website-url framework))
 
 (defn resolve-framework [framework-sym]
   (try ((requiring-resolve (symbol framework-sym)))
