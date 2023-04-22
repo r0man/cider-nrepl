@@ -69,6 +69,7 @@
 
   :profiles {:provided {:dependencies [[org.clojure/clojure "1.10.3"]
                                        [org.clojure/clojurescript "1.11.4" :scope "provided"]
+                                       [org.clojure/test.check "1.1.1"]
                                        [ch.qos.logback/logback-classic "1.4.6"]
                                        [com.cognitect/transit-clj "1.0.324"]
                                        [com.fasterxml.jackson.core/jackson-core "2.13.1"]

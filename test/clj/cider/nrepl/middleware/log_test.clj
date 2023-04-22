@@ -1,7 +1,9 @@
 (ns cider.nrepl.middleware.log-test
   (:require [cider.log.framework :as framework]
             [cider.nrepl.test-session :as session]
-            [clojure.test :refer [deftest is testing use-fixtures]]))
+            [clojure.spec.alpha :as s]
+            [clojure.test :refer [deftest is testing use-fixtures]]
+            [clojure.test.check.generators :as gen]))
 
 (use-fixtures :each session/session-fixture)
 
@@ -317,21 +319,17 @@
                (:remove-consumer response)))))
     (remove-appender framework "my-appender")))
 
-(deftest test-log-something
-  (doseq [framework (frameworks)]
-    (framework/log framework {:message (str (java.util.UUID/randomUUID))})))
-
 (deftest test-log-future
   (doseq [framework (frameworks)]
     (dotimes [n 10]
       (framework/log framework {:message (str (java.util.UUID/randomUUID))})
       (Thread/sleep 1000))))
 
-(comment
+(defn log-something [& [n sleep]]
+  (future (doseq [framework (take 1 (frameworks))
+                  event (gen/sample (s/gen :cider.log/event) (or n 10))]
+            (framework/log framework event)
+            (Thread/sleep (or sleep 100)))))
 
-  (def my-future
-    (future (dotimes [n 1000]
-              (framework/log (first (frameworks)) {:message (str (java.util.UUID/randomUUID))})
-              (Thread/sleep 500))))
-
-  (comment (future-cancel my-future)))
+(deftest test-log-something
+  (is (future? (log-something 1000 100))))
