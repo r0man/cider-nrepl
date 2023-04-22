@@ -36,7 +36,7 @@
 
 (defn- event-data [^LogEvent event]
   (let [exception (event-exception event)]
-    (cond-> {:data (some-> event .getMessage .getParameters vec)
+    (cond-> {:arguments (some-> event .getMessage .getParameters vec)
              :id (java.util.UUID/randomUUID)
              :level (level-to-keyword (.getLevel event))
              :logger (.getLoggerName event)

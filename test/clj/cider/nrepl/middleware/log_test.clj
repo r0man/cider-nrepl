@@ -326,10 +326,12 @@
       (Thread/sleep 1000))))
 
 (defn log-something [& [n sleep]]
-  (future (doseq [framework (take 1 (frameworks))
-                  event (gen/sample (s/gen :cider.log/event) (or n 10))]
-            (framework/log framework event)
-            (Thread/sleep (or sleep 100)))))
+  (doseq [framework (take 1 (frameworks))
+          event (gen/sample (s/gen :cider.log/event) (or n 10))]
+    (framework/log framework event)
+    (Thread/sleep (or sleep 100))))
 
 (deftest test-log-something
-  (is (future? (log-something 1000 100))))
+  (is (nil? @(log-something 10 100))))
+
+(comment (log-something 10 10))

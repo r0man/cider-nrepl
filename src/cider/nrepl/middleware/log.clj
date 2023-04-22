@@ -26,12 +26,12 @@
    :name (framework/name framework)
    :website-url (framework/website-url framework)})
 
-(defn- to-wire [{:keys [data id] :as record}]
+(defn- to-wire [{:keys [arguments id] :as record}]
   (cond-> (select-keys record [:level :logger :message :id :thread :timestamp])
     (uuid? id)
     (update :id str)
-    (map? (first data))
-    (assoc :message (pr-str (dissoc (first data) :context)))))
+    (map? (first arguments))
+    (assoc :message (pr-str (dissoc (first arguments) :context)))))
 
 (defn- inspect-value [{:keys [page-size max-atom-length max-coll-size] :as msg} value]
   (let [inspector (middleware.inspect/swap-inspector!

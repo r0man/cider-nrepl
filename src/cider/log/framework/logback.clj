@@ -5,7 +5,7 @@
   (:import [ch.qos.logback.classic Level Logger LoggerContext]
            [ch.qos.logback.classic.spi ILoggingEvent LoggingEvent ThrowableProxy]
            [ch.qos.logback.core Appender AppenderBase]
-           [org.slf4j LoggerFactory Marker MarkerFactory]))
+           [org.slf4j LoggerFactory Marker MarkerFactory MDC]))
 
 (defn- logger-context
   "Return the Logback logger context."
@@ -34,7 +34,7 @@
 
 (defn- event-data [^LoggingEvent event]
   (let [exception (event-exception event)]
-    (cond-> {:data (vec (.getArgumentArray event))
+    (cond-> {:arguments (vec (.getArgumentArray event))
              :id (java.util.UUID/randomUUID)
              :level (level-to-keyword (.getLevel event))
              :logger (.getLoggerName event)
@@ -61,15 +61,19 @@
 (defn- level-int [level]
   (some-> level keyword-to-level Level/toLocationAwareLoggerInteger))
 
-(defn- log [framework {:keys [arguments exception level logger marker message]}]
+(defn- log [framework {:keys [arguments exception level logger marker mdc message]}]
   (let [logger (get-logger (or logger Logger/ROOT_LOGGER_NAME))]
+    (doseq [[key value] (seq mdc)]
+      (MDC/put key value))
     (.log logger
           (some-> marker MarkerFactory/getMarker)
           ^String (.getName logger) ;;TODO: What is "fqcn"?
           (level-int (or level :info))
           message
           (into-array Object arguments)
-          exception)))
+          exception)
+    (when (seq mdc)
+      (MDC/clear))))
 
 (defn- remove-appender
   "Remove `appender` from the Logback `framework`."
