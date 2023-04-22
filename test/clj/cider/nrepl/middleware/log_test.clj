@@ -1,5 +1,6 @@
 (ns cider.nrepl.middleware.log-test
   (:require [cider.log.framework :as framework]
+            [cider.log.specs]
             [cider.nrepl.test-session :as session]
             [clojure.spec.alpha :as s]
             [clojure.test :refer [deftest is testing use-fixtures]]
