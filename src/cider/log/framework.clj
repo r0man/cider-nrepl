@@ -4,6 +4,7 @@
 
 (def ^:dynamic *frameworks*
   ['cider.log.framework.logback/framework
+   'cider.log.framework.java/framework
    ;; 'cider.log.framework.log4j2/framework
    ])
 
@@ -19,6 +20,11 @@
   "Add the log `appender` to the `framework`."
   [framework appender]
   (p/-add-appender framework appender))
+
+(defn levels
+  "Return the log levels of the `framework`."
+  [framework]
+  (p/-levels framework))
 
 (defn log
   "Log the `event` with the `framework`."

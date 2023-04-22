@@ -1,11 +1,18 @@
 (ns cider.log.framework.logback
   (:require [cider.log.appender :as appender]
             [cider.log.protocol.framework :as p]
-            [clojure.set :as set])
+            [clojure.set :as set]
+            [clojure.string :as str])
   (:import [ch.qos.logback.classic Level Logger LoggerContext]
            [ch.qos.logback.classic.spi ILoggingEvent LoggingEvent ThrowableProxy]
            [ch.qos.logback.core Appender AppenderBase]
            [org.slf4j LoggerFactory Marker MarkerFactory MDC]))
+
+(def ^:private log-levels
+  "The standard log levels of the Logback framework."
+  (into {} (map (fn [level]
+                  [(keyword (str/lower-case (str level))) (.toInteger level)])
+                [Level/TRACE Level/DEBUG Level/INFO Level/WARN Level/ERROR])))
 
 (defn- logger-context
   "Return the Logback logger context."
@@ -94,9 +101,11 @@
     "Logback is intended as a successor to the popular log4j project, picking up
     where log4j 1.x leaves off.")
   (-id [_]
-    "logback")
+    :logback)
   (-name [_]
     "Logback")
+  (-levels [_]
+    log-levels)
   (-log [framework message]
     (log framework message))
   (-javadoc-url [_]

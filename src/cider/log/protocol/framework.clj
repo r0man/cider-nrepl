@@ -7,6 +7,8 @@
     "Return the appenders of the log `framework`.")
   (-description [framework]
     "Return the description of the log `framework`.")
+  (-levels [framework]
+    "Return the log levels of the `framework`.")
   (-log [framework event]
     "Log the `event` with the `framework`.")
   (-name [framework]

@@ -1,5 +1,6 @@
 (ns cider.log.framework.log4j2
   (:require [clojure.java.io :as io]
+            [clojure.string :as str]
             [clojure.pprint :as pprint]
             [clojure.set :as set]
             [cider.log.appender :as appender]
@@ -16,6 +17,12 @@
            [org.apache.logging.log4j.core.layout PatternLayout]
            [org.apache.logging.log4j.spi LoggerContext]))
 
+(def ^:private log-levels
+  "The standard log levels of the Log4j2 framework."
+  (into {} (map (fn [level]
+                  [(keyword (str/lower-case (str level))) (.intLevel level)])
+                [Level/TRACE Level/DEBUG Level/INFO Level/WARN Level/ERROR Level/FATAL])))
+
 (defn- logger-context ^LoggerContext []
   (LogManager/getContext false))
 
@@ -24,7 +31,8 @@
    Level/DEBUG :debug
    Level/INFO  :info
    Level/WARN  :warn
-   Level/ERROR :error})
+   Level/ERROR :error
+   Level/FATAL :fatal})
 
 (def ^:private keyword-to-level
   (set/map-invert level-to-keyword))
@@ -354,9 +362,11 @@
     "Log4j 2 provides both a portable logging API and implementation for Java
     with significant improvements over its predecessor, Log4j 1.x.")
   (-id [_]
-    "log4j2")
+    :log4j2)
   (-name [_]
     "Log4j2")
+  (-levels [_]
+    log-levels)
   (-log [framework message]
     (log framework message))
   (-javadoc-url [_]
