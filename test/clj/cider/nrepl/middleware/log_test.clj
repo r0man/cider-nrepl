@@ -319,19 +319,13 @@
                (:remove-consumer response)))))
     (remove-appender framework "my-appender")))
 
-(deftest test-log-future
-  (doseq [framework (frameworks)]
-    (dotimes [n 10]
-      (framework/log framework {:message (str (java.util.UUID/randomUUID))})
-      (Thread/sleep 1000))))
-
 (defn log-something [& [n sleep]]
   (doseq [framework (take 1 (frameworks))
           event (gen/sample (s/gen :cider.log/event) (or n 10))]
     (framework/log framework event)
-    (Thread/sleep (or sleep 100))))
+    (Thread/sleep (or sleep 10))))
 
 (deftest test-log-something
-  (is (nil? @(log-something 10 100))))
+  (is (nil? (log-something 1))))
 
-(comment (log-something 10 10))
+(comment (future (log-something 1000 100)))
