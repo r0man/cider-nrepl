@@ -323,4 +323,4 @@
 (deftest test-log-something
   (is (nil? (log-something 1))))
 
-(comment (future (log-something 1000 100)))
+(comment (future (log-something 100 10)))

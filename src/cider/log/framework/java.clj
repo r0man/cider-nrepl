@@ -38,6 +38,11 @@
     (.setParameters (into-array Object arguments))
     (.setThrown exception)))
 
+(defn- thread-by-id
+  "Find the thread by `id`."
+  [id]
+  (some #(and (= id (.getId %)) %) (keys (Thread/getAllStackTraces))))
+
 (defn- record->event
   "Convert a Java LogRecord into a Cider log event."
   [^LogRecord record]
@@ -48,7 +53,7 @@
              :logger (.getLoggerName record)
              :mdc {}
              :message (.getMessage record)
-             :thread (str (.getThreadID record))
+             :thread (some-> (.getThreadID record) thread-by-id .getName)
              :timestamp (.getMillis record)}
       exception (assoc :exception exception))))
 
