@@ -5,7 +5,8 @@
             [clojure.spec.alpha :as s]
             [clojure.test :refer [deftest is testing use-fixtures]]
             [clojure.test.check.generators :as gen]
-            [cider.log.event :as event]))
+            [cider.log.event :as event]
+            [clojure.pprint :as pp]))
 
 (use-fixtures :each session/session-fixture)
 
@@ -54,13 +55,11 @@
     (let [response (session/message {:op "log-add-consumer"
                                      :framework (:id framework)
                                      :appender appender-name
-                                     :consumer "my-consumer"})]
+                                     :filter {:levels [:info]}})]
       (is (= #{"done"} (:status response)))
-      (is (= {:consumers [{:name "my-consumer"}]
-              :events 0
-              :level []
-              :name appender-name}
-             (:add-consumer response))))
+      (let [consumer (:log-add-consumer response)]
+        (is (uuid-str? (:id consumer)))
+        (is (= {:levels ["info"]} (:filter consumer)))))
     (framework/log framework {:message "a-1"})
     ;; TODO: How to receive the log event?
     (remove-appender framework appender-name)))
@@ -296,20 +295,42 @@
   (doseq [framework (frameworks)]
     (add-appender framework appender-name)
     (testing "remove registered consumer"
-      (session/message {:op "log-add-consumer"
+      (let [consumer (:log-add-consumer
+                      (session/message
+                       {:op "log-add-consumer"
                         :framework (:id framework)
                         :appender appender-name
-                        :consumer "my-consumer"})
-      (let [response (session/message {:op "log-remove-consumer"
-                                       :framework (:id framework)
-                                       :appender appender-name
-                                       :consumer "my-consumer"})]
+                        :filter {:levels [:info]}}))
+            response (session/message
+                      {:op "log-remove-consumer"
+                       :framework (:id framework)
+                       :appender appender-name
+                       :consumer (:id consumer)})]
         (is (= #{"done"} (:status response)))
-        (is (= {:consumers []
-                :events 0
-                :level []
-                :name appender-name}
-               (:remove-consumer response)))))
+        (is (= {:id (:id consumer)
+                :filter (:filter consumer)}
+               (:log-remove-consumer response)))))
+    (remove-appender framework appender-name)))
+
+(deftest test-update-consumer
+  (doseq [framework (frameworks)]
+    (add-appender framework appender-name)
+    (let [consumer (:log-add-consumer
+                    (session/message
+                     {:op "log-add-consumer"
+                      :framework (:id framework)
+                      :appender appender-name
+                      :filter {:levels [:info]}}))
+          response (session/message
+                    {:op "log-update-consumer"
+                     :framework (:id framework)
+                     :appender appender-name
+                     :consumer (:id consumer)
+                     :filter {:levels [:debug]}})]
+      (is (= #{"done"} (:status response)))
+      (is (= {:id (:id consumer)
+              :filter {:levels ["debug"]}}
+             (:log-update-consumer response))))
     (remove-appender framework appender-name)))
 
 (defn log-something [framework & [n sleep]]

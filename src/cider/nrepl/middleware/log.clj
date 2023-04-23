@@ -10,7 +10,8 @@
   (:import [java.util UUID]))
 
 (defn- select-consumer [consumer]
-  (select-keys consumer [:name]))
+  (-> (select-keys consumer [:id :filter])
+      (update :id str)))
 
 (defn- select-appender [appender]
   {:consumers (map select-consumer (appender/consumers appender))
@@ -43,7 +44,7 @@
     (#'middleware.inspect/inspector-response msg inspector)))
 
 (defn- framework
-  "Lookup the framework from the `msg`."
+  "Lookup the log framework from the :framework key of `msg`."
   [{:keys [session framework]}]
   (or (get-in (meta session) [::frameworks (keyword framework)])
       (throw (ex-info "Log framework not found"
@@ -51,13 +52,23 @@
                        :framework framework}))))
 
 (defn- appender
-  "Lookup the appender from the `msg`."
+  "Lookup the log appender from the :framework and :appender keys of `msg`."
   [{:keys [appender] :as msg}]
   (or (some-> msg framework (framework/appender appender))
       (throw (ex-info "Log appender not found"
                       {:error :logging-appender-not-found
                        :framework (:framework msg)
                        :appender appender}))))
+
+(defn- consumer
+  "Lookup the log appender from the :framework, :appender and :consumer keys of `msg`."
+  [{:keys [consumer] :as msg}]
+  (or (appender/consumer-by-id (appender msg) (UUID/fromString consumer))
+      (throw (ex-info "Log consumer not found"
+                      {:error :logging-consumer-not-found
+                       :framework (:framework msg)
+                       :appender (:appender msg)
+                       :consumer consumer}))))
 
 (defn swap-framework!
   [msg f & args]
@@ -86,13 +97,14 @@
     (response msg (select-appender (framework/appender framework appender)))))
 
 (defn add-consumer-reply
-  [{:keys [consumer level transport] :as msg}]
-  (let [consumer {:name consumer
-                  :level level
+  [{:keys [filter transport] :as msg}]
+  (let [consumer {:id (UUID/randomUUID)
+                  :filter (or filter {})
                   :callback (fn [event]
                               (->> (response-for msg :status :log-event :event (to-wire event))
-                                   (transport/send transport)))}]
-    {:add-consumer (select-appender (appender/add-consumer (appender msg) consumer))}))
+                                   (transport/send transport)))}
+        appender (appender/add-consumer (appender msg) consumer)]
+    {:log-add-consumer (select-consumer (appender/consumer-by-id appender (:id consumer)))}))
 
 (defn clear-appender-reply
   [msg]
@@ -122,9 +134,17 @@
     (swap-framework! msg framework/remove-appender {:name (:appender msg)})
     (response msg (select-appender appender))))
 
-(defn remove-consumer-reply
-  [{:keys [consumer] :as msg}]
-  {:remove-consumer (select-appender (appender/remove-consumer (appender msg) {:name consumer}))})
+(defn remove-consumer-reply [msg]
+  (let [consumer (consumer msg)]
+    (appender/remove-consumer (appender msg) (:id consumer))
+    {:log-remove-consumer (select-consumer consumer)}))
+
+(defn update-consumer-reply [msg]
+  (let [consumer (consumer msg)
+        appender (appender/update-consumer
+                  (appender msg) consumer
+                  #(merge % (select-keys msg [:filter])))]
+    {:log-update-consumer (select-consumer (appender/consumer-by-id appender (:id consumer)))}))
 
 (defn search-reply
   [{:keys [end-time exceptions levels loggers limit pattern start-time threads] :as msg}]
@@ -156,5 +176,6 @@
     "log-loggers" loggers-reply
     "log-remove-appender" remove-appender-reply
     "log-remove-consumer" remove-consumer-reply
+    "log-update-consumer" update-consumer-reply
     "log-search" search-reply
     "log-threads" threads-reply))

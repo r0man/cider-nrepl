@@ -1,6 +1,15 @@
 (ns cider.log.specs
   (:require [clojure.spec.alpha :as s]))
 
+(s/def :cider.log.consumer/callback ifn?)
+(s/def :cider.log.consumer/filter (s/map-of string? any?))
+(s/def :cider.log.consumer/id uuid?)
+
+(s/def :cider.log/consumer
+  (s/keys :req-un [:cider.log.consumer/id]
+          :opt-un [:cider.log.consumer/callback
+                   :cider.log.consumer/filter]))
+
 (s/def :cider.log.event/argument any?)
 (s/def :cider.log.event/arguments (s/coll-of :cider.log.event/argument :kind vector?))
 (s/def :cider.log.event/id uuid?)

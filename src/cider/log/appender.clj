@@ -5,9 +5,11 @@
 (defrecord BaseAppender [consumers name events event-index level]
   p/Appender
   (-add-consumer [appender consumer]
-    (assoc-in appender [:consumers (:name consumer)]
-              {:name (:name consumer)
-               :callback (:callback consumer)}))
+    (update-in appender [:consumers (:id consumer)]
+               (fn [old-consumer]
+                 (if old-consumer
+                   (merge old-consumer (select-keys consumer [:filter]))
+                   consumer))))
   (-append [appender event]
     (doseq [{:keys [callback]} (vals consumers)]
       (callback event))
@@ -26,7 +28,9 @@
   (-name [_]
     name)
   (-remove-consumer [appender consumer]
-    (update appender :consumers dissoc (:name consumer))))
+    (update appender :consumers dissoc (:id consumer)))
+  (-update-consumer [appender consumer f]
+    (update-in appender [:consumers (:id consumer)] f)))
 
 (defrecord AtomAppender [name base]
   p/Appender
@@ -51,6 +55,9 @@
     (p/-name @base))
   (-remove-consumer [appender consumer]
     (swap! base p/-remove-consumer consumer)
+    appender)
+  (-update-consumer [appender consumer f]
+    (swap! base p/-update-consumer consumer f)
     appender))
 
 (defn make-base-appender
@@ -83,6 +90,11 @@
   [appender]
   (p/-consumers appender))
 
+(defn consumer-by-id
+  "Find the consumer of `appender` by `id`."
+  [appender id]
+  (some #(and (= id (:id %)) %) (consumers appender)))
+
 (defn event
   "Lookup the event by `id` from the log `appender`."
   [appender id]
@@ -107,3 +119,8 @@
   "Remove the `consumer` from the `appender`."
   [appender consumer]
   (p/-remove-consumer appender consumer))
+
+(defn update-consumer
+  "Update the `consumer` of the `appender` with `f`."
+  [appender consumer f]
+  (p/-update-consumer appender consumer f))

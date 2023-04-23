@@ -301,9 +301,9 @@ Depending on the type of the return value of the evaluation this middleware may 
      :requires {"framework" "The id of the logging framework."
                 "appender" "The name of the appender."
                 "consumer" "The name of the consumer."
-                "level" "The log level used by the consumer."}
+                "filter" "A map from filter name to filter condition."}
      :returns {"status" "done"
-               "add-consumer" "The consumer that was added."}}
+               "log-add-consumer" "The consumer that was added."}}
 
     "log-clear-appender"
     {:doc "Clear all events of an appender."
@@ -360,6 +360,15 @@ Depending on the type of the return value of the evaluation this middleware may 
                 "appender" "The name of the appender."}
      :returns {"status" "done"
                "remove-appender" "The removed appender."}}
+
+    "log-update-consumer"
+    {:doc "Update the consumer of a log appender."
+     :requires {"framework" "The id of the logging framework."
+                "appender" "The name of the appender."
+                "consumer" "The name of the consumer."
+                "filter" "A map from filter name to filter condition."}
+     :returns {"status" "done"
+               "log-update-consumer" "The consumer that was updated."}}
 
     "log-search"
     {:doc "Search the log events of an appender."

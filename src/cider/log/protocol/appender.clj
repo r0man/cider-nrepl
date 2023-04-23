@@ -18,4 +18,6 @@
   (-name [appender]
     "Return the name of the log `appender`.")
   (-remove-consumer [appender consumer]
-    "Remove the `consumer` from the log `appender`."))
+    "Remove the `consumer` from the log `appender`.")
+  (-update-consumer [appender consumer f]
+    "Update the `consumer` of the log `appender` with `f`."))
