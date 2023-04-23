@@ -108,26 +108,26 @@
 
 (defn clear-appender-reply
   [msg]
-  {:clear-appender (select-appender (appender/clear (appender msg)))})
+  {:log-clear-appender (select-appender (appender/clear (appender msg)))})
 
 (defn inspect-event-reply
   [{:keys [event-id] :as msg}]
   (inspect-value msg (appender/event (appender msg) (UUID/fromString event-id))))
 
 (defn exceptions-reply [msg]
-  {:exceptions (event/exception-frequencies (appender/events (appender msg)))})
+  {:log-exceptions (event/exception-frequencies (appender/events (appender msg)))})
 
 (defn frameworks-reply [{:keys [session]}]
   (let [frameworks (vals (get (meta session) ::frameworks))]
-    {:frameworks
+    {:log-frameworks
      (zipmap (map :id frameworks)
              (map select-framework frameworks))}))
 
 (defn levels-reply [msg]
-  {:levels (event/level-frequencies (appender/events (appender msg)))})
+  {:log-levels (event/level-frequencies (appender/events (appender msg)))})
 
 (defn loggers-reply [msg]
-  {:loggers (event/logger-frequencies (appender/events (appender msg)))})
+  {:log-loggers (event/logger-frequencies (appender/events (appender msg)))})
 
 (defn remove-appender-reply [msg]
   (let [appender (appender msg)]
@@ -148,12 +148,12 @@
 
 (defn search-reply
   [{:keys [filter limit] :as msg}]
-  {:search (->> (event/search (appender/events (appender msg))
-                              {:filter filter :limit limit})
-                (map to-wire))})
+  {:log-search (->> (event/search (appender/events (appender msg))
+                                  {:filter filter :limit limit})
+                    (map to-wire))})
 
 (defn threads-reply [msg]
-  {:threads (event/thread-frequencies (appender/events (appender msg)))})
+  {:log-threads (event/thread-frequencies (appender/events (appender msg)))})
 
 (defn handle-log [handler {:keys [session] :as msg}]
   (when-not (contains? (meta session) ::frameworks)

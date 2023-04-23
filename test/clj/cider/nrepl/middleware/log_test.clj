@@ -76,7 +76,7 @@
               :events 0
               :level []
               :name appender-name}
-             (:clear-appender response))))))
+             (:log-clear-appender response))))))
 
 (deftest test-exceptions
   (doseq [framework (frameworks)]
@@ -90,7 +90,7 @@
       (is (= #{"done"} (:status response)))
       (is (= {:java.lang.IllegalArgumentException 1
               :java.lang.IllegalStateException 2}
-             (:exceptions response))))
+             (:log-exceptions response))))
     (remove-appender framework appender-name)))
 
 (deftest test-frameworks
@@ -103,7 +103,7 @@
               :javadoc-url (framework/javadoc-url framework)
               :name (framework/name framework)
               :website-url (framework/website-url framework)}
-             (get-in response [:frameworks (framework/id framework)]))))))
+             (get-in response [:log-frameworks (framework/id framework)]))))))
 
 (deftest test-frameworks-add-appender
   (doseq [framework (frameworks)]
@@ -119,7 +119,7 @@
               :javadoc-url (framework/javadoc-url framework)
               :name (framework/name framework)
               :website-url (framework/website-url framework)}
-             (get-in response [:frameworks (framework/id framework)]))))
+             (get-in response [:log-frameworks (framework/id framework)]))))
     (remove-appender framework appender-name)))
 
 (deftest test-inspect
@@ -127,9 +127,11 @@
     (add-appender framework appender-name)
     (framework/log framework {:message "a-1"})
     (framework/log framework {:message "a-2"})
-    (doseq [event (:search (session/message {:op "log-search"
-                                             :framework (:id framework)
-                                             :appender appender-name}))]
+    (doseq [event (:log-search
+                   (session/message
+                    {:op "log-search"
+                     :framework (:id framework)
+                     :appender appender-name}))]
       (let [response (session/message {:op "log-inspect-event"
                                        :framework (:id framework)
                                        :appender appender-name
@@ -150,7 +152,7 @@
                                      :framework (:id framework)
                                      :appender appender-name})]
       (is (= #{"done"} (:status response)))
-      (is (= {level-2 1 level-1 2} (:levels response))))
+      (is (= {level-2 1 level-1 2} (:log-levels response))))
     (remove-appender framework appender-name)))
 
 (deftest test-loggers
@@ -163,7 +165,7 @@
                                      :framework (:id framework)
                                      :appender appender-name})]
       (is (= #{"done"} (:status response)))
-      (is (= {:LOGGER-A 1 :LOGGER-B 2} (:loggers response))))
+      (is (= {:LOGGER-A 1 :LOGGER-B 2} (:log-loggers response))))
     (remove-appender framework appender-name)))
 
 (deftest test-search-by-level
@@ -180,15 +182,17 @@
                                      :filter {:levels [level-1]}})]
       (is (= #{"done"} (:status response)))
       (is (every? #{(name level-1)}
-                  (map :level (:search response)))))
+                  (map :level (:log-search response)))))
     (let [response (session/message {:op "log-search"
                                      :framework (:id framework)
                                      :appender appender-name
                                      :filter {:levels [level-1 level-2]}})]
       (is (= #{"done"} (:status response)))
-      (is (every? #{(name level-1)
-                    (name level-2)}
-                  (map :level (:search response)))))
+      (let [events (:log-search response)]
+        (is (= 2 (count events)))
+        (is (every? #{(name level-1)
+                      (name level-2)}
+                    (map :level events)))))
     (remove-appender framework appender-name)))
 
 (deftest test-search-by-exception
@@ -201,7 +205,7 @@
                                      :framework (:id framework)
                                      :appender appender-name
                                      :filter {:exceptions ["java.lang.IllegalStateException"]}})]
-      (let [events (:search response)]
+      (let [events (:log-search response)]
         (is (= 1 (count events)))
         (let [event (first events)]
           (is (uuid-str? (:id event)))
@@ -222,7 +226,7 @@
                                      :appender appender-name
                                      :filter {:pattern "a-3"}})]
       (is (= #{"done"} (:status response)))
-      (let [events (:search response)]
+      (let [events (:log-search response)]
         (is (= 1 (count events)))
         (let [event (first events)]
           (is (uuid-str? (:id event)))
@@ -245,16 +249,16 @@
                                      :appender appender-name})]
       (is (= #{"done"} (:status response)))
       (let [[event-3 event-2 event-1]
-            (:search (session/message {:op "log-search"
-                                       :framework (:id framework)
-                                       :appender appender-name}))]
+            (:log-search (session/message {:op "log-search"
+                                           :framework (:id framework)
+                                           :appender appender-name}))]
         (let [response (session/message {:op "log-search"
                                          :framework (:id framework)
                                          :appender appender-name
                                          :filter {:start-time (inc (:timestamp event-1))
                                                   :end-time (dec (:timestamp event-3))}})]
           (is (= #{"done"} (:status response)))
-          (let [events (:search response)]
+          (let [events (:log-search response)]
             (is (= 1 (count events)))
             (let [event (first events)]
               (is (= (:id event-2) (:id event)))
@@ -272,8 +276,9 @@
                                      :framework (:id framework)
                                      :appender appender-name})]
       (is (= #{"done"} (:status response)))
-      (is (every? keyword? (keys (:threads response))))
-      (is (every? pos-int? (vals (:threads response)))))
+      (let [threads (:log-threads response)]
+        (is (every? keyword? (keys threads)))
+        (is (every? pos-int? (vals threads)))))
     (remove-appender framework appender-name)))
 
 (deftest test-remove-appender
@@ -342,4 +347,4 @@
   (doseq [framework (frameworks)]
     (is (nil? (log-something framework 1)))))
 
-(comment (future (log-something (first (frameworks)) 1000 100)))
+(comment (future (log-something (first (frameworks)) 10)))
