@@ -39,12 +39,12 @@
            (or (not (pos-int? end-time))
                (< (:timestamp event) end-time))))))
 
-(defn search [events {:keys [limit] :as criteria}]
+(defn search [events opts]
   (->> events
-       (filter (search-filter criteria))
+       (filter (search-filter (:filter opts)))
        (sort-by :timestamp)
        (reverse)
-       (take (or limit 500))))
+       (take (or (:limit opts) 500))))
 
 (defn thread-frequencies [events]
   (frequencies (map (comp name :thread) events)))

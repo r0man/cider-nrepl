@@ -147,16 +147,9 @@
     {:log-update-consumer (select-consumer (appender/consumer-by-id appender (:id consumer)))}))
 
 (defn search-reply
-  [{:keys [end-time exceptions levels loggers limit pattern start-time threads] :as msg}]
+  [{:keys [filter limit] :as msg}]
   {:search (->> (event/search (appender/events (appender msg))
-                              {:end-time end-time
-                               :exceptions exceptions
-                               :levels levels
-                               :limit limit
-                               :loggers loggers
-                               :pattern pattern
-                               :start-time start-time
-                               :threads threads})
+                              {:filter filter :limit limit})
                 (map to-wire))})
 
 (defn threads-reply [msg]

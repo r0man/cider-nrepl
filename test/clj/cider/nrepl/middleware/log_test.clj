@@ -177,14 +177,14 @@
     (let [response (session/message {:op "log-search"
                                      :framework (:id framework)
                                      :appender appender-name
-                                     :levels [level-1]})]
+                                     :filter {:levels [level-1]}})]
       (is (= #{"done"} (:status response)))
       (is (every? #{(name level-1)}
                   (map :level (:search response)))))
     (let [response (session/message {:op "log-search"
                                      :framework (:id framework)
                                      :appender appender-name
-                                     :levels [level-1 level-2]})]
+                                     :filter {:levels [level-1 level-2]}})]
       (is (= #{"done"} (:status response)))
       (is (every? #{(name level-1)
                     (name level-2)}
@@ -200,7 +200,7 @@
     (let [response (session/message {:op "log-search"
                                      :framework (:id framework)
                                      :appender appender-name
-                                     :exceptions ["java.lang.IllegalStateException"]})]
+                                     :filter {:exceptions ["java.lang.IllegalStateException"]}})]
       (let [events (:search response)]
         (is (= 1 (count events)))
         (let [event (first events)]
@@ -220,7 +220,7 @@
     (let [response (session/message {:op "log-search"
                                      :framework (:id framework)
                                      :appender appender-name
-                                     :pattern "a-3"})]
+                                     :filter {:pattern "a-3"}})]
       (is (= #{"done"} (:status response)))
       (let [events (:search response)]
         (is (= 1 (count events)))
@@ -251,8 +251,8 @@
         (let [response (session/message {:op "log-search"
                                          :framework (:id framework)
                                          :appender appender-name
-                                         :start-time (inc (:timestamp event-1))
-                                         :end-time (dec (:timestamp event-3))})]
+                                         :filter {:start-time (inc (:timestamp event-1))
+                                                  :end-time (dec (:timestamp event-3))}})]
           (is (= #{"done"} (:status response)))
           (let [events (:search response)]
             (is (= 1 (count events)))

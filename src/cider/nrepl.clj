@@ -374,14 +374,8 @@ Depending on the type of the return value of the evaluation this middleware may 
     {:doc "Search the log events of an appender."
      :requires {"framework" "The id of the logging framework."
                 "appender" "The name of the appender."}
-     :optional {"end-time" "Filter events with a timestamp less than end time."
-                "exceptions" "The list of exception names used to filter records."
-                "levels" "The list of log levels used to filter records."
-                "limit" "Number of records to return."
-                "loggers" "The list of logger names used to filter records."
-                "pattern" "The regular expression used to filter records."
-                "start-time" "Filter events with a timestamp greater than start time."
-                "threads" "The list of thread names used to filter records."}
+     :optional {"filter" "A map from filter name to filter condition."
+                "limit" "Number of log events to return."}
      :returns {"status" "done"
                "search" "The list of log events matching the search."}}
 
