@@ -19,10 +19,8 @@
   (gen/elements (keys (framework/levels framework))))
 
 (defn- event-gen [framework]
-  (gen/fmap (fn [[event level]]
-              (assoc event :level level))
-            (gen/tuple (s/gen :cider.log/event)
-                       (level-gen framework))))
+  (->> (gen/tuple (s/gen :cider.log/event) (level-gen framework))
+       (gen/fmap (fn [[event level]] (assoc event :level level)))))
 
 (defn- uuid-str? [s]
   (try (java.util.UUID/fromString s)
@@ -314,13 +312,13 @@
                (:remove-consumer response)))))
     (remove-appender framework appender-name)))
 
-(defn log-something [& [n sleep]]
-  (doseq [framework (frameworks)
-          event (gen/sample (event-gen framework) (or n 1))]
+(defn log-something [framework & [n sleep]]
+  (doseq [event (gen/sample (event-gen framework) (or n 1))]
     (framework/log framework event)
     (Thread/sleep (or sleep 10))))
 
 (deftest test-log-something
-  (is (nil? (log-something 1))))
+  (doseq [framework (frameworks)]
+    (is (nil? (log-something framework 1)))))
 
-(comment (future (log-something 100 10)))
+(comment (future (log-something (first (frameworks)) 1000 100)))
