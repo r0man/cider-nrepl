@@ -148,8 +148,12 @@
 
 (defn search-reply
   [{:keys [filter limit] :as msg}]
-  {:log-search (->> (event/search (appender/events (appender msg))
-                                  {:filter filter :limit limit})
+  {:log-search (->> (cond-> {}
+                      (map? filter)
+                      (assoc :filter filter)
+                      (nat-int? limit)
+                      (assoc :limit limit))
+                    (event/search (appender/events (appender msg)))
                     (map to-wire))})
 
 (defn threads-reply [msg]
