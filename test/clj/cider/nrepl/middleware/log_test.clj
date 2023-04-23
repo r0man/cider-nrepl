@@ -314,7 +314,11 @@
         (is (= #{"done"} (:status response)))
         (is (= {:id (:id consumer)
                 :filter (:filter consumer)}
-               (:log-remove-consumer response)))))
+               (:log-remove-consumer response)))
+        (let [response (session/message {:op "log-frameworks"})]
+          (is (= #{"done"} (:status response)))
+          (is (= [{:consumers [] :events 0 :level [] :name appender-name}]
+                 (get-in response [:log-frameworks (framework/id framework) :appenders]))))))
     (remove-appender framework appender-name)))
 
 (deftest test-update-consumer
@@ -347,4 +351,4 @@
   (doseq [framework (frameworks)]
     (is (nil? (log-something framework 1)))))
 
-(comment (future (log-something (first (frameworks)) 10)))
+(comment (future (log-something (first (frameworks)) 1000)))

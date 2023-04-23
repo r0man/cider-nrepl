@@ -101,7 +101,9 @@
   (let [consumer {:id (UUID/randomUUID)
                   :filter (or filter {})
                   :callback (fn [event]
-                              (->> (response-for msg :status :log-event :event (to-wire event))
+                              (->> (response-for msg
+                                                 :status :log-event
+                                                 :log-event (to-wire event))
                                    (transport/send transport)))}
         appender (appender/add-consumer (appender msg) consumer)]
     {:log-add-consumer (select-consumer (appender/consumer-by-id appender (:id consumer)))}))
@@ -136,7 +138,7 @@
 
 (defn remove-consumer-reply [msg]
   (let [consumer (consumer msg)]
-    (appender/remove-consumer (appender msg) (:id consumer))
+    (appender/remove-consumer (appender msg) consumer)
     {:log-remove-consumer (select-consumer consumer)}))
 
 (defn update-consumer-reply [msg]

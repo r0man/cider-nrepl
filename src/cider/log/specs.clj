@@ -14,7 +14,7 @@
 (s/def :cider.log.event/arguments (s/coll-of :cider.log.event/argument :kind vector?))
 (s/def :cider.log.event/id uuid?)
 (s/def :cider.log.event/level simple-keyword?)
-(s/def :cider.log.event/logger string?)
+(s/def :cider.log.event/logger (s/and string? not-empty))
 (s/def :cider.log.event/mdc (s/map-of string? string?))
 (s/def :cider.log.event/message (s/and string? not-empty))
 (s/def :cider.log.event/thread string?)
