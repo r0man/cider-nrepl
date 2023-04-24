@@ -40,11 +40,11 @@
 
 (deftest test-add-appender
   (doseq [framework (frameworks)]
-    (let [response (add-appender framework appender-name {:level :info})]
+    (let [response (add-appender framework appender-name {:filters {}})]
       (is (= #{"done"} (:status response)))
       (is (= {:consumers []
               :events 0
-              :level "info"
+              :filters {}
               :name appender-name}
              (:log-add-appender response))))
     (remove-appender framework appender-name)))
@@ -74,7 +74,7 @@
       (is (= #{"done"} (:status response)))
       (is (= {:consumers []
               :events 0
-              :level []
+              :filters []
               :name appender-name}
              (:log-clear-appender response))))))
 
@@ -107,12 +107,12 @@
 
 (deftest test-frameworks-add-appender
   (doseq [framework (frameworks)]
-    (add-appender framework appender-name {:level :info})
+    (add-appender framework appender-name {:filters {}})
     (let [response (session/message {:op "log-frameworks"})]
       (is (= #{"done"} (:status response)))
       (is (= {:appenders [{:consumers []
                            :events 0
-                           :level "info"
+                           :filters {}
                            :name appender-name}]
               :description (framework/description framework)
               :id (name (framework/id framework))
@@ -292,7 +292,7 @@
         (is (= #{"done"} (:status response)))
         (is (= {:consumers []
                 :events 0
-                :level []
+                :filters []
                 :name appender-name}
                (:log-remove-appender response)))))))
 
@@ -317,7 +317,7 @@
                (:log-remove-consumer response)))
         (let [response (session/message {:op "log-frameworks"})]
           (is (= #{"done"} (:status response)))
-          (is (= [{:consumers [] :events 0 :level [] :name appender-name}]
+          (is (= [{:consumers [] :events 0 :filters [] :name appender-name}]
                  (get-in response [:log-frameworks (framework/id framework) :appenders]))))))
     (remove-appender framework appender-name)))
 

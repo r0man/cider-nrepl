@@ -16,7 +16,7 @@
 (defn- select-appender [appender]
   {:consumers (map select-consumer (appender/consumers appender))
    :events (count (appender/events appender))
-   :level (appender/level appender)
+   :filters (appender/filters appender)
    :name (appender/name appender)})
 
 (defn- select-framework [framework]
@@ -92,8 +92,8 @@
       {(:op msg) result})))
 
 (defn add-appender-reply
-  [{:keys [appender level] :as msg}]
-  (let [framework (swap-framework! msg framework/add-appender {:name appender :level level})]
+  [{:keys [appender filters] :as msg}]
+  (let [framework (swap-framework! msg framework/add-appender {:name appender :filters filters})]
     (response msg (select-appender (framework/appender framework appender)))))
 
 (defn add-consumer-reply

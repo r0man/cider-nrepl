@@ -13,8 +13,8 @@
     "Lookup the event by `id` from the log `appender`.")
   (-events [appender]
     "Return the log events of the `appender`.")
-  (-level [appender]
-    "Return the log level of the `appender`.")
+  (-filters [appender]
+    "Return the filters of the `appender`.")
   (-name [appender]
     "Return the name of the log `appender`.")
   (-remove-consumer [appender consumer]

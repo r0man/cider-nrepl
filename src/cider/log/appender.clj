@@ -2,7 +2,7 @@
   (:refer-clojure :exclude [name])
   (:require [cider.log.protocol.appender :as p]))
 
-(defrecord BaseAppender [consumers name events event-index level]
+(defrecord BaseAppender [consumers name events event-index filters]
   p/Appender
   (-add-consumer [appender consumer]
     (update-in appender [:consumers (:id consumer)]
@@ -23,8 +23,8 @@
     (get event-index id))
   (-events [_]
     events)
-  (-level [_]
-    level)
+  (-filters [_]
+    filters)
   (-name [_]
     name)
   (-remove-consumer [appender consumer]
@@ -49,8 +49,8 @@
     (p/-event @base id))
   (-events [_]
     (p/-events @base))
-  (-level [_]
-    (p/-level @base))
+  (-filters [_]
+    (p/-filters @base))
   (-name [_]
     (p/-name @base))
   (-remove-consumer [appender consumer]
@@ -62,8 +62,8 @@
 
 (defn make-base-appender
   "Make a base appender."
-  [{:keys [name level]}]
-  (map->BaseAppender {:name name :level level}))
+  [{:keys [name filters]}]
+  (map->BaseAppender {:name name :filters filters}))
 
 (defn make-atom-appender
   "Make an atom appender."
@@ -110,10 +110,10 @@
   [appender]
   (p/-name appender))
 
-(defn level
-  "Return the log level of the `appender`."
+(defn filters
+  "Return the filters of the `appender`."
   [appender]
-  (p/-level appender))
+  (p/-filters appender))
 
 (defn remove-consumer
   "Remove the `consumer` from the `appender`."
