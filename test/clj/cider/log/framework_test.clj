@@ -5,6 +5,9 @@
             [cider.log.framework.logback :as logback]
             [clojure.test :refer [deftest is testing]]))
 
+(def appender
+  {:id "my-appender"})
+
 (defn frameworks []
   [;; (log4j2/framework)
    (logback/framework)
@@ -12,17 +15,15 @@
 
 (deftest test-add-appender
   (doseq [framework (frameworks)]
-    (let [appender {:name "my-appender"}
-          framework (framework/add-appender framework appender)]
-      (is (framework/appender framework (:name appender)))
+    (let [framework (framework/add-appender framework appender)]
+      (is (framework/appender framework (:id appender)))
       (framework/remove-appender framework appender))))
 
 (deftest test-remove-appender
   (doseq [framework (frameworks)]
-    (let [appender {:name "my-appender"}
-          framework (-> (framework/add-appender framework appender)
+    (let [framework (-> (framework/add-appender framework appender)
                         (framework/remove-appender appender))]
-      (is (nil? (framework/appender framework (:name appender)))))))
+      (is (nil? (framework/appender framework (:id appender)))))))
 
 (deftest test-log-levels
   (doseq [framework (frameworks)]
@@ -34,13 +35,12 @@
 (deftest test-log-message
   (doseq [framework (frameworks)]
     (testing (:name framework)
-      (let [appender {:name "my-appender"}
-            event {:logger "my-logger"
+      (let [event {:logger "my-logger"
                    :level :info
                    :message "Hello World"}
             framework (framework/add-appender framework appender)]
         (is (nil? (framework/log framework event)))
-        (let [events (appender/events (framework/appender framework (:name appender)))]
+        (let [events (appender/events (framework/appender framework (:id appender)))]
           (is (= 1 (count events)))
           (let [event (first events)]
             (is (= [] (:arguments event)))

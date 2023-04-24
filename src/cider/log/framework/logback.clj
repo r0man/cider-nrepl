@@ -58,12 +58,12 @@
         instance (doto (proxy [AppenderBase] []
                          (append [^ILoggingEvent event]
                            (appender/append atom-appender (event-data event))))
-                   (.setName (:name appender))
+                   (.setName (:id appender))
                    (.start))]
     (swap! (:base atom-appender) assoc :instance instance)
     (doto ^Logger (get-logger Logger/ROOT_LOGGER_NAME)
       (.addAppender instance))
-    (assoc-in framework [:appenders (:name appender)] atom-appender)))
+    (assoc-in framework [:appenders (:id appender)] atom-appender)))
 
 (defn- level-int [level]
   (some-> level keyword-to-level Level/toLocationAwareLoggerInteger))
@@ -85,11 +85,11 @@
 (defn- remove-appender
   "Remove `appender` from the Logback `framework`."
   [framework appender]
-  (when-let [appender (get-in framework [:appenders (:name appender)])]
+  (when-let [appender (get-in framework [:appenders (:id appender)])]
     (.stop ^Appender (:instance @(:base appender))))
   (doto ^Logger (get-logger Logger/ROOT_LOGGER_NAME)
-    (.detachAppender ^String (:name appender)))
-  (update framework :appenders dissoc (:name appender)))
+    (.detachAppender ^String (:id appender)))
+  (update framework :appenders dissoc (:id appender)))
 
 (defrecord Logback [name appenders]
   p/Framework

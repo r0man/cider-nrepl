@@ -10,14 +10,14 @@
   (:import [java.util UUID]))
 
 (defn- select-consumer [consumer]
-  (-> (select-keys consumer [:id :filter])
+  (-> (select-keys consumer [:id :filters])
       (update :id str)))
 
 (defn- select-appender [appender]
   {:consumers (map select-consumer (appender/consumers appender))
    :events (count (appender/events appender))
    :filters (appender/filters appender)
-   :name (appender/name appender)})
+   :id (appender/id appender)})
 
 (defn- select-framework [framework]
   {:appenders (map select-appender (framework/appenders framework))
@@ -93,13 +93,13 @@
 
 (defn add-appender-reply
   [{:keys [appender filters] :as msg}]
-  (let [framework (swap-framework! msg framework/add-appender {:name appender :filters filters})]
+  (let [framework (swap-framework! msg framework/add-appender {:id appender :filters filters})]
     (response msg (select-appender (framework/appender framework appender)))))
 
 (defn add-consumer-reply
-  [{:keys [filter transport] :as msg}]
+  [{:keys [filters transport] :as msg}]
   (let [consumer {:id (UUID/randomUUID)
-                  :filter (or filter {})
+                  :filters (or filters {})
                   :callback (fn [event]
                               (->> (response-for msg
                                                  :status :log-event
@@ -133,7 +133,7 @@
 
 (defn remove-appender-reply [msg]
   (let [appender (appender msg)]
-    (swap-framework! msg framework/remove-appender {:name (:appender msg)})
+    (swap-framework! msg framework/remove-appender {:id (:appender msg)})
     (response msg (select-appender appender))))
 
 (defn remove-consumer-reply [msg]
@@ -145,14 +145,14 @@
   (let [consumer (consumer msg)
         appender (appender/update-consumer
                   (appender msg) consumer
-                  #(merge % (select-keys msg [:filter])))]
+                  #(merge % (select-keys msg [:filters])))]
     {:log-update-consumer (select-consumer (appender/consumer-by-id appender (:id consumer)))}))
 
 (defn search-reply
-  [{:keys [filter limit] :as msg}]
+  [{:keys [filters limit] :as msg}]
   {:log-search (->> (cond-> {}
-                      (map? filter)
-                      (assoc :filter filter)
+                      (map? filters)
+                      (assoc :filters filters)
                       (nat-int? limit)
                       (assoc :limit limit))
                     (event/search (appender/events (appender msg)))

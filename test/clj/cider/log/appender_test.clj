@@ -11,8 +11,8 @@
    :message "Hello world."})
 
 (defn appenders []
-  [(appender/make-base-appender {:name "base-appender"})
-   (appender/make-atom-appender {:name "atom-appender"})])
+  [(appender/make-base-appender {:id "base-appender"})
+   (appender/make-atom-appender {:id "atom-appender"})])
 
 (deftest test-append
   (doseq [appender (appenders)]
@@ -21,6 +21,6 @@
       (let [appender (appender/append appender event-2)]
         (is (= [event-1 event-2] (appender/events appender)))))))
 
-(deftest test-name
+(deftest test-id
   (doseq [appender (appenders)]
-    (is (string? (:name appender)))))
+    (is (string? (appender/id appender)))))

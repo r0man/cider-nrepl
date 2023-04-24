@@ -67,15 +67,15 @@
     (swap! (:base atom-appender) assoc :instance instance)
     (doto ^Logger (Logger/getLogger (or (:logger appender) ""))
       (.addHandler instance))
-    (assoc-in framework [:appenders (:name appender)] atom-appender)))
+    (assoc-in framework [:appenders (:id appender)] atom-appender)))
 
 (defn- remove-appender
   "Remove `appender` from the Logback `framework`."
   [framework appender]
   (let [logger (Logger/getLogger (or (:logger appender) ""))]
-    (when-let [appender (get-in framework [:appenders (:name appender)])]
+    (when-let [appender (get-in framework [:appenders (:id appender)])]
       (.removeHandler logger (:instance @(:base appender))))
-    (update framework :appenders dissoc (:name appender))))
+    (update framework :appenders dissoc (:id appender))))
 
 (defn- log [{:keys [logger] :as event}]
   (.log (Logger/getLogger (or logger "")) (event->record event)))

@@ -1,6 +1,7 @@
 (ns cider.log.framework
   (:refer-clojure :exclude [name])
-  (:require [cider.log.protocol.framework :as p]))
+  (:require [cider.log.protocol.framework :as p]
+            [cider.log.appender :as appender]))
 
 (def ^:dynamic *frameworks*
   ['cider.log.framework.logback/framework
@@ -9,7 +10,7 @@
    ])
 
 (defn appender [framework name]
-  (some #(and (= name (:name %)) %) (p/-appenders framework)))
+  (some #(and (= name (appender/id %)) %) (p/-appenders framework)))
 
 (defn appenders
   "Return the appenders of the log `framework`."

@@ -89,11 +89,11 @@
         config (.getConfiguration context)
         layout (PatternLayout/createDefaultLayout config)
         instance (doto (FileAppender/createAppender
-                        "target/test.log" "false" "false" (:name appender) "true" "false"
+                        "target/test.log" "false" "false" (:id appender) "true" "false"
                         "false" "4000" layout nil "false" nil config)
                    (.start))
         _ (.addAppender config instance)
-        refs (into-array [(AppenderRef/createAppenderRef (:name appender) nil nil)])
+        refs (into-array [(AppenderRef/createAppenderRef (:id appender) nil nil)])
         logger-config (LoggerConfig/createLogger
                        false Level/INFO "org.apache.logging.log4j"
                        "true" refs nil config nil)]
@@ -104,8 +104,8 @@
     (.updateLoggers context)
     (.info (LogManager/getLogger "org.apache.logging.log4j") "HELLO WORLD 1")
     (.info (LogManager/getLogger "org.apache.logging.log4j") "HELLO WORLD 2")
-    (assoc-in framework [:appenders (:name appender)]
-              {:name (:name appender)
+    (assoc-in framework [:appenders (:id appender)]
+              {:id (:id appender)
                :instance instance
                :state (atom {})})))
 
@@ -113,18 +113,18 @@
   "Remove `appender` from the Log4j `framework`."
   [framework appender]
   (prn "REMOVE APPENDER")
-  (when-let [appender (get-in framework [:appenders (:name appender)])]
+  (when-let [appender (get-in framework [:appenders (:id appender)])]
     (let [context (LogManager/getContext false)
           config (.getConfiguration context)
           logger-config (.getLoggerConfig config "org.apache.logging.log4j")]
       (prn logger-config)
-      (.removeAppender logger-config (:name appender))
+      (.removeAppender logger-config (:id appender))
       (.stop (:instance appender))
       (.removeLogger config "org.apache.logging.log4j")
       (.updateLoggers context)
       ;; (.removeAppender (LogManager/getRootLogger) (:instance appender))
       ))
-  (update framework :appenders dissoc (:name appender)))
+  (update framework :appenders dissoc (:id appender)))
 
 #_(defn- add-appender
     "Add `appender` to the Log4j `framework`."
@@ -132,7 +132,7 @@
     (let [state (atom {:consumers []
                        :events []
                        :event-index {}})
-          instance (doto (proxy [AbstractAppender] [(:name appender) nil nil true (into-array Property [])]
+          instance (doto (proxy [AbstractAppender] [(:id appender) nil nil true (into-array Property [])]
                            (append [^LogEvent event]
                              (prn "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX")
                              (let [event (event-data event)]
@@ -146,7 +146,7 @@
             logger-config (.getLoggerConfig config (.getName logger))
             appenders (vals (.getAppenders logger-config))
             appender-refs (.getAppenderRefs logger-config)
-            appender-ref (AppenderRef/createAppenderRef (:name appender) nil nil)
+            appender-ref (AppenderRef/createAppenderRef (:id appender) nil nil)
             new-logger-config (LoggerConfig/createLogger
                                (.isAdditive logger-config)
                                (.getLevel logger-config)
@@ -168,8 +168,8 @@
         (.info (LogManager/getLogger "x") "XXXX")
         (.updateLoggers context)
         (.info (LogManager/getLogger "x") "XXXX")
-        (assoc-in framework [:appenders (:name appender)]
-                  {:name (:name appender)
+        (assoc-in framework [:appenders (:id appender)]
+                  {:id (:id appender)
                    :instance instance
                    :state state}))))
 
@@ -179,7 +179,7 @@
 ;;   (let [state (atom {:consumers []
 ;;                      :events []
 ;;                      :event-index {}})
-;;         instance (doto (proxy [AbstractAppender] [(:name appender) nil nil true (into-array Property [])]
+;;         instance (doto (proxy [AbstractAppender] [(:id appender) nil nil true (into-array Property [])]
 ;;                          (append [^LogEvent event]
 ;;                            (prn "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX")
 ;;                            (let [event (event-data event)]
@@ -198,8 +198,8 @@
 ;;       ;; (.info (LogManager/getLogger "x") "XXXX")
 ;;       (prn logger)
 ;;       (prn core-logger)
-;;       (assoc-in framework [:appenders (:name appender)]
-;;                 {:name (:name appender)
+;;       (assoc-in framework [:appenders (:id appender)]
+;;                 {:id (:id appender)
 ;;                  :instance instance
 ;;                  :state state}))))
 
@@ -209,7 +209,7 @@
 ;;   (let [state (atom {:consumers []
 ;;                      :events []
 ;;                      :event-index {}})
-;;         instance (doto (proxy [AbstractAppender] [(:name appender) nil nil true (into-array Property [])]
+;;         instance (doto (proxy [AbstractAppender] [(:id appender) nil nil true (into-array Property [])]
 ;;                          (append [^LogEvent event]
 ;;                            (prn "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX")
 ;;                            (let [event (event-data event)]
@@ -223,8 +223,8 @@
 ;;     ;; (.info (LogManager/getLogger "x") "XXXX")
 ;;     ;; (log framework {:message ":::::::::::::::::::::::::::::::::::"})
 ;;     ;; (prn (.getAppenders (LogManager/getRootLogger)))
-;;     (assoc-in framework [:appenders (:name appender)]
-;;               {:name (:name appender)
+;;     (assoc-in framework [:appenders (:id appender)]
+;;               {:id (:id appender)
 ;;                :instance instance
 ;;                :state state})))
 
@@ -257,7 +257,7 @@
 ;;   (let [state (atom {:consumers []
 ;;                      :events []
 ;;                      :event-index {}})
-;;         instance (doto (proxy [AbstractAppender] [(:name appender) nil nil true (into-array Property [])]
+;;         instance (doto (proxy [AbstractAppender] [(:id appender) nil nil true (into-array Property [])]
 ;;                          (append [^LogEvent event]
 ;;                            (prn "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX")
 ;;                            (let [event (event-data event)]
@@ -271,7 +271,7 @@
 ;;           ;; logger-config (.getLoggerConfig config logger)
 ;;           ;; appenders (vals (.getAppenders logger-config))
 ;;           ;; appender-refs (.getAppenderRefs logger-config)
-;;           ;; appender-ref (AppenderRef/createAppenderRef (:name appender) nil nil)
+;;           ;; appender-ref (AppenderRef/createAppenderRef (:id appender) nil nil)
 ;;           ;; new-logger-config (LoggerConfig/createLogger
 ;;           ;;                    (.isAdditive logger-config)
 ;;           ;;                    (.getLevel logger-config)
@@ -299,8 +299,8 @@
 ;;       (.info (org.apache.logging.log4j.LogManager/getLogger "") "A")
 ;;       (.info (org.apache.logging.log4j.LogManager/getLogger "") "B")
 ;;       ;; (.info (LogManager/getLogger "") "XXXX")
-;;       (assoc-in framework [:appenders (:name appender)]
-;;                 {:name (:name appender)
+;;       (assoc-in framework [:appenders (:id appender)]
+;;                 {:id (:id appender)
 ;;                  :instance instance
 ;;                  :state state}))))
 
@@ -310,7 +310,7 @@
 ;;   (let [state (atom {:consumers []
 ;;                      :events []
 ;;                      :event-index {}})
-;;         instance (doto (proxy [AbstractAppender] [(:name appender) nil nil true (into-array Property [])]
+;;         instance (doto (proxy [AbstractAppender] [(:id appender) nil nil true (into-array Property [])]
 ;;                          (append [^LogEvent event]
 ;;                            (prn "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX")
 ;;                            (let [event (event-data event)]
@@ -325,8 +325,8 @@
 ;;       (.addLoggerAppender config logger instance)
 ;;       (.start config)
 ;;       (.info logger "XXXX")
-;;       (assoc-in framework [:appenders (:name appender)]
-;;                 {:name (:name appender)
+;;       (assoc-in framework [:appenders (:id appender)]
+;;                 {:id (:id appender)
 ;;                  :instance instance
 ;;                  :state state}))))
 
@@ -334,10 +334,10 @@
     "Remove `appender` from the Log4j `framework`."
     [framework appender]
     (prn "REMOVE APPENDER")
-    (when-let [appender (get-in framework [:appenders (:name appender)])]
+    (when-let [appender (get-in framework [:appenders (:id appender)])]
       (.stop (:instance appender))
       (.removeAppender (LogManager/getRootLogger) (:instance appender)))
-    (update framework :appenders dissoc (:name appender)))
+    (update framework :appenders dissoc (:id appender)))
 
 ;; (.getName (LogManager/getRootLogger))
 

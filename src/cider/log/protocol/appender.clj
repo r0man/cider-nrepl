@@ -15,8 +15,8 @@
     "Return the log events of the `appender`.")
   (-filters [appender]
     "Return the filters of the `appender`.")
-  (-name [appender]
-    "Return the name of the log `appender`.")
+  (-id [appender]
+    "Return the id of the log `appender`.")
   (-remove-consumer [appender consumer]
     "Remove the `consumer` from the log `appender`.")
   (-update-consumer [appender consumer f]

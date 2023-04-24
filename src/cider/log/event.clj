@@ -41,7 +41,7 @@
 
 (defn search [events opts]
   (->> events
-       (filter (search-filter (:filter opts)))
+       (filter (search-filter (:filters opts)))
        (sort-by :timestamp)
        (reverse)
        (take (or (:limit opts) 500))))

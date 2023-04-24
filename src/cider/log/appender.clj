@@ -2,13 +2,13 @@
   (:refer-clojure :exclude [name])
   (:require [cider.log.protocol.appender :as p]))
 
-(defrecord BaseAppender [consumers name events event-index filters]
+(defrecord BaseAppender [consumers id events event-index filters]
   p/Appender
   (-add-consumer [appender consumer]
     (update-in appender [:consumers (:id consumer)]
                (fn [old-consumer]
                  (if old-consumer
-                   (merge old-consumer (select-keys consumer [:filter]))
+                   (merge old-consumer (select-keys consumer [:filters]))
                    consumer))))
   (-append [appender event]
     (doseq [{:keys [callback]} (vals consumers)]
@@ -25,14 +25,14 @@
     events)
   (-filters [_]
     filters)
-  (-name [_]
-    name)
+  (-id [_]
+    id)
   (-remove-consumer [appender consumer]
     (update appender :consumers dissoc (:id consumer)))
   (-update-consumer [appender consumer f]
     (update-in appender [:consumers (:id consumer)] f)))
 
-(defrecord AtomAppender [name base]
+(defrecord AtomAppender [base]
   p/Appender
   (-add-consumer [appender consumer]
     (swap! base p/-add-consumer consumer)
@@ -51,8 +51,8 @@
     (p/-events @base))
   (-filters [_]
     (p/-filters @base))
-  (-name [_]
-    (p/-name @base))
+  (-id [_]
+    (p/-id @base))
   (-remove-consumer [appender consumer]
     (swap! base p/-remove-consumer consumer)
     appender)
@@ -62,13 +62,13 @@
 
 (defn make-base-appender
   "Make a base appender."
-  [{:keys [name filters]}]
-  (map->BaseAppender {:name name :filters filters}))
+  [{:keys [id filters]}]
+  (map->BaseAppender {:id id :filters filters}))
 
 (defn make-atom-appender
   "Make an atom appender."
-  [{:keys [name] :as appender}]
-  (AtomAppender. name (atom (make-base-appender appender))))
+  [appender]
+  (AtomAppender. (atom (make-base-appender appender))))
 
 (defn add-consumer
   "Add the `consumer` to the `appender`."
@@ -105,10 +105,10 @@
   [appender]
   (p/-events appender))
 
-(defn name
-  "Return the name of the `appender`."
+(defn id
+  "Return the id of the `appender`."
   [appender]
-  (p/-name appender))
+  (p/-id appender))
 
 (defn filters
   "Return the filters of the `appender`."
