@@ -349,10 +349,10 @@
 (defn log-something [framework & [n sleep]]
   (doseq [event (gen/sample (event-gen framework) (or n 1))]
     (framework/log framework event)
-    (Thread/sleep (or sleep 10))))
+    (Thread/sleep (or sleep 10))) )
 
 (deftest test-log-something
   (doseq [framework (frameworks)]
     (is (nil? (log-something framework 1)))))
 
-(comment (future (log-something (first (frameworks)) 1)))
+(comment (future (log-something (first (frameworks)) 10000 10)))

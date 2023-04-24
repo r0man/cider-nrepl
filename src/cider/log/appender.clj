@@ -11,8 +11,9 @@
                    (merge old-consumer (select-keys consumer [:filters]))
                    consumer))))
   (-append [appender event]
-    (doseq [{:keys [callback]} (vals consumers)]
-      (callback event))
+    (doseq [{:keys [callback filter-fn] :as consumer} (vals consumers)
+            :when (filter-fn event)]
+      (callback consumer event))
     (-> (update appender :events (fnil conj []) event)
         (assoc-in [:event-index (:id event)] event)))
   (-clear [appender]

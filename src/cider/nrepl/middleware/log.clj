@@ -100,10 +100,12 @@
   [{:keys [filters transport] :as msg}]
   (let [consumer {:id (UUID/randomUUID)
                   :filters (or filters {})
-                  :callback (fn [event]
+                  :filter-fn (event/search-filter filters)
+                  :callback (fn [consumer event]
                               (->> (response-for msg
-                                                 :status :log-event
-                                                 :log-event (to-wire event))
+                                                 :log-consumer (str (:id consumer))
+                                                 :log-event (to-wire event)
+                                                 :status :log-event)
                                    (transport/send transport)))}
         appender (appender/add-consumer (appender msg) consumer)]
     {:log-add-consumer (select-consumer (appender/consumer-by-id appender (:id consumer)))}))
@@ -141,11 +143,11 @@
     (appender/remove-consumer (appender msg) consumer)
     {:log-remove-consumer (select-consumer consumer)}))
 
-(defn update-consumer-reply [msg]
+(defn update-consumer-reply [{:keys [filters] :as msg}]
   (let [consumer (consumer msg)
         appender (appender/update-consumer
                   (appender msg) consumer
-                  #(merge % (select-keys msg [:filters])))]
+                  #(assoc % :filters filters :filter-fn (event/search-filter filters)))]
     {:log-update-consumer (select-consumer (appender/consumer-by-id appender (:id consumer)))}))
 
 (defn search-reply
