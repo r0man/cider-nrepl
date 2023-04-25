@@ -17,7 +17,8 @@
   {:consumers (map select-consumer (appender/consumers appender))
    :events (count (appender/events appender))
    :filters (appender/filters appender)
-   :id (appender/id appender)})
+   :id (appender/id appender)
+   :size (appender/size appender)})
 
 (defn- select-framework [framework]
   {:appenders (map select-appender (framework/appenders framework))

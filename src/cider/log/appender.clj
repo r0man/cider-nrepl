@@ -2,7 +2,11 @@
   (:refer-clojure :exclude [name])
   (:require [cider.log.protocol.appender :as p]))
 
-(defrecord BaseAppender [consumers id events event-index filters]
+(def ^:private default-size
+  "The default size of the appender."
+  100000)
+
+(defrecord BaseAppender [consumers id events event-index filters size]
   p/Appender
   (-add-consumer [appender consumer]
     (update-in appender [:consumers (:id consumer)]
@@ -30,6 +34,8 @@
     id)
   (-remove-consumer [appender consumer]
     (update appender :consumers dissoc (:id consumer)))
+  (-size [_]
+    size)
   (-update-consumer [appender consumer f]
     (update-in appender [:consumers (:id consumer)] f)))
 
@@ -57,14 +63,16 @@
   (-remove-consumer [appender consumer]
     (swap! base p/-remove-consumer consumer)
     appender)
+  (-size [_]
+    (p/-size @base))
   (-update-consumer [appender consumer f]
     (swap! base p/-update-consumer consumer f)
     appender))
 
 (defn make-base-appender
   "Make a base appender."
-  [{:keys [id filters]}]
-  (map->BaseAppender {:id id :filters filters}))
+  [{:keys [id filters size]}]
+  (map->BaseAppender {:id id :filters filters :size (or size default-size)}))
 
 (defn make-atom-appender
   "Make an atom appender."
@@ -115,6 +123,11 @@
   "Return the filters of the `appender`."
   [appender]
   (p/-filters appender))
+
+(defn size
+  "Return the size of the `appender`."
+  [appender]
+  (p/-size appender))
 
 (defn remove-consumer
   "Remove the `consumer` from the `appender`."

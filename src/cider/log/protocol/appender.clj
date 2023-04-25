@@ -19,5 +19,7 @@
     "Return the id of the log `appender`.")
   (-remove-consumer [appender consumer]
     "Remove the `consumer` from the log `appender`.")
+  (-size [appender]
+    "Return the size of the `appender`.")
   (-update-consumer [appender consumer f]
     "Update the `consumer` of the log `appender` with `f`."))

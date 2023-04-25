@@ -45,7 +45,8 @@
       (is (= {:consumers []
               :events 0
               :filters {}
-              :id (:id appender)}
+              :id (:id appender)
+              :size 100000}
              (:log-add-appender response))))
     (remove-appender framework appender)))
 
@@ -76,7 +77,8 @@
       (is (= {:consumers []
               :events 0
               :filters []
-              :id (:id appender)}
+              :id (:id appender)
+              :size 100000}
              (:log-clear-appender response))))))
 
 (deftest test-exceptions
@@ -114,7 +116,8 @@
       (is (= {:appenders [{:consumers []
                            :events 0
                            :filters {}
-                           :id (:id appender)}]
+                           :id (:id appender)
+                           :size 100000}]
               :description (framework/description framework)
               :id (name (framework/id framework))
               :javadoc-url (framework/javadoc-url framework)
@@ -294,7 +297,8 @@
         (is (= {:consumers []
                 :events 0
                 :filters []
-                :id (:id appender)}
+                :id (:id appender)
+                :size 100000}
                (:log-remove-appender response)))))))
 
 (deftest test-remove-consumer
@@ -321,7 +325,8 @@
           (is (= [{:consumers []
                    :events 0
                    :filters []
-                   :id (:id appender)}]
+                   :id (:id appender)
+                   :size 100000}]
                  (get-in response [:log-frameworks (framework/id framework) :appenders]))))))
     (remove-appender framework appender)))
 
@@ -355,4 +360,4 @@
   (doseq [framework (frameworks)]
     (is (nil? (log-something framework 1)))))
 
-(comment (future (log-something (first (frameworks)) 10000 10)))
+(comment (future (log-something (first (frameworks)) 1000 50)))
