@@ -18,7 +18,7 @@
     (doseq [{:keys [callback filter-fn] :as consumer} (vals consumers)
             :when (filter-fn event)]
       (callback consumer event))
-    (-> (update appender :events (fnil conj []) event)
+    (-> (update appender :events #(cons event %))
         (assoc-in [:event-index (:id event)] event)))
   (-clear [appender]
     (assoc appender :events [] :event-index {}))

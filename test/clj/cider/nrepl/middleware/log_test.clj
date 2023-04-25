@@ -172,6 +172,21 @@
       (is (= {:LOGGER-A 1 :LOGGER-B 2} (:log-loggers response))))
     (remove-appender framework appender)))
 
+(deftest test-search
+  (doseq [framework (frameworks)]
+    (add-appender framework appender)
+    (framework/log framework {:message "a-1"})
+    (framework/log framework {:message "a-2"})
+    (framework/log framework {:message "a-3"})
+    (let [response (session/message {:op "log-search"
+                                     :framework (:id framework)
+                                     :appender (:id appender)})]
+      (is (= #{"done"} (:status response)))
+      (let [events (:log-search response)]
+        (is (= 3 (count events)))
+        (is (= ["a-3" "a-2" "a-1"] (map :message events)))))
+    (remove-appender framework appender)))
+
 (deftest test-search-by-level
   (doseq [framework (frameworks)
           :let [[level-1 level-2 level-3]
@@ -360,4 +375,9 @@
   (doseq [framework (frameworks)]
     (is (nil? (log-something framework 1)))))
 
-(comment (future (log-something (first (frameworks)) 1000 50)))
+(comment
+  (let [framework (first (frameworks))]
+    (framework/log framework {:message "a-1"})
+    (framework/log framework {:message "a-2"}))
+
+  (future (log-something (first (frameworks)) 1000 50)))

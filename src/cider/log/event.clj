@@ -44,8 +44,7 @@
 (defn search [events opts]
   (->> events
        (filter (search-filter (:filters opts)))
-       (sort-by :timestamp)
-       (reverse)
+       (drop (or (:offset opts) 0))
        (take (or (:limit opts) 500))))
 
 (defn thread-frequencies [events]
