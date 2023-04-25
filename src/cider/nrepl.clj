@@ -361,6 +361,14 @@ Depending on the type of the return value of the evaluation this middleware may 
      :returns {"status" "done"
                "remove-appender" "The removed appender."}}
 
+    "log-update-appender"
+    {:doc "Update the consumer of a log appender."
+     :requires {"framework" "The id of the logging framework."
+                "appender" "The name of the appender."
+                "filter" "A map from filter name to filter condition."}
+     :returns {"status" "done"
+               "log-update-appender" "The updated appender."}}
+
     "log-update-consumer"
     {:doc "Update the consumer of a log appender."
      :requires {"framework" "The id of the logging framework."

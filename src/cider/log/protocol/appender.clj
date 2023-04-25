@@ -21,5 +21,7 @@
     "Remove the `consumer` from the log `appender`.")
   (-size [appender]
     "Return the size of the `appender`.")
+  (-threshold [appender]
+    "Return the threshold of the `appender`.")
   (-update-consumer [appender consumer f]
     "Update the `consumer` of the log `appender` with `f`."))

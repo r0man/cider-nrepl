@@ -19,7 +19,7 @@
     (let [appender (appender/append appender event-1)]
       (is (= [event-1] (appender/events appender)))
       (let [appender (appender/append appender event-2)]
-        (is (= [event-1 event-2] (appender/events appender)))))))
+        (is (= [event-2 event-1] (appender/events appender)))))))
 
 (deftest test-id
   (doseq [appender (appenders)]

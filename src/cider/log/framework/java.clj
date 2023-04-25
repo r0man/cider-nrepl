@@ -7,7 +7,7 @@
 
 (def ^:private log-levels
   "The standard log levels of the Java Logging framework."
-  (into {} (map (fn [level]
+  (into {} (map (fn [^Level level]
                   [(keyword (str/lower-case (str level)))
                    (.intValue level)])
                 [Level/FINEST
@@ -40,8 +40,9 @@
 
 (defn- thread-by-id
   "Find the thread by `id`."
-  [id]
-  (some #(and (= id (.getId %)) %) (keys (Thread/getAllStackTraces))))
+  ^Thread [id]
+  (some #(and (= id (.getId ^Thread %)) %)
+        (keys (Thread/getAllStackTraces))))
 
 (defn- record->event
   "Convert a Java LogRecord into a Cider log event."

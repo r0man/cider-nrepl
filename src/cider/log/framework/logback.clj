@@ -1,5 +1,6 @@
 (ns cider.log.framework.logback
   (:require [cider.log.appender :as appender]
+            [cider.log.event :as event]
             [cider.log.protocol.framework :as p]
             [clojure.set :as set]
             [clojure.string :as str])
@@ -10,7 +11,7 @@
 
 (def ^:private log-levels
   "The standard log levels of the Logback framework."
-  (into {} (map (fn [level]
+  (into {} (map (fn [^Level level]
                   [(keyword (str/lower-case (str level))) (.toInteger level)])
                 [Level/TRACE Level/DEBUG Level/INFO Level/WARN Level/ERROR])))
 

@@ -1,7 +1,8 @@
 (ns cider.log.framework
   (:refer-clojure :exclude [name])
-  (:require [cider.log.protocol.framework :as p]
-            [cider.log.appender :as appender]))
+  (:require [cider.log.appender :as appender]
+            [cider.log.event :as event]
+            [cider.log.protocol.framework :as p]))
 
 (def ^:dynamic *frameworks*
   ['cider.log.framework.logback/framework
@@ -11,6 +12,9 @@
 
 (defn appender [framework name]
   (some #(and (= name (appender/id %)) %) (p/-appenders framework)))
+
+(defn appender-by-id [framework id]
+  (some #(and (= id (appender/id %)) %) (p/-appenders framework)))
 
 (defn appenders
   "Return the appenders of the log `framework`."
@@ -56,6 +60,17 @@
   "Remove the log `appender` from the `framework`."
   [framework appender]
   (p/-remove-appender framework appender))
+
+(defn update-appender
+  "Update the `appender` of the log `framework`."
+  [framework {:keys [id filters size threshold]}]
+  (when-let [appender (get-in framework [:appenders id])]
+    (swap! (:base appender) assoc
+           :filter-fn (event/search-filter filters)
+           :filters filters
+           :size (or size (appender/size appender))
+           :threshold (or threshold (appender/threshold appender)))
+    framework))
 
 (defn website-url
   "Return the website url of the log `framework`."

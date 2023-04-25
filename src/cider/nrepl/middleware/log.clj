@@ -18,7 +18,8 @@
    :events (count (appender/events appender))
    :filters (appender/filters appender)
    :id (appender/id appender)
-   :size (appender/size appender)})
+   :size (appender/size appender)
+   :threshold (appender/threshold appender)})
 
 (defn- select-framework [framework]
   {:appenders (map select-appender (framework/appenders framework))
@@ -28,10 +29,11 @@
    :name (framework/name framework)
    :website-url (framework/website-url framework)})
 
-(defn- to-wire [{:keys [arguments id] :as record}]
-  (cond-> (select-keys record [:level :logger :message :id :thread :timestamp])
+(defn- select-event [{:keys [arguments id] :as event}]
+  (cond-> (select-keys event [:level :logger :message :id :thread :timestamp])
     (uuid? id)
     (update :id str)
+    ;; TODO: Get rid of this
     (map? (first arguments))
     (assoc :message (pr-str (dissoc (first arguments) :context)))))
 
@@ -93,9 +95,12 @@
       {(:op msg) result})))
 
 (defn add-appender-reply
-  [{:keys [appender filters] :as msg}]
-  (let [framework (swap-framework! msg framework/add-appender {:id appender :filters filters})]
-    (response msg (select-appender (framework/appender framework appender)))))
+  [{:keys [appender filters size threshold] :as msg}]
+  (let [appender {:id appender :filters filters :size size :threshold threshold}]
+    {:log-add-appender
+     (-> (swap-framework! msg framework/add-appender appender)
+         (framework/appender-by-id (:id appender))
+         (select-appender))}))
 
 (defn add-consumer-reply
   [{:keys [filters transport] :as msg}]
@@ -105,7 +110,7 @@
                   :callback (fn [consumer event]
                               (->> (response-for msg
                                                  :log-consumer (str (:id consumer))
-                                                 :log-event (to-wire event)
+                                                 :log-event (select-event event)
                                                  :status :log-event)
                                    (transport/send transport)))}
         appender (appender/add-consumer (appender msg) consumer)]
@@ -144,6 +149,17 @@
     (appender/remove-consumer (appender msg) consumer)
     {:log-remove-consumer (select-consumer consumer)}))
 
+(defn update-appender-reply [{:keys [filters size threshold] :as msg}]
+  (let [appender (appender msg)]
+    {:log-update-appender
+     (-> (swap-framework! msg framework/update-appender
+                          {:id (appender/id appender)
+                           :filters filters
+                           :size size
+                           :threshold threshold})
+         (framework/appender (appender/id appender))
+         (select-appender))}))
+
 (defn update-consumer-reply [{:keys [filters] :as msg}]
   (let [consumer (consumer msg)
         appender (appender/update-consumer
@@ -159,7 +175,7 @@
                       (nat-int? limit)
                       (assoc :limit limit))
                     (event/search (appender/events (appender msg)))
-                    (map to-wire))})
+                    (map select-event))})
 
 (defn threads-reply [msg]
   {:log-threads (event/thread-frequencies (appender/events (appender msg)))})
@@ -178,6 +194,7 @@
     "log-loggers" loggers-reply
     "log-remove-appender" remove-appender-reply
     "log-remove-consumer" remove-consumer-reply
+    "log-update-appender" update-appender-reply
     "log-update-consumer" update-consumer-reply
     "log-search" search-reply
     "log-threads" threads-reply))

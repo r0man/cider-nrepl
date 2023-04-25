@@ -6,7 +6,14 @@
   "The default size of the appender."
   100000)
 
-(defrecord BaseAppender [consumers id events event-index filters size]
+(defn- free-space [{:keys [events event-index size threshold] :as appender}]
+  (if (> (count event-index) (+ size (* size (/ threshold 100.0))))
+    (assoc appender
+           :events (take size events)
+           :event-index (apply dissoc event-index (map :id (drop size events))))
+    appender))
+
+(defrecord BaseAppender [consumers id events event-index filter-fn filters size threshold]
   p/Appender
   (-add-consumer [appender consumer]
     (update-in appender [:consumers (:id consumer)]
@@ -15,11 +22,15 @@
                    (merge old-consumer (select-keys consumer [:filters]))
                    consumer))))
   (-append [appender event]
-    (doseq [{:keys [callback filter-fn] :as consumer} (vals consumers)
-            :when (filter-fn event)]
-      (callback consumer event))
-    (-> (update appender :events #(cons event %))
-        (assoc-in [:event-index (:id event)] event)))
+    (if (or (nil? filter-fn) (filter-fn event))
+      (let [appender (-> (update appender :events #(cons event %))
+                         (assoc-in [:event-index (:id event)] event)
+                         (free-space))]
+        (doseq [{:keys [callback filter-fn] :as consumer} (vals consumers)
+                :when (filter-fn event)]
+          (callback consumer event))
+        appender)
+      appender))
   (-clear [appender]
     (assoc appender :events [] :event-index {}))
   (-consumers [_]
@@ -36,6 +47,8 @@
     (update appender :consumers dissoc (:id consumer)))
   (-size [_]
     size)
+  (-threshold [_]
+    threshold)
   (-update-consumer [appender consumer f]
     (update-in appender [:consumers (:id consumer)] f)))
 
@@ -65,14 +78,20 @@
     appender)
   (-size [_]
     (p/-size @base))
+  (-threshold [_]
+    (p/-threshold @base))
   (-update-consumer [appender consumer f]
     (swap! base p/-update-consumer consumer f)
     appender))
 
 (defn make-base-appender
   "Make a base appender."
-  [{:keys [id filters size]}]
-  (map->BaseAppender {:id id :filters filters :size (or size default-size)}))
+  [{:keys [id filters size threshold]}]
+  (map->BaseAppender
+   {:filters filters
+    :id id
+    :size (or size default-size)
+    :threshold (or threshold 10)}))
 
 (defn make-atom-appender
   "Make an atom appender."
@@ -128,6 +147,11 @@
   "Return the size of the `appender`."
   [appender]
   (p/-size appender))
+
+(defn threshold
+  "Return the threshold of the `appender`."
+  [appender]
+  (p/-threshold appender))
 
 (defn remove-consumer
   "Remove the `consumer` from the `appender`."

@@ -40,13 +40,14 @@
 
 (deftest test-add-appender
   (doseq [framework (frameworks)]
-    (let [response (add-appender framework appender {:filters {}})]
+    (let [response (add-appender framework appender {:filters {} :size 10 :threshold 10})]
       (is (= #{"done"} (:status response)))
       (is (= {:consumers []
               :events 0
               :filters {}
               :id (:id appender)
-              :size 100000}
+              :size 10
+              :threshold 10}
              (:log-add-appender response))))
     (remove-appender framework appender)))
 
@@ -57,7 +58,6 @@
                                      :framework (:id framework)
                                      :appender (:id appender)
                                      :filters {:levels [:info]}})]
-      (clojure.pprint/pprint response)
       (is (= #{"done"} (:status response)))
       (let [consumer (:log-add-consumer response)]
         (is (uuid-str? (:id consumer)))
@@ -78,7 +78,8 @@
               :events 0
               :filters []
               :id (:id appender)
-              :size 100000}
+              :size 100000
+              :threshold 10}
              (:log-clear-appender response))))))
 
 (deftest test-exceptions
@@ -117,7 +118,8 @@
                            :events 0
                            :filters {}
                            :id (:id appender)
-                           :size 100000}]
+                           :size 100000
+                           :threshold 10}]
               :description (framework/description framework)
               :id (name (framework/id framework))
               :javadoc-url (framework/javadoc-url framework)
@@ -313,7 +315,8 @@
                 :events 0
                 :filters []
                 :id (:id appender)
-                :size 100000}
+                :size 100000
+                :threshold 10}
                (:log-remove-appender response)))))))
 
 (deftest test-remove-consumer
@@ -341,8 +344,37 @@
                    :events 0
                    :filters []
                    :id (:id appender)
-                   :size 100000}]
+                   :size 100000
+                   :threshold 10}]
                  (get-in response [:log-frameworks (framework/id framework) :appenders]))))))
+    (remove-appender framework appender)))
+
+(deftest test-update-appender
+  (doseq [framework (frameworks)]
+    (add-appender framework appender)
+    (let [response (session/message
+                    {:op "log-update-appender"
+                     :appender (:id appender)
+                     :filters {:pattern "A.*"}
+                     :framework (:id framework)
+                     :size 2
+                     :threshold 0})]
+      (is (= #{"done"} (:status response)))
+      (let [appender (:log-update-appender response)]
+        (is (= {:pattern "A.*"} (:filters appender)))
+        (is (= 2 (:size appender)))
+        (is (= 0 (:threshold appender)))
+        (framework/log framework {:message "A1"})
+        (framework/log framework {:message "A2"})
+        (framework/log framework {:message "A3"})
+        (framework/log framework {:message "A4"})
+        (framework/log framework {:message "B1"})
+        (let [events (:log-search
+                      (session/message
+                       {:op "log-search"
+                        :framework (:id framework)
+                        :appender (:id appender)}))]
+          (is (= ["A4" "A3"] (map :message events))))))
     (remove-appender framework appender)))
 
 (deftest test-update-consumer
@@ -366,7 +398,7 @@
              (:log-update-consumer response))))
     (remove-appender framework appender)))
 
-(defn log-something [framework & [n sleep]]
+(defn log-something [framework & [^long n ^long sleep]]
   (doseq [event (gen/sample (event-gen framework) (or n 1))]
     (framework/log framework event)
     (Thread/sleep (or sleep 10))) )
