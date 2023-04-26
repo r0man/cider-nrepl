@@ -1,6 +1,5 @@
 (ns cider.log.framework.logback
   (:require [cider.log.appender :as appender]
-            [cider.log.event :as event]
             [cider.log.protocol.framework :as p]
             [clojure.set :as set]
             [clojure.string :as str])
@@ -69,7 +68,7 @@
 (defn- level-int [level]
   (some-> level keyword-to-level Level/toLocationAwareLoggerInteger))
 
-(defn- log [framework {:keys [arguments exception level logger marker mdc message]}]
+(defn- log [{:keys [arguments exception level logger marker mdc message]}]
   (let [logger (get-logger (or logger Logger/ROOT_LOGGER_NAME))]
     (doseq [[key value] (seq mdc)]
       (MDC/put key value))
@@ -107,8 +106,8 @@
     "Logback")
   (-levels [_]
     log-levels)
-  (-log [framework message]
-    (log framework message))
+  (-log [_ event]
+    (log event))
   (-javadoc-url [_]
     "https://logback.qos.ch/apidocs")
   (-remove-appender [framework appender]
