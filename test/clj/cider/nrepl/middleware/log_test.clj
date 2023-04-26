@@ -412,4 +412,7 @@
     (framework/log framework {:message "a-1"})
     (framework/log framework {:message "a-2"}))
 
-  (future (log-something (first (frameworks)) 1000 50)))
+  (time (log-something (first (frameworks)) 1000 100))
+
+  (future (log-something (first (frameworks)) 1000 1000))
+  )
