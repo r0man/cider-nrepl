@@ -44,13 +44,22 @@
                     :framework (:id framework)
                     :appender (:id appender)}))
 
-(defmacro with-appender [[framework appender options] & body]
+(defmacro with-framework
+  "Evaluate `body` for each `framework` bound to `framework-sym`."
+  [[framework-sym frameworks] & body]
+  `(doseq [framework# ~frameworks :let [~framework-sym framework#]]
+     (testing (format "Log framework %s" (:name framework#))
+       ~@body)))
+
+(defmacro with-appender
+  "Add an appender for `framework`, evaluate `body` and remove the appender."
+  [[framework appender options] & body]
   `(let [framework# ~framework, appender# ~appender]
      (add-appender framework# appender# ~options)
      (try ~@body (finally (remove-appender framework# appender#)))))
 
 (deftest test-add-appender
-  (doseq [framework (frameworks)]
+  (with-framework [framework (frameworks)]
     (let [response (add-appender framework appender {:filters {} :size 10 :threshold 10})]
       (is (= #{"done"} (:status response)))
       (is (= {:consumers []
@@ -63,7 +72,7 @@
     (remove-appender framework appender)))
 
 (deftest test-add-consumer
-  (doseq [framework (frameworks)]
+  (with-framework [framework (frameworks)]
     (with-appender [framework appender]
       (add-appender framework appender)
       (let [response (add-consumer framework appender {:filters {:levels [:info]}})]
@@ -72,11 +81,11 @@
           (is (uuid-str? (:id consumer)))
           (is (= {:levels ["info"]} (:filters consumer)))))
       (framework/log framework {:message "a-1"})
-      ;; TODO: How to receive the log event?
+      ;; TODO: How to receive the async log event?
       )))
 
 (deftest test-clear
-  (doseq [framework (frameworks)]
+  (with-framework [framework (frameworks)]
     (with-appender [framework appender]
       (framework/log framework {:message "a-1"})
       (let [response (session/message {:op "log-clear-appender"
@@ -92,7 +101,7 @@
                (:log-clear-appender response)))))))
 
 (deftest test-exceptions
-  (doseq [framework (frameworks)]
+  (with-framework [framework (frameworks)]
     (with-appender [framework appender]
       (framework/log framework {:message "a-1" :exception (IllegalArgumentException. "BOOM")})
       (framework/log framework {:message "b-1" :exception (IllegalStateException. "BOOM")})
@@ -107,7 +116,7 @@
 
 (deftest test-frameworks
   (let [response (session/message {:op "log-frameworks"})]
-    (doseq [framework (frameworks)]
+    (with-framework [framework (frameworks)]
       (is (= #{"done"} (:status response)))
       (is (= {:appenders []
               :description (framework/description framework)
@@ -118,7 +127,7 @@
              (get-in response [:log-frameworks (framework/id framework)]))))))
 
 (deftest test-frameworks-add-appender
-  (doseq [framework (frameworks)]
+  (with-framework [framework (frameworks)]
     (with-appender [framework appender {:filters {}}]
       (let [response (session/message {:op "log-frameworks"})]
         (is (= #{"done"} (:status response)))
@@ -136,7 +145,7 @@
                (get-in response [:log-frameworks (framework/id framework)])))))))
 
 (deftest test-inspect
-  (doseq [framework (frameworks)]
+  (with-framework [framework (frameworks)]
     (with-appender [framework appender]
       (add-appender framework appender)
       (framework/log framework {:message "a-1"})
@@ -155,20 +164,20 @@
                           (first (:value response)))))))))
 
 (deftest test-levels
-  (doseq [framework (frameworks)
-          :let [[level-1 level-2] (reverse (keys (framework/levels framework)))]]
-    (with-appender [framework appender]
-      (framework/log framework {:level level-1 :message "a-1"})
-      (framework/log framework {:level level-1 :message "b-1"})
-      (framework/log framework {:level level-2 :message "b-2"})
-      (let [response (session/message {:op "log-levels"
-                                       :framework (:id framework)
-                                       :appender (:id appender)})]
-        (is (= #{"done"} (:status response)))
-        (is (= {level-2 1 level-1 2} (:log-levels response)))))))
+  (with-framework [framework (frameworks)]
+    (let [[level-1 level-2] (reverse (keys (framework/levels framework)))]
+      (with-appender [framework appender]
+        (framework/log framework {:level level-1 :message "a-1"})
+        (framework/log framework {:level level-1 :message "b-1"})
+        (framework/log framework {:level level-2 :message "b-2"})
+        (let [response (session/message {:op "log-levels"
+                                         :framework (:id framework)
+                                         :appender (:id appender)})]
+          (is (= #{"done"} (:status response)))
+          (is (= {level-2 1 level-1 2} (:log-levels response))))))))
 
 (deftest test-loggers
-  (doseq [framework (frameworks)]
+  (with-framework [framework (frameworks)]
     (with-appender [framework appender]
       (framework/log framework {:logger "LOGGER-A" :message "a-1"})
       (framework/log framework {:logger "LOGGER-B" :message "b-1"})
@@ -180,7 +189,7 @@
         (is (= {:LOGGER-A 1 :LOGGER-B 2} (:log-loggers response)))))))
 
 (deftest test-search
-  (doseq [framework (frameworks)]
+  (with-framework [framework (frameworks)]
     (with-appender [framework appender]
       (framework/log framework {:message "a-1"})
       (framework/log framework {:message "a-2"})
@@ -194,33 +203,32 @@
           (is (= ["a-3" "a-2" "a-1"] (map :message events))))))))
 
 (deftest test-search-by-level
-  (doseq [framework (frameworks)
-          :let [[level-1 level-2 level-3]
-                (reverse (keys (framework/levels framework)))]]
+  (with-framework [framework (frameworks)]
     (with-appender [framework appender]
-      (framework/log framework {:level level-1 :message "a-1"})
-      (framework/log framework {:level level-2 :message "a-2"})
-      (framework/log framework {:level level-3 :message "a-3"})
-      (let [response (session/message {:op "log-search"
-                                       :framework (:id framework)
-                                       :appender (:id appender)
-                                       :filters {:levels [level-1]}})]
-        (is (= #{"done"} (:status response)))
-        (is (every? #{(name level-1)}
-                    (map :level (:log-search response)))))
-      (let [response (session/message {:op "log-search"
-                                       :framework (:id framework)
-                                       :appender (:id appender)
-                                       :filters {:levels [level-1 level-2]}})]
-        (is (= #{"done"} (:status response)))
-        (let [events (:log-search response)]
-          (is (= 2 (count events)))
-          (is (every? #{(name level-1)
-                        (name level-2)}
-                      (map :level events))))))))
+      (let [[level-1 level-2 level-3] (reverse (keys (framework/levels framework)))]
+        (framework/log framework {:level level-1 :message "a-1"})
+        (framework/log framework {:level level-2 :message "a-2"})
+        (framework/log framework {:level level-3 :message "a-3"})
+        (let [response (session/message {:op "log-search"
+                                         :framework (:id framework)
+                                         :appender (:id appender)
+                                         :filters {:levels [level-1]}})]
+          (is (= #{"done"} (:status response)))
+          (is (every? #{(name level-1)}
+                      (map :level (:log-search response)))))
+        (let [response (session/message {:op "log-search"
+                                         :framework (:id framework)
+                                         :appender (:id appender)
+                                         :filters {:levels [level-1 level-2]}})]
+          (is (= #{"done"} (:status response)))
+          (let [events (:log-search response)]
+            (is (= 2 (count events)))
+            (is (every? #{(name level-1)
+                          (name level-2)}
+                        (map :level events)))))))))
 
 (deftest test-search-by-exception
-  (doseq [framework (frameworks)]
+  (with-framework [framework (frameworks)]
     (with-appender [framework appender]
       (framework/log framework {:message "a-1"})
       (framework/log framework {:message "a-2" :exception (IllegalArgumentException. "BOOM")})
@@ -239,7 +247,7 @@
             (is (int? (:timestamp event)))))))))
 
 (deftest test-search-by-pattern
-  (doseq [framework (frameworks)]
+  (with-framework [framework (frameworks)]
     (with-appender [framework appender]
       (framework/log framework {:message "a-1"})
       (framework/log framework {:message "a-2"})
@@ -259,7 +267,7 @@
             (is (int? (:timestamp event)))))))))
 
 (deftest test-search-by-start-and-end-time
-  (doseq [framework (frameworks)]
+  (with-framework [framework (frameworks)]
     (with-appender [framework appender]
       (framework/log framework {:message "a-1"})
       (Thread/sleep 100)
@@ -290,7 +298,7 @@
                 (is (int? (:timestamp event)))))))))))
 
 (deftest test-threads
-  (doseq [framework (frameworks)]
+  (with-framework [framework (frameworks)]
     (with-appender [framework appender]
       (framework/log framework {:message "a-1"})
       (let [response (session/message
@@ -303,7 +311,7 @@
           (is (every? pos-int? (vals threads))))))))
 
 (deftest test-remove-appender
-  (doseq [framework (frameworks)]
+  (with-framework [framework (frameworks)]
     (testing "remove unregistered appender"
       (let [response (remove-appender framework "unknown")]
         (is (= #{"log-remove-appender-error" "done"} (:status response)))))
@@ -320,7 +328,7 @@
                (:log-remove-appender response)))))))
 
 (deftest test-remove-consumer
-  (doseq [framework (frameworks)]
+  (with-framework [framework (frameworks)]
     (with-appender [framework appender]
       (let [consumer (:log-add-consumer (add-consumer framework appender {:filters {:levels [:info]}}))
             response (session/message
@@ -343,7 +351,7 @@
                  (get-in response [:log-frameworks (framework/id framework) :appenders]))))))))
 
 (deftest test-update-appender
-  (doseq [framework (frameworks)]
+  (with-framework [framework (frameworks)]
     (with-appender [framework appender]
       (let [response (session/message
                       {:op "log-update-appender"
@@ -370,7 +378,7 @@
             (is (= ["A4" "A3"] (map :message events)))))))))
 
 (deftest test-update-consumer
-  (doseq [framework (frameworks)]
+  (with-framework [framework (frameworks)]
     (with-appender [framework appender]
       (let [consumer (:log-add-consumer (add-consumer framework appender {:filters {:levels [:info]}}))
             response (session/message
