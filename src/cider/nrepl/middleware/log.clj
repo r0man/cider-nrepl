@@ -96,11 +96,18 @@
 
 (defn add-appender-reply
   [{:keys [appender filters size threshold] :as msg}]
-  (let [appender {:id appender :filters filters :size size :threshold threshold}]
-    {:log-add-appender
-     (-> (swap-framework! msg framework/add-appender appender)
-         (framework/appender-by-id (:id appender))
-         (select-appender))}))
+  {:log-add-appender
+   (-> (swap-framework!
+        msg framework/add-appender
+        (cond-> {:id appender}
+          (map? filters)
+          (assoc :filters filters)
+          (pos-int? size)
+          (assoc :size size)
+          (nat-int? threshold)
+          (assoc :threshold threshold)))
+       (framework/appender-by-id appender)
+       (select-appender))})
 
 (defn add-consumer-reply
   [{:keys [filters transport] :as msg}]
@@ -149,14 +156,19 @@
     (appender/remove-consumer (appender msg) consumer)
     {:log-remove-consumer (select-consumer consumer)}))
 
-(defn update-appender-reply [{:keys [filters size threshold] :as msg}]
+(defn update-appender-reply
+  [{:keys [filters size threshold] :as msg}]
   (let [appender (appender msg)]
     {:log-update-appender
-     (-> (swap-framework! msg framework/update-appender
-                          {:id (appender/id appender)
-                           :filters filters
-                           :size size
-                           :threshold threshold})
+     (-> (swap-framework!
+          msg framework/update-appender
+          (cond-> {:id (appender/id appender)}
+            (map? filters)
+            (assoc :filters filters)
+            (pos-int? size)
+            (assoc :size size)
+            (nat-int? threshold)
+            (assoc :threshold threshold)))
          (framework/appender (appender/id appender))
          (select-appender))}))
 
