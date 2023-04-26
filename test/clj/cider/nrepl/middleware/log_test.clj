@@ -28,38 +28,38 @@
        (catch Exception _)))
 
 (defn- add-appender [framework appender & [opts]]
-  (let [{:keys [status log-add-appender]}
+  (let [{:keys [status log-add-appender] :as response}
         (session/message (merge {:op "log-add-appender"
                                  :framework (:id framework)
                                  :appender (:id appender)}
                                 opts))]
-    (assert (= #{"done"} status))
+    (assert (= #{"done"} status) response)
     log-add-appender))
 
 (defn- add-consumer [framework appender & [opts]]
-  (let [{:keys [status log-add-consumer]}
+  (let [{:keys [status log-add-consumer] :as response}
         (session/message (merge {:op "log-add-consumer"
                                  :framework (:id framework)
                                  :appender (:id appender)}
                                 opts))]
-    (assert (= #{"done"} status))
+    (assert (= #{"done"} status) response)
     log-add-consumer))
 
 (defn- remove-appender [framework appender]
-  (let [{:keys [status log-remove-appender]}
+  (let [{:keys [status log-remove-appender] :as response}
         (session/message {:op "log-remove-appender"
                           :framework (:id framework)
                           :appender (:id appender)})]
-    (assert (= #{"done"} status))
+    (assert (= #{"done"} status) response)
     log-remove-appender))
 
 (defn- search-events [framework appender & [opts]]
-  (let [{:keys [status log-search]}
+  (let [{:keys [status log-search] :as response}
         (session/message (merge {:op "log-search"
                                  :framework (:id framework)
                                  :appender (:id appender)}
                                 opts))]
-    (assert (= #{"done"} status))
+    (assert (= #{"done"} status) response)
     log-search))
 
 (defmacro with-framework
@@ -390,4 +390,4 @@
 
   (time (log-something (first (frameworks)) 1000 100))
 
-  (future (log-something (first (frameworks)) 1000 1000)))
+  (future (log-something (first (frameworks)) 1000 10)))
