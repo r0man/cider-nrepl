@@ -53,6 +53,15 @@
     (assert #{"done"} status)
     log-remove-appender))
 
+(defn- search-events [framework appender & [opts]]
+  (let [{:keys [status log-search]}
+        (session/message (merge {:op "log-search"
+                                 :framework (:id framework)
+                                 :appender (:id appender)}
+                                opts))]
+    (assert #{"done"} status)
+    log-search))
+
 (defmacro with-framework
   "Evaluate `body` for each `framework` bound to `framework-sym`."
   [[framework-sym frameworks] & body]
@@ -200,13 +209,9 @@
       (framework/log framework {:message "a-1"})
       (framework/log framework {:message "a-2"})
       (framework/log framework {:message "a-3"})
-      (let [response (session/message {:op "log-search"
-                                       :framework (:id framework)
-                                       :appender (:id appender)})]
-        (is (= #{"done"} (:status response)))
-        (let [events (:log-search response)]
-          (is (= 3 (count events)))
-          (is (= ["a-3" "a-2" "a-1"] (map :message events))))))))
+      (let [events (search-events framework appender {})]
+        (is (= 3 (count events)))
+        (is (= ["a-3" "a-2" "a-1"] (map :message events)))))))
 
 (deftest test-search-by-level
   (with-framework [framework (frameworks)]
@@ -215,23 +220,12 @@
         (framework/log framework {:level level-1 :message "a-1"})
         (framework/log framework {:level level-2 :message "a-2"})
         (framework/log framework {:level level-3 :message "a-3"})
-        (let [response (session/message {:op "log-search"
-                                         :framework (:id framework)
-                                         :appender (:id appender)
-                                         :filters {:levels [level-1]}})]
-          (is (= #{"done"} (:status response)))
-          (is (every? #{(name level-1)}
-                      (map :level (:log-search response)))))
-        (let [response (session/message {:op "log-search"
-                                         :framework (:id framework)
-                                         :appender (:id appender)
-                                         :filters {:levels [level-1 level-2]}})]
-          (is (= #{"done"} (:status response)))
-          (let [events (:log-search response)]
-            (is (= 2 (count events)))
-            (is (every? #{(name level-1)
-                          (name level-2)}
-                        (map :level events)))))))))
+        (let [events (search-events framework appender {:filters {:levels [level-1]}})]
+          (is (= 1 (count events)))
+          (is (every? #{(name level-1)} (map :level events))))
+        (let [events (search-events framework appender {:filters {:levels [level-1 level-2]}})]
+          (is (= 2 (count events)))
+          (is (every? #{(name level-1) (name level-2)} (map :level events))))))))
 
 (deftest test-search-by-exception
   (with-framework [framework (frameworks)]
@@ -239,18 +233,15 @@
       (framework/log framework {:message "a-1"})
       (framework/log framework {:message "a-2" :exception (IllegalArgumentException. "BOOM")})
       (framework/log framework {:message "a-3" :exception (IllegalStateException. "BOOM")})
-      (let [response (session/message {:op "log-search"
-                                       :framework (:id framework)
-                                       :appender (:id appender)
-                                       :filters {:exceptions ["java.lang.IllegalStateException"]}})]
-        (let [events (:log-search response)]
-          (is (= 1 (count events)))
-          (let [event (first events)]
-            (is (uuid-str? (:id event)))
-            (is (string? (:level event)))
-            (is (string? (:logger event)))
-            (is (= "a-3" (:message event)))
-            (is (int? (:timestamp event)))))))))
+      (let [options {:filters {:exceptions ["java.lang.IllegalStateException"]}}
+            events (search-events framework appender options)]
+        (is (= 1 (count events)))
+        (let [event (first events)]
+          (is (uuid-str? (:id event)))
+          (is (string? (:level event)))
+          (is (string? (:logger event)))
+          (is (= "a-3" (:message event)))
+          (is (int? (:timestamp event))))))))
 
 (deftest test-search-by-pattern
   (with-framework [framework (frameworks)]
@@ -258,19 +249,14 @@
       (framework/log framework {:message "a-1"})
       (framework/log framework {:message "a-2"})
       (framework/log framework {:message "a-3"})
-      (let [response (session/message {:op "log-search"
-                                       :framework (:id framework)
-                                       :appender (:id appender)
-                                       :filters {:pattern "a-3"}})]
-        (is (= #{"done"} (:status response)))
-        (let [events (:log-search response)]
-          (is (= 1 (count events)))
-          (let [event (first events)]
-            (is (uuid-str? (:id event)))
-            (is (= "info" (:level event)))
-            (is (string? (:logger event)))
-            (is (= "a-3" (:message event)))
-            (is (int? (:timestamp event)))))))))
+      (let [events (search-events framework appender {:filters {:pattern "a-3"}})]
+        (is (= 1 (count events)))
+        (let [event (first events)]
+          (is (uuid-str? (:id event)))
+          (is (= "info" (:level event)))
+          (is (string? (:logger event)))
+          (is (= "a-3" (:message event)))
+          (is (int? (:timestamp event))))))))
 
 (deftest test-search-by-start-and-end-time
   (with-framework [framework (frameworks)]
@@ -280,28 +266,17 @@
       (framework/log framework {:message "a-2"})
       (Thread/sleep 100)
       (framework/log framework {:message "a-3"})
-      (let [response (session/message {:op "log-search"
-                                       :framework (:id framework)
-                                       :appender (:id appender)})]
-        (is (= #{"done"} (:status response)))
-        (let [[event-3 event-2 event-1]
-              (:log-search (session/message {:op "log-search"
-                                             :framework (:id framework)
-                                             :appender (:id appender)}))]
-          (let [response (session/message {:op "log-search"
-                                           :framework (:id framework)
-                                           :appender (:id appender)
-                                           :filters {:start-time (inc (:timestamp event-1))
-                                                     :end-time (dec (:timestamp event-3))}})]
-            (is (= #{"done"} (:status response)))
-            (let [events (:log-search response)]
-              (is (= 1 (count events)))
-              (let [event (first events)]
-                (is (= (:id event-2) (:id event)))
-                (is (= "info" (:level event)))
-                (is (string? (:logger event)))
-                (is (= "a-2" (:message event)))
-                (is (int? (:timestamp event)))))))))))
+      (let [[event-3 event-2 event-1] (search-events framework appender {})]
+        (let [options {:filters {:start-time (inc (:timestamp event-1))
+                                 :end-time (dec (:timestamp event-3))}}
+              events (search-events framework appender options)]
+          (is (= 1 (count events)))
+          (let [event (first events)]
+            (is (= (:id event-2) (:id event)))
+            (is (= "info" (:level event)))
+            (is (string? (:logger event)))
+            (is (= "a-2" (:message event)))
+            (is (int? (:timestamp event)))))))))
 
 (deftest test-threads
   (with-framework [framework (frameworks)]
