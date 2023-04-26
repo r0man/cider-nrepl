@@ -300,14 +300,14 @@
                        :appender "unknown"})]
         (is (= #{"log-remove-appender-error" "done"} (:status response)))))
     (testing "remove registered appender"
-      (with-appender [framework appender]
-        (let [appender' (remove-appender framework appender)]
-          (is (= [] (:consumers appender')))
-          (is (= 0 (:events appender')))
-          (is (= [] (:filters appender')))
-          (is (= (:id appender) (:id appender')))
-          (is (pos-int? (:size appender')))
-          (is (pos-int? (:threshold appender'))))))))
+      (let [appender (add-appender framework appender)
+            appender' (remove-appender framework appender)]
+        (is (= [] (:consumers appender')))
+        (is (= 0 (:events appender')))
+        (is (= [] (:filters appender')))
+        (is (= (:id appender) (:id appender')))
+        (is (pos-int? (:size appender')))
+        (is (pos-int? (:threshold appender')))))))
 
 (deftest test-remove-consumer
   (with-framework [framework (frameworks)]
