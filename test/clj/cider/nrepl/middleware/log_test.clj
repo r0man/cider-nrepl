@@ -28,21 +28,30 @@
        (catch Exception _)))
 
 (defn- add-appender [framework appender & [opts]]
-  (session/message (merge {:op "log-add-appender"
-                           :framework (:id framework)
-                           :appender (:id appender)}
-                          opts)))
+  (let [{:keys [status log-add-appender]}
+        (session/message (merge {:op "log-add-appender"
+                                 :framework (:id framework)
+                                 :appender (:id appender)}
+                                opts))]
+    (assert #{"done"} status)
+    log-add-appender))
 
 (defn- add-consumer [framework appender & [opts]]
-  (session/message (merge {:op "log-add-consumer"
-                           :framework (:id framework)
-                           :appender (:id appender)}
-                          opts)))
+  (let [{:keys [status log-add-consumer]}
+        (session/message (merge {:op "log-add-consumer"
+                                 :framework (:id framework)
+                                 :appender (:id appender)}
+                                opts))]
+    (assert #{"done"} status)
+    log-add-consumer))
 
 (defn- remove-appender [framework appender]
-  (session/message {:op "log-remove-appender"
-                    :framework (:id framework)
-                    :appender (:id appender)}))
+  (let [{:keys [status log-remove-appender]}
+        (session/message {:op "log-remove-appender"
+                          :framework (:id framework)
+                          :appender (:id appender)})]
+    (assert #{"done"} status)
+    log-remove-appender))
 
 (defmacro with-framework
   "Evaluate `body` for each `framework` bound to `framework-sym`."
@@ -60,26 +69,23 @@
 
 (deftest test-add-appender
   (with-framework [framework (frameworks)]
-    (let [response (add-appender framework appender {:filters {} :size 10 :threshold 10})]
-      (is (= #{"done"} (:status response)))
-      (is (= {:consumers []
-              :events 0
-              :filters {}
-              :id (:id appender)
-              :size 10
-              :threshold 10}
-             (:log-add-appender response))))
+    (let [options {:filters {} :size 10 :threshold 10}
+          appender' (add-appender framework appender options)]
+      (is (= [] (:consumers appender')))
+      (is (= 0 (:events appender')))
+      (is (= (:filters options) (:filters appender')))
+      (is (= (:id appender) (:id appender')))
+      (is (= (:size options) (:size appender')))
+      (is (= (:threshold options) (:threshold appender'))))
     (remove-appender framework appender)))
 
 (deftest test-add-consumer
   (with-framework [framework (frameworks)]
     (with-appender [framework appender]
-      (add-appender framework appender)
-      (let [response (add-consumer framework appender {:filters {:levels [:info]}})]
-        (is (= #{"done"} (:status response)))
-        (let [consumer (:log-add-consumer response)]
-          (is (uuid-str? (:id consumer)))
-          (is (= {:levels ["info"]} (:filters consumer)))))
+      (let [options {:filters {:levels [:info]}}
+            consumer (add-consumer framework appender options)]
+        (is (uuid-str? (:id consumer)))
+        (is (= {:levels ["info"]} (:filters consumer))))
       (framework/log framework {:message "a-1"})
       ;; TODO: How to receive the async log event?
       )))
@@ -313,24 +319,25 @@
 (deftest test-remove-appender
   (with-framework [framework (frameworks)]
     (testing "remove unregistered appender"
-      (let [response (remove-appender framework "unknown")]
+      (let [response (session/message
+                      {:op "log-remove-appender"
+                       :framework (:id framework)
+                       :appender "unknown"})]
         (is (= #{"log-remove-appender-error" "done"} (:status response)))))
     (testing "remove registered appender"
       (with-appender [framework appender]
-        (let [response (remove-appender framework appender)]
-          (is (= #{"done"} (:status response)))
-          (is (= {:consumers []
-                  :events 0
-                  :filters []
-                  :id (:id appender)
-                  :size 100000
-                  :threshold 10}
-                 (:log-remove-appender response))))))))
+        (let [appender' (remove-appender framework appender)]
+          (is (= [] (:consumers appender')))
+          (is (= 0 (:events appender')))
+          (is (= [] (:filters appender')))
+          (is (= (:id appender) (:id appender')))
+          (is (pos-int? (:size appender')))
+          (is (pos-int? (:threshold appender'))))))))
 
 (deftest test-remove-consumer
   (with-framework [framework (frameworks)]
     (with-appender [framework appender]
-      (let [consumer (:log-add-consumer (add-consumer framework appender {:filters {:levels [:info]}}))
+      (let [consumer (add-consumer framework appender {:filters {:levels [:info]}})
             response (session/message
                       {:op "log-remove-consumer"
                        :framework (:id framework)
@@ -380,7 +387,7 @@
 (deftest test-update-consumer
   (with-framework [framework (frameworks)]
     (with-appender [framework appender]
-      (let [consumer (:log-add-consumer (add-consumer framework appender {:filters {:levels [:info]}}))
+      (let [consumer (add-consumer framework appender {:filters {:levels [:info]}})
             response (session/message
                       {:op "log-update-consumer"
                        :framework (:id framework)
