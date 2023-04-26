@@ -33,7 +33,7 @@
                                  :framework (:id framework)
                                  :appender (:id appender)}
                                 opts))]
-    (assert #{"done"} status)
+    (assert (= #{"done"} status))
     log-add-appender))
 
 (defn- add-consumer [framework appender & [opts]]
@@ -42,7 +42,7 @@
                                  :framework (:id framework)
                                  :appender (:id appender)}
                                 opts))]
-    (assert #{"done"} status)
+    (assert (= #{"done"} status))
     log-add-consumer))
 
 (defn- remove-appender [framework appender]
@@ -50,7 +50,7 @@
         (session/message {:op "log-remove-appender"
                           :framework (:id framework)
                           :appender (:id appender)})]
-    (assert #{"done"} status)
+    (assert (= #{"done"} status))
     log-remove-appender))
 
 (defn- search-events [framework appender & [opts]]
@@ -59,7 +59,7 @@
                                  :framework (:id framework)
                                  :appender (:id appender)}
                                 opts))]
-    (assert #{"done"} status)
+    (assert (= #{"done"} status))
     log-search))
 
 (defmacro with-framework
