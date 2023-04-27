@@ -108,22 +108,21 @@
   (-add-appender [framework appender]
     (add-appender framework appender))
   (-description [_]
-    "Logback is intended as a successor to the popular log4j project, picking up
-    where log4j 1.x leaves off.")
+    (:description descriptor))
   (-id [_]
-    :logback)
+    (:id descriptor))
   (-name [_]
-    "Logback")
+    (:name descriptor))
   (-levels [_]
     log-levels)
   (-log [_ event]
     (log event))
   (-javadoc-url [_]
-    "https://logback.qos.ch/apidocs")
+    (:javadoc-url descriptor))
   (-remove-appender [framework appender]
     (remove-appender framework appender))
   (-website-url [_]
-    "https://logback.qos.ch/"))
+    (:website-url descriptor)))
 
 (defn framework []
   (map->Logback {:id :logback
