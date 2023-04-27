@@ -289,44 +289,45 @@ Depending on the type of the return value of the evaluation this middleware may 
    :requires #{#'session}
    :handles
    {"log-add-appender"
-    {:doc "Add an appender to a logging framework."
-     :requires {"framework" "The id of the logging framework."
+    {:doc "Add an appender to a log framework."
+     :requires {"framework" "The id of the log framework."
                 "appender" "The name of the appender."
-                "level" "The log level used by the appender."}
+                "filters" "A map from filter name to filter condition."
+                "size" "The number of events the appender keeps in memory."
+                "threshold" "The threshold in percent used to cleanup events."}
      :returns {"status" "done"
                "add-appender" "The appender that was added."}}
 
     "log-add-consumer"
-    {:doc "Add a consumer to an appender of a logging framework."
-     :requires {"framework" "The id of the logging framework."
+    {:doc "Add a consumer to an appender of a log framework."
+     :requires {"framework" "The id of the log framework."
                 "appender" "The name of the appender."
-                "consumer" "The name of the consumer."
                 "filter" "A map from filter name to filter condition."}
      :returns {"status" "done"
                "log-add-consumer" "The consumer that was added."}}
 
     "log-clear-appender"
-    {:doc "Clear all events of an appender."
-     :requires {"framework" "The id of the logging framework."
+    {:doc "Clear all events of a log appender."
+     :requires {"framework" "The id of the log framework."
                 "appender" "The name of the appender."}
      :returns {"status" "done"
                "clear-appender" "The appender that was cleared."}}
 
     "log-exceptions"
     {:doc "Return the exceptions and their frequencies for the given framework and appender."
-     :requires {"framework" "The id of the logging framework."
+     :requires {"framework" "The id of the log framework."
                 "appender" "The name of the appender."}
      :returns {"status" "done"
                "exceptions" "A map from exception name to event frequency."}}
 
     "log-frameworks"
-    {:doc "Return the available logging frameworks."
+    {:doc "Return the available log frameworks."
      :returns {"status" "done"
-               "frameworks" "The available logging frameworks indexed by id."}}
+               "frameworks" "The available log frameworks indexed by id."}}
 
     "log-inspect-event"
     {:doc "Inspect a log event."
-     :requires {"framework" "The id of the logging framework."
+     :requires {"framework" "The id of the log framework."
                 "appender" "The name of the appender."
                 "event-id" "The id of the event to inspect."}
      :returns {"status" "done"
@@ -334,44 +335,46 @@ Depending on the type of the return value of the evaluation this middleware may 
 
     "log-levels"
     {:doc "Return the log levels and their frequencies for the given framework and appender."
-     :requires {"framework" "The id of the logging framework."
+     :requires {"framework" "The id of the log framework."
                 "appender" "The name of the appender."}
      :returns {"status" "done"
                "levels" "A map from log level to event frequency."}}
 
     "log-loggers"
     {:doc "Return the loggers and their frequencies for the given framework and appender."
-     :requires {"framework" "The id of the logging framework."
+     :requires {"framework" "The id of the log framework."
                 "appender" "The name of the appender."}
      :returns {"status" "done"
                "loggers" "A map from logger name to event frequency."}}
 
+    "log-remove-appender"
+    {:doc "Remove an appender from a log framework."
+     :requires {"framework" "The id of the log framework."
+                "appender" "The name of the appender."}
+     :returns {"status" "done"
+               "remove-appender" "The removed appender."}}
+
     "log-remove-consumer"
-    {:doc "Remove a consumer from an appender of a logging framework."
-     :requires {"framework" "The id of the logging framework."
+    {:doc "Remove a consumer from the appender of a log framework."
+     :requires {"framework" "The id of the log framework."
                 "appender" "The name of the appender."
                 "consumer" "The name of the consumer."}
      :returns {"status" "done"
                "add-consumer" "The removed consumer."}}
 
-    "log-remove-appender"
-    {:doc "Remove an appender from a logging framework."
-     :requires {"framework" "The id of the logging framework."
-                "appender" "The name of the appender."}
-     :returns {"status" "done"
-               "remove-appender" "The removed appender."}}
-
     "log-update-appender"
-    {:doc "Update the consumer of a log appender."
-     :requires {"framework" "The id of the logging framework."
+    {:doc "Update the appender of a log framework."
+     :requires {"framework" "The id of the log framework."
                 "appender" "The name of the appender."
-                "filter" "A map from filter name to filter condition."}
+                "filter" "A map from filter name to filter condition."
+                "size" "The number of events the appender keeps in memory."
+                "threshold" "The threshold in percent used to cleanup events."}
      :returns {"status" "done"
                "log-update-appender" "The updated appender."}}
 
     "log-update-consumer"
     {:doc "Update the consumer of a log appender."
-     :requires {"framework" "The id of the logging framework."
+     :requires {"framework" "The id of the log framework."
                 "appender" "The name of the appender."
                 "consumer" "The name of the consumer."
                 "filter" "A map from filter name to filter condition."}
@@ -380,7 +383,7 @@ Depending on the type of the return value of the evaluation this middleware may 
 
     "log-search"
     {:doc "Search the log events of an appender."
-     :requires {"framework" "The id of the logging framework."
+     :requires {"framework" "The id of the log framework."
                 "appender" "The name of the appender."}
      :optional {"filter" "A map from filter name to filter condition."
                 "limit" "Number of log events to return."}
@@ -389,7 +392,7 @@ Depending on the type of the return value of the evaluation this middleware may 
 
     "log-threads"
     {:doc "Return the threads and their frequencies for the given framework and appender."
-     :requires {"framework" "The id of the logging framework."
+     :requires {"framework" "The id of the log framework."
                 "appender" "The name of the appender."}
      :returns {"status" "done"
                "threads" "A map from thread name to event frequency."}}}})

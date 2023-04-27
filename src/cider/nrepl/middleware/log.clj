@@ -9,11 +9,15 @@
             [orchard.inspect :as orchard.inspect])
   (:import [java.util UUID]))
 
-(defn- select-consumer [consumer]
+(defn- select-consumer
+  "Return the log `consumer` in a Bencode compatible format."
+  [consumer]
   (-> (select-keys consumer [:id :filters])
       (update :id str)))
 
-(defn- select-appender [appender]
+(defn- select-appender
+  "Return the log `appender` in a Bencode compatible format."
+  [appender]
   {:consumers (map select-consumer (appender/consumers appender))
    :events (count (appender/events appender))
    :filters (appender/filters appender)
@@ -21,7 +25,9 @@
    :size (appender/size appender)
    :threshold (appender/threshold appender)})
 
-(defn- select-framework [framework]
+(defn- select-framework
+  "Return the log `frameowrk` in a Bencode compatible format."
+  [framework]
   {:appenders (map select-appender (framework/appenders framework))
    :description (framework/description framework)
    :id (framework/id framework)
@@ -29,7 +35,9 @@
    :name (framework/name framework)
    :website-url (framework/website-url framework)})
 
-(defn- select-event [{:keys [arguments id] :as event}]
+(defn- select-event
+  "Return the log `event` in a Bencode compatible format."
+  [{:keys [arguments id] :as event}]
   (cond-> (select-keys event [:level :logger :message :id :thread :timestamp])
     (uuid? id)
     (update :id str)
@@ -37,7 +45,9 @@
     (map? (first arguments))
     (assoc :message (pr-str (dissoc (first arguments) :context)))))
 
-(defn- inspect-value [{:keys [page-size max-atom-length max-coll-size] :as msg} value]
+(defn- inspect-value
+  "Show `value` in the Cider inspector"
+  [{:keys [page-size max-atom-length max-coll-size] :as msg} value]
   (let [inspector (middleware.inspect/swap-inspector!
                    msg #(-> (assoc % :page-size (or page-size 32)
                                    :indentation 0
@@ -74,6 +84,7 @@
                        :consumer consumer}))))
 
 (defn swap-framework!
+  "Swap the framework bound in the session by applying `f` with `args`."
   [msg f & args]
   (if-let [framework (framework msg)]
     (-> (:session msg)
@@ -84,6 +95,7 @@
                      :framework (:framework msg)}))))
 
 (defn add-appender-reply
+  "Add an appender to a log framework."
   [{:keys [appender filters size threshold] :as msg}]
   {:log-add-appender
    (-> (swap-framework!
@@ -99,6 +111,7 @@
        (select-appender))})
 
 (defn add-consumer-reply
+  "Add a consumer to an appender of a log framework."
   [{:keys [filters transport] :as msg}]
   (let [consumer {:id (UUID/randomUUID)
                   :filters (or filters {})
@@ -113,39 +126,54 @@
     {:log-add-consumer (select-consumer (appender/consumer-by-id appender (:id consumer)))}))
 
 (defn clear-appender-reply
+  "Clear all events of a log appender."
   [msg]
   {:log-clear-appender (select-appender (appender/clear (appender msg)))})
 
-(defn inspect-event-reply
-  [{:keys [event-id] :as msg}]
-  (inspect-value msg (appender/event (appender msg) (UUID/fromString event-id))))
+(defn exceptions-reply
+  "Return the exceptions and their frequencies for the given framework and appender."
+  [msg]
+  {:log-exceptions (-> msg appender appender/events event/exception-frequencies)})
 
-(defn exceptions-reply [msg]
-  {:log-exceptions (event/exception-frequencies (appender/events (appender msg)))})
-
-(defn frameworks-reply [{:keys [session]}]
+(defn frameworks-reply
+  "Return the available log frameworks."
+  [{:keys [session]}]
   (let [frameworks (vals (get (meta session) ::frameworks))]
     {:log-frameworks
      (zipmap (map :id frameworks)
              (map select-framework frameworks))}))
 
-(defn levels-reply [msg]
-  {:log-levels (event/level-frequencies (appender/events (appender msg)))})
+(defn inspect-event-reply
+  "Inspect a log event."
+  [{:keys [event-id] :as msg}]
+  (inspect-value msg (appender/event (appender msg) (UUID/fromString event-id))))
 
-(defn loggers-reply [msg]
-  {:log-loggers (event/logger-frequencies (appender/events (appender msg)))})
+(defn levels-reply
+  "Return the log levels and their frequencies for the given framework and appender."
+  [msg]
+  {:log-levels (-> msg appender appender/events event/level-frequencies)})
 
-(defn remove-appender-reply [msg]
+(defn loggers-reply
+  "Return the loggers and their frequencies for the given framework and appender."
+  [msg]
+  {:log-loggers (-> msg appender appender/events event/logger-frequencies)})
+
+(defn remove-appender-reply
+  "Remove an appender from a log framework."
+  [msg]
   (let [appender (appender msg)]
     (swap-framework! msg framework/remove-appender {:id (:appender msg)})
     {:log-remove-appender (select-appender appender)}))
 
-(defn remove-consumer-reply [msg]
+(defn remove-consumer-reply
+  "Remove a consumer from the appender of a log framework."
+  [msg]
   (let [consumer (consumer msg)]
     (appender/remove-consumer (appender msg) consumer)
     {:log-remove-consumer (select-consumer consumer)}))
 
 (defn update-appender-reply
+  "Update the appender of a log framework."
   [{:keys [filters size threshold] :as msg}]
   (let [appender (appender msg)]
     {:log-update-appender
@@ -161,7 +189,9 @@
          (framework/appender (appender/id appender))
          (select-appender))}))
 
-(defn update-consumer-reply [{:keys [filters] :as msg}]
+(defn update-consumer-reply
+  "Update the consumer of a log appender."
+  [{:keys [filters] :as msg}]
   (let [consumer (consumer msg)
         appender (appender/update-consumer
                   (appender msg) consumer
@@ -169,6 +199,7 @@
     {:log-update-consumer (select-consumer (appender/consumer-by-id appender (:id consumer)))}))
 
 (defn search-reply
+  "Search the log events of an appender."
   [{:keys [filters limit] :as msg}]
   {:log-search (->> (cond-> {}
                       (map? filters)
@@ -178,10 +209,14 @@
                     (event/search (appender/events (appender msg)))
                     (map select-event))})
 
-(defn threads-reply [msg]
-  {:log-threads (event/thread-frequencies (appender/events (appender msg)))})
+(defn threads-reply
+  "Return the threads and their frequencies for the given framework and appender."
+  [msg]
+  {:log-threads (-> msg appender appender/events event/thread-frequencies)})
 
-(defn handle-log [handler {:keys [session] :as msg}]
+(defn handle-log
+  "Handle NREPL log operations."
+  [handler {:keys [session] :as msg}]
   (when-not (contains? (meta session) ::frameworks)
     (alter-meta! session assoc ::frameworks (framework/resolve-frameworks)))
   (with-safe-transport handler msg
