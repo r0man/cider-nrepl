@@ -88,7 +88,7 @@
   "Make a base appender."
   [{:keys [id filters size threshold]}]
   (map->BaseAppender
-   {:filters filters
+   {:filters (or filters {})
     :id id
     :size (or size default-size)
     :threshold (or threshold 10)}))

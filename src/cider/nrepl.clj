@@ -323,7 +323,7 @@ Depending on the type of the return value of the evaluation this middleware may 
     "log-frameworks"
     {:doc "Return the available log frameworks."
      :returns {"status" "done"
-               "frameworks" "The available log frameworks indexed by id."}}
+               "frameworks" "A list of log frameworks."}}
 
     "log-inspect-event"
     {:doc "Inspect a log event."

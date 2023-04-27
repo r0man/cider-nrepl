@@ -138,10 +138,7 @@
 (defn frameworks-reply
   "Return the available log frameworks."
   [{:keys [session]}]
-  (let [frameworks (vals (get (meta session) ::frameworks))]
-    {:log-frameworks
-     (zipmap (map :id frameworks)
-             (map select-framework frameworks))}))
+  {:log-frameworks (->> (get (meta session) ::frameworks) vals (map select-framework))})
 
 (defn inspect-event-reply
   "Inspect a log event."

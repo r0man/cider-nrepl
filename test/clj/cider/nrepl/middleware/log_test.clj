@@ -23,6 +23,9 @@
   (->> (gen/tuple (s/gen :cider.log/event) (level-gen framework))
        (gen/fmap (fn [[event level]] (assoc event :level level)))))
 
+(defn- find-framework [frameworks framework]
+  (some #(and (= (name (framework/id framework)) (:id %)) %) frameworks))
+
 (defn- uuid-str? [s]
   (try (java.util.UUID/fromString s)
        (catch Exception _)))
@@ -109,7 +112,7 @@
         (is (= #{"done"} (:status response)))
         (is (= {:consumers []
                 :events 0
-                :filters []
+                :filters {}
                 :id (:id appender)
                 :size 100000
                 :threshold 10}
@@ -130,22 +133,22 @@
                (:log-exceptions response)))))))
 
 (deftest test-frameworks
-  (let [response (session/message {:op "log-frameworks"})]
+  (let [{:keys [log-frameworks status]} (session/message {:op "log-frameworks"})]
+    (is (= #{"done"} status))
     (with-framework [framework (frameworks)]
-      (is (= #{"done"} (:status response)))
       (is (= {:appenders []
               :description (framework/description framework)
               :id (name (framework/id framework))
               :javadoc-url (framework/javadoc-url framework)
               :name (framework/name framework)
               :website-url (framework/website-url framework)}
-             (get-in response [:log-frameworks (framework/id framework)]))))))
+             (find-framework log-frameworks framework))))))
 
 (deftest test-frameworks-add-appender
   (with-framework [framework (frameworks)]
-    (with-appender [framework appender {:filters {}}]
-      (let [response (session/message {:op "log-frameworks"})]
-        (is (= #{"done"} (:status response)))
+    (with-appender [framework appender]
+      (let [{:keys [log-frameworks status]} (session/message {:op "log-frameworks"})]
+        (is (= #{"done"} status))
         (is (= {:appenders [{:consumers []
                              :events 0
                              :filters {}
@@ -157,7 +160,7 @@
                 :javadoc-url (framework/javadoc-url framework)
                 :name (framework/name framework)
                 :website-url (framework/website-url framework)}
-               (get-in response [:log-frameworks (framework/id framework)])))))))
+               (find-framework log-frameworks framework)))))))
 
 (deftest test-inspect
   (with-framework [framework (frameworks)]
@@ -304,7 +307,7 @@
             appender' (remove-appender framework appender)]
         (is (= [] (:consumers appender')))
         (is (= 0 (:events appender')))
-        (is (= [] (:filters appender')))
+        (is (= {} (:filters appender')))
         (is (= (:id appender) (:id appender')))
         (is (pos-int? (:size appender')))
         (is (pos-int? (:threshold appender')))))))
@@ -322,15 +325,15 @@
         (is (= {:id (:id consumer)
                 :filters (:filters consumer)}
                (:log-remove-consumer response)))
-        (let [response (session/message {:op "log-frameworks"})]
-          (is (= #{"done"} (:status response)))
+        (let [{:keys [log-frameworks status]} (session/message {:op "log-frameworks"})]
+          (is (= #{"done"} status))
           (is (= [{:consumers []
                    :events 0
-                   :filters []
+                   :filters {}
                    :id (:id appender)
                    :size 100000
                    :threshold 10}]
-                 (get-in response [:log-frameworks (framework/id framework) :appenders]))))))))
+                 (:appenders (find-framework log-frameworks framework)))))))))
 
 (deftest test-update-appender
   (with-framework [framework (frameworks)]
