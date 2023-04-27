@@ -113,25 +113,21 @@
   (-add-appender [framework appender]
     (add-appender framework appender))
   (-description [_]
-    "Log4j 2 provides both a portable logging API and implementation for Java
-    with significant improvements over its predecessor, Log4j 1.x.")
+    (:description descriptor))
   (-id [_]
-    :log4j2)
+    (:id descriptor))
   (-name [_]
-    "Log4j2")
+    (:name descriptor))
   (-levels [_]
     log-levels)
   (-log [_ event]
     (log event))
   (-javadoc-url [_]
-    "https://logging.apache.org/log4j/2.x/javadoc/log4j-api")
+    (:javadoc-url descriptor))
   (-remove-appender [framework appender]
     (remove-appender framework appender))
   (-website-url [_]
-    "https://logging.apache.org"))
+    (:website-url descriptor)))
 
 (defn framework []
-  (map->Log4j {:id :log4j2
-               :name "Log4j2"
-               :description "The Apache Log4j2 logging framework."
-               :appenders {}}))
+  (map->Log4j {}))
