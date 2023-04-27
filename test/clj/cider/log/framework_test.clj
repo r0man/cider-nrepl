@@ -44,13 +44,14 @@
         (is (nil? (framework/log framework event)))
         (let [events (appender/events (framework/appender framework (:id appender)))]
           (is (= 1 (count events)))
-          (let [event (first events)]
-            (is (= [] (:arguments event)))
-            (is (uuid? (:id event)))
-            (is (= :info (:level event)))
-            (is (= "my-logger" (:logger event)))
-            (is (= {} (:mdc event)))
-            (is (= "Hello World" (:message event)))
-            (is (string? (:thread event)))
-            (is (pos-int? (:timestamp event)))))
+          (let [captured-event (first events)]
+            (is (= (:arguments event) (:arguments captured-event)))
+            (is (uuid? (:id captured-event)))
+            (is (= (:level event) (:level captured-event)))
+            (is (= (:logger event) (:logger captured-event)))
+            (is (= {} (:mdc captured-event)))
+            (is (= (:message event) (:message captured-event)))
+            (is (= (.getName (Thread/currentThread))
+                   (:thread captured-event)))
+            (is (pos-int? (:timestamp captured-event)))))
         (framework/remove-appender framework appender)))))
