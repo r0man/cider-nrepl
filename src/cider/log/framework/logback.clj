@@ -125,7 +125,4 @@
     (:website-url descriptor)))
 
 (defn framework []
-  (map->Logback {:id :logback
-                 :name "Logback"
-                 :description "The Logback logging framework."
-                 :appenders {}}))
+  (map->Logback {}))
