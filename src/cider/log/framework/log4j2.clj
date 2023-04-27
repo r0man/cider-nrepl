@@ -10,6 +10,16 @@
            [org.apache.logging.log4j.core.impl ThrowableProxy]
            [org.apache.logging.log4j.message MessageFormatMessage]))
 
+(def descriptor
+  "The descriptor of the Log4j2 logging framework."
+  {:id :log4j2
+   :name "Log4j2"
+   :constructor :cider.log.framework.lof4j2/framework
+   :description "Log4j 2 provides both a portable logging API and implementation for Java
+    with significant improvements over its predecessor, Log4j 1.x."
+   :javadoc-url "https://logging.apache.org/log4j/2.x/javadoc/log4j-api"
+   :website-url "https://logging.apache.org"})
+
 (def ^:private log-levels
   "The standard log levels of the Log4j2 framework."
   (into {} (map (fn [^Level level]

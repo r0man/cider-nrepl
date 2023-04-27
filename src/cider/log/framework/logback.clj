@@ -8,6 +8,16 @@
            [ch.qos.logback.core Appender AppenderBase]
            [org.slf4j LoggerFactory Marker MarkerFactory MDC]))
 
+(def descriptor
+  "The descriptor of the Logback logging framework."
+  {:id :logback
+   :name "Logback"
+   :constructor :cider.log.framework.logback/framework
+   :description "Logback is intended as a successor to the popular log4j
+    project, picking up where log4j 1.x leaves off."
+   :javadoc-url "https://logback.qos.ch/apidocs"
+   :website-url "https://logback.qos.ch"})
+
 (def ^:private log-levels
   "The standard log levels of the Logback framework."
   (into {} (map (fn [^Level level]

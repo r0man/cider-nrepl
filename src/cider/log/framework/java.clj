@@ -5,6 +5,21 @@
             [clojure.string :as str])
   (:import [java.util.logging Level LogManager Logger LogRecord MemoryHandler StreamHandler]))
 
+(def descriptor
+  "The descriptor of the Java Util Logging framework."
+  {:id :java
+   :name "Logback"
+   :constructor :cider.log.framework.java/framework
+   :description "The Java Logging APIs, contained in the package
+    java.util.logging, facilitate software servicing and maintenance at customer
+    sites by producing log reports suitable for analysis by end users, system
+    administrators, field service engineers, and software development teams. The
+    Logging APIs capture information such as security failures, configuration
+    errors, performance bottlenecks, and/or bugs in the application or
+    platform."
+   :javadoc-url "https://docs.oracle.com/en/java/javase/19/core/java-logging-overview.html"
+   :website-url "https://docs.oracle.com/javase/6/docs/technotes/guides/logging" })
+
 (def ^:private log-levels
   "The standard log levels of the Java Logging framework."
   (into {} (map (fn [^Level level]
