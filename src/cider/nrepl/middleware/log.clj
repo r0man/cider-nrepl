@@ -45,6 +45,8 @@
     (map? (first arguments))
     (assoc :message (pr-str (dissoc (first arguments) :context)))))
 
+;; TODO: Double check this this! Sometimes inspecting a log event works only
+;; after inspecting something else with the Cider inspector.
 (defn- inspect-value
   "Show `value` in the Cider inspector"
   [{:keys [page-size max-atom-length max-coll-size] :as msg} value]
