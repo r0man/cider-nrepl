@@ -103,29 +103,21 @@
   (-add-appender [framework appender]
     (add-appender framework appender))
   (-description [_]
-    "The Java Logging APIs, contained in the package java.util.logging,
-    facilitate software servicing and maintenance at customer sites by producing
-    log reports suitable for analysis by end users, system administrators, field
-    service engineers, and software development teams. The Logging APIs capture
-    information such as security failures, configuration errors, performance
-    bottlenecks, and/or bugs in the application or platform.")
+    (:description descriptor))
   (-id [_]
-    :java)
+    (:id descriptor))
   (-name [_]
-    "Java")
+    (:name descriptor))
   (-levels [_]
     log-levels)
   (-log [_ event]
     (log event))
   (-javadoc-url [_]
-    "https://docs.oracle.com/en/java/javase/19/core/java-logging-overview.html")
+    (:javadoc-url descriptor))
   (-remove-appender [framework appender]
     (remove-appender framework appender))
   (-website-url [_]
-    "https://logback.qos.ch/"))
+    (:website-url descriptor)))
 
 (defn framework []
-  (map->Java {:id :java
-              :name "Java"
-              :description "The Java logging framework."
-              :appenders {}}))
+  (map->Java {}))
