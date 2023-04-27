@@ -1,12 +1,12 @@
 (ns cider.nrepl.middleware.log
-  (:require [cider.nrepl.middleware.inspect :as middleware.inspect]
+  (:require [cider.log.appender :as appender]
+            [cider.log.event :as event]
+            [cider.log.framework :as framework]
+            [cider.nrepl.middleware.inspect :as middleware.inspect]
             [cider.nrepl.middleware.util.error-handling :refer [with-safe-transport]]
             [nrepl.misc :refer [response-for]]
             [nrepl.transport :as transport]
-            [orchard.inspect :as orchard.inspect]
-            [cider.log.appender :as appender]
-            [cider.log.event :as event]
-            [cider.log.framework :as framework])
+            [orchard.inspect :as orchard.inspect])
   (:import [java.util UUID]))
 
 (defn- select-consumer [consumer]
@@ -83,17 +83,6 @@
                     {:type :logging-framework-not-found
                      :framework (:framework msg)}))))
 
-(defn response [msg result]
-  (let [statuses (:status result)]
-    (cond
-      (and (set? statuses)
-           (contains? statuses :error))
-      result
-      (= :error statuses)
-      result
-      :else
-      {(:op msg) result})))
-
 (defn add-appender-reply
   [{:keys [appender filters size threshold] :as msg}]
   {:log-add-appender
@@ -149,7 +138,7 @@
 (defn remove-appender-reply [msg]
   (let [appender (appender msg)]
     (swap-framework! msg framework/remove-appender {:id (:appender msg)})
-    (response msg (select-appender appender))))
+    {:log-remove-appender (select-appender appender)}))
 
 (defn remove-consumer-reply [msg]
   (let [consumer (consumer msg)]
