@@ -9,7 +9,9 @@
   "The default threshold of the appender in percentage."
   10)
 
-(defn- free-space [{:keys [events event-index size threshold] :as appender}]
+(defn- garbage-collect-events
+  "Garbage collect some events of the `appender`."
+  [{:keys [events event-index size threshold] :as appender}]
   (if (> (count event-index) (+ size (* size (/ threshold 100.0))))
     (assoc appender
            :events (take size events)
@@ -28,7 +30,7 @@
     (if (or (nil? filter-fn) (filter-fn event))
       (let [appender (-> (update appender :events #(cons event %))
                          (assoc-in [:event-index (:id event)] event)
-                         (free-space))]
+                         (garbage-collect-events))]
         (doseq [{:keys [callback filter-fn] :as consumer} (vals consumers)
                 :when (filter-fn event)]
           (callback consumer event))
