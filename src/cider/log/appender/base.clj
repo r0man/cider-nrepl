@@ -25,9 +25,14 @@
                  (merge old-consumer (select-keys consumer [:filters]))
                  consumer))))
 
+(defn- applicable-event?
+  "Whether the `event` should be added to the appender."
+  [{:keys [filter-fn]} event]
+  (or (nil? filter-fn) (filter-fn event)))
+
 (defn- append [appender event]
   (let [{:keys [filter-fn consumers]} appender]
-    (if (or (nil? filter-fn) (filter-fn event))
+    (if (applicable-event? appender event)
       (let [appender (-> (update appender :events #(cons event %))
                          (assoc-in [:event-index (:id event)] event)
                          (garbage-collect-events))]
