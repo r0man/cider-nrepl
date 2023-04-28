@@ -25,22 +25,37 @@
                  (merge old-consumer (select-keys consumer [:filters]))
                  consumer))))
 
-(defn- applicable-event?
+(defn- add-event?
   "Whether the `event` should be added to the appender."
   [{:keys [filter-fn]} event]
   (or (nil? filter-fn) (filter-fn event)))
 
-(defn- append [appender event]
-  (let [{:keys [filter-fn consumers]} appender]
-    (if (applicable-event? appender event)
-      (let [appender (-> (update appender :events #(cons event %))
-                         (assoc-in [:event-index (:id event)] event)
-                         (garbage-collect-events))]
-        (doseq [{:keys [callback filter-fn] :as consumer} (vals consumers)
-                :when (filter-fn event)]
-          (callback consumer event))
-        appender)
-      appender)))
+(defn- notify-consumers
+  [{:keys [consumers] :as appender} event]
+  (doseq [{:keys [callback filter-fn] :as consumer} (vals consumers)
+          :when (filter-fn event)]
+    (callback consumer event))
+  appender)
+
+(defn- enqueue-event
+  "Enqueue the `event` to the event list of `appender`."
+  [appender event]
+  (update appender :events #(cons event %)))
+
+(defn- index-event
+  "Add the `event` to the index of `appender`."
+  [appender event]
+  (assoc-in appender [:event-index (:id event)] event))
+
+(defn- append
+  "Add the `event` to the `appender`."
+  [appender event]
+  (if (add-event? appender event)
+    (-> (enqueue-event appender event)
+        (index-event event)
+        (notify-consumers event)
+        (garbage-collect-events))
+    appender))
 
 (defn- clear [appender]
   (assoc appender :events [] :event-index {}))
