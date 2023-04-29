@@ -125,4 +125,4 @@
     (:website-url descriptor)))
 
 (defn framework []
-  (map->Logback {}))
+  (map->Logback descriptor))

@@ -87,6 +87,6 @@
   ([framework-syms]
    (reduce (fn [frameworks constructor]
              (if-let [framework (resolve-framework constructor)]
-               (assoc frameworks (:id framework) framework)
+               (assoc frameworks (id framework) framework)
                frameworks))
            {} framework-syms)))

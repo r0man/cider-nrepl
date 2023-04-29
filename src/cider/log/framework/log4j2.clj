@@ -130,4 +130,4 @@
     (:website-url descriptor)))
 
 (defn framework []
-  (map->Log4j {}))
+  (map->Log4j descriptor))

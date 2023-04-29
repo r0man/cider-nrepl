@@ -120,4 +120,4 @@
     (:website-url descriptor)))
 
 (defn framework []
-  (map->Java {}))
+  (map->Java descriptor))
