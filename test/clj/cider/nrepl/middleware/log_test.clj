@@ -134,7 +134,9 @@
 
 (deftest test-frameworks
   (let [{:keys [log-frameworks status]} (session/message {:op "log-frameworks"})]
+    (clojure.pprint/pprint log-frameworks)
     (is (= #{"done"} status))
+    (is (= ["Logback" "Java Util Logging"] (map :name log-frameworks)))
     (with-framework [framework (frameworks)]
       (is (= {:appenders []
               :description (framework/description framework)

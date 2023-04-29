@@ -6,7 +6,7 @@
 
 (def ^:dynamic *frameworks*
   ['cider.log.framework.logback/framework
-   'cider.log.framework.java/framework
+   'cider.log.framework.jul/framework
    ;; 'cider.log.framework.log4j2/framework
    ])
 

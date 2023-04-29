@@ -1,4 +1,4 @@
-(ns cider.log.framework.java
+(ns cider.log.framework.jul
   (:require [cider.log.appender :as appender]
             [cider.log.protocol.framework :as p]
             [clojure.set :as set]
@@ -7,8 +7,8 @@
 
 (def descriptor
   "The descriptor of the Java Util Logging framework."
-  {:id :java
-   :name "Logback"
+  {:id :jul
+   :name "Java Util Logging"
    :constructor :cider.log.framework.java/framework
    :description "The Java Logging APIs, contained in the package
     java.util.logging, facilitate software servicing and maintenance at customer

@@ -1,7 +1,7 @@
 (ns cider.log.framework-test
   (:require [cider.log.appender :as appender]
             [cider.log.framework :as framework]
-            [cider.log.framework.java :as java]
+            [cider.log.framework.jul :as jul]
             [cider.log.framework.log4j2 :as log4j2]
             [cider.log.framework.logback :as logback]
             [clojure.test :refer [deftest is testing]]))
@@ -10,7 +10,7 @@
   {:id "my-appender"})
 
 (defn frameworks []
-  [(java/framework) (log4j2/framework) (logback/framework)])
+  [(jul/framework) (log4j2/framework) (logback/framework)])
 
 (deftest test-add-appender
   (doseq [framework (frameworks)]
