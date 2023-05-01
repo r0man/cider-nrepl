@@ -29,7 +29,6 @@
   "Return the log `frameowrk` in a Bencode compatible format."
   [framework]
   {:appenders (map select-appender (framework/appenders framework))
-   :description (framework/description framework)
    :id (framework/id framework)
    :javadoc-url (framework/javadoc-url framework)
    :name (framework/name framework)
@@ -61,7 +60,7 @@
 (defn- framework
   "Lookup the log framework from the :framework key of `msg`."
   [{:keys [session framework]}]
-  (or (get-in (meta session) [::frameworks (keyword framework)])
+  (or (get-in (meta session) [::frameworks framework])
       (throw (ex-info "Log framework not found"
                       {:error :logging-framework-not-found
                        :framework framework}))))

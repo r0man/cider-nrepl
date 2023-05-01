@@ -1,24 +1,8 @@
 (ns cider.log.framework.jul
   (:require [cider.log.appender :as appender]
-            [cider.log.protocol.framework :as p]
             [clojure.set :as set]
             [clojure.string :as str])
-  (:import [java.util.logging Level LogManager Logger LogRecord MemoryHandler StreamHandler]))
-
-(def descriptor
-  "The descriptor of the Java Util Logging framework."
-  {:id :jul
-   :name "Java Util Logging"
-   :constructor :cider.log.framework.java/framework
-   :description "The Java Logging APIs, contained in the package
-    java.util.logging, facilitate software servicing and maintenance at customer
-    sites by producing log reports suitable for analysis by end users, system
-    administrators, field service engineers, and software development teams. The
-    Logging APIs capture information such as security failures, configuration
-    errors, performance bottlenecks, and/or bugs in the application or
-    platform."
-   :javadoc-url "https://docs.oracle.com/en/java/javase/19/core/java-logging-overview.html"
-   :website-url "https://docs.oracle.com/javase/6/docs/technotes/guides/logging" })
+  (:import (java.util.logging Level Logger LogRecord StreamHandler)))
 
 (def ^:private log-levels
   "The standard log levels of the Java Logging framework."
@@ -76,48 +60,32 @@
 (defn- add-appender
   "Attach the Logback appender."
   [framework appender]
-  (let [atom-appender (appender/make-atom-appender appender)
-        instance (proxy [StreamHandler] []
+  (let [instance (proxy [StreamHandler] []
                    (publish [^LogRecord record]
-                     (appender/append atom-appender (record->event record))))]
-    (swap! (:base atom-appender) assoc :instance instance)
+                     (appender/append appender (record->event record))))]
+    (swap! appender assoc :instance instance)
     (doto ^Logger (Logger/getLogger (or (:logger appender) ""))
       (.addHandler instance))
-    (assoc-in framework [:appenders (:id appender)] atom-appender)))
+    framework))
 
 (defn- remove-appender
   "Remove `appender` from the Logback `framework`."
   [framework appender]
   (let [logger (Logger/getLogger (or (:logger appender) ""))]
-    (when-let [appender (get-in framework [:appenders (:id appender)])]
-      (.removeHandler logger (:instance @(:base appender))))
-    (update framework :appenders dissoc (:id appender))))
+    (.removeHandler logger (:instance @appender))
+    framework))
 
 (defn- log [{:keys [logger] :as event}]
   (.log (Logger/getLogger (or logger "")) (event->record event)))
 
-(defrecord Java [appenders]
-  p/Framework
-  (-appenders [_]
-    (vals appenders))
-  (-add-appender [framework appender]
-    (add-appender framework appender))
-  (-description [_]
-    (:description descriptor))
-  (-id [_]
-    (:id descriptor))
-  (-name [_]
-    (:name descriptor))
-  (-levels [_]
-    log-levels)
-  (-log [_ event]
-    (log event))
-  (-javadoc-url [_]
-    (:javadoc-url descriptor))
-  (-remove-appender [framework appender]
-    (remove-appender framework appender))
-  (-website-url [_]
-    (:website-url descriptor)))
-
-(defn framework []
-  (map->Java descriptor))
+(def framework
+  "The Java Util Logging framework."
+  {:add-appender-fn #'add-appender
+   :constructor :cider.log.framework.java/framework
+   :id "jul"
+   :javadoc-url "https://docs.oracle.com/en/java/javase/19/docs/api/java.logging/java/util/logging/package-summary.html"
+   :levels log-levels
+   :log-fn #'log
+   :name "Java Util Logging"
+   :remove-appender-fn #'remove-appender
+   :website-url "https://docs.oracle.com/en/java/javase/19/core/java-logging-overview.html"})

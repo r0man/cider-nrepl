@@ -1,24 +1,13 @@
 (ns cider.log.framework.log4j2
   (:require [cider.log.appender :as appender]
-            [cider.log.protocol.framework :as p]
             [clojure.set :as set]
             [clojure.string :as str])
-  (:import [org.apache.logging.log4j Level LogManager MarkerManager]
-           [org.apache.logging.log4j.core LogEvent LoggerContext]
-           [org.apache.logging.log4j.core.appender AbstractAppender]
-           [org.apache.logging.log4j.core.config AppenderRef LoggerConfig LoggerConfig$Builder Property]
-           [org.apache.logging.log4j.core.impl ThrowableProxy]
-           [org.apache.logging.log4j.message MessageFormatMessage]))
-
-(def descriptor
-  "The descriptor of the Log4j2 logging framework."
-  {:id :log4j2
-   :name "Log4j2"
-   :constructor :cider.log.framework.lof4j2/framework
-   :description "Log4j 2 provides both a portable logging API and implementation for Java
-    with significant improvements over its predecessor, Log4j 1.x."
-   :javadoc-url "https://logging.apache.org/log4j/2.x/javadoc/log4j-api"
-   :website-url "https://logging.apache.org"})
+  (:import (org.apache.logging.log4j Level MarkerManager ThreadContext)
+           (org.apache.logging.log4j.core LogEvent LoggerContext)
+           (org.apache.logging.log4j.core.appender AbstractAppender)
+           (org.apache.logging.log4j.core.config AppenderRef LoggerConfig$Builder Property)
+           (org.apache.logging.log4j.core.impl ThrowableProxy)
+           (org.apache.logging.log4j.message MessageFormatMessage)))
 
 (def ^:private log-levels
   "The standard log levels of the Log4j2 framework."
@@ -70,64 +59,52 @@
                                (.withProperties (.getPropertyArray logger-config))
                                (.withRefs (into-array
                                            (conj (seq (.getAppenderRefs logger-config))
-                                                 (AppenderRef/createAppenderRef (:id appender) nil nil))))
+                                                 (AppenderRef/createAppenderRef (:id @appender) nil nil))))
                                (.withtFilter (.getFilter logger-config))
                                (.build))
-            atom-appender (appender/make-atom-appender appender)
-            instance (doto (proxy [AbstractAppender] [(:id appender) nil nil true (into-array Property [])]
+            instance (doto (proxy [AbstractAppender] [(:id @appender) nil nil true (into-array Property [])]
                              (append [^LogEvent event]
-                               (appender/append atom-appender (event-data event))))
+                               (appender/append appender (event-data event))))
                        (.start))]
-        (swap! (:base atom-appender) assoc :instance instance)
+        (swap! appender assoc :instance instance)
         (.addAppender logger-config' instance nil nil)
         (.addLogger config logger-name logger-config')
         (.updateLoggers context)
-        (assoc-in framework [:appenders (:id appender)] atom-appender)))))
+        framework))))
 
 (defn- remove-appender
   "Remove `appender` from the Log4j `framework`."
   [framework appender]
-  (when-let [appender (get-in framework [:appenders (:id appender)])]
-    (let [context (LoggerContext/getContext false)
-          config (.getConfiguration context)
-          logger (.getRootLogger context)
-          logger-name (.getName logger)
-          logger-config (.getLoggerConfig config logger-name)]
-      (.removeAppender logger-config (:id appender))
-      (.setConfiguration context config)
-      (.updateLoggers context)))
-  (update framework :appenders dissoc (:id appender)))
+  (let [context (LoggerContext/getContext false)
+        config (.getConfiguration context)
+        logger (.getRootLogger context)
+        logger-name (.getName logger)
+        logger-config (.getLoggerConfig config logger-name)]
+    (.removeAppender logger-config (:id @appender))
+    (.setConfiguration context config)
+    (.updateLoggers context)
+    framework))
 
-(defn- log [{:keys [arguments exception level logger marker message]}]
+(defn- log [{:keys [arguments exception level logger marker mdc message]}]
   (let [context (LoggerContext/getContext false)]
+    (doseq [[key value] (seq mdc)]
+      (ThreadContext/put key value))
     (.log (.getLogger context (or ^String logger ""))
           ^Level (keyword-to-level level Level/INFO)
           (some-> marker MarkerManager/getMarker)
           (MessageFormatMessage. ^String message (into-array Object arguments))
-          ^Throwable exception)))
+          ^Throwable exception)
+    (when (seq mdc)
+      (ThreadContext/clearAll))))
 
-(defrecord Log4j [name appenders]
-  p/Framework
-  (-appenders [_]
-    (vals appenders))
-  (-add-appender [framework appender]
-    (add-appender framework appender))
-  (-description [_]
-    (:description descriptor))
-  (-id [_]
-    (:id descriptor))
-  (-name [_]
-    (:name descriptor))
-  (-levels [_]
-    log-levels)
-  (-log [_ event]
-    (log event))
-  (-javadoc-url [_]
-    (:javadoc-url descriptor))
-  (-remove-appender [framework appender]
-    (remove-appender framework appender))
-  (-website-url [_]
-    (:website-url descriptor)))
-
-(defn framework []
-  (map->Log4j descriptor))
+(def framework
+  "The Log4j2 logging framework."
+  {:add-appender-fn #'add-appender
+   :constructor :cider.log.framework.lof4j2/framework
+   :id "log4j2"
+   :javadoc-url "https://logging.apache.org/log4j/2.x/javadoc/log4j-api"
+   :levels log-levels
+   :log-fn #'log
+   :name "Log4j2"
+   :remove-appender-fn #'remove-appender
+   :website-url "https://logging.apache.org"})

@@ -1,22 +1,11 @@
 (ns cider.log.framework.logback
   (:require [cider.log.appender :as appender]
-            [cider.log.protocol.framework :as p]
             [clojure.set :as set]
             [clojure.string :as str])
-  (:import [ch.qos.logback.classic Level Logger LoggerContext]
-           [ch.qos.logback.classic.spi ILoggingEvent LoggingEvent ThrowableProxy]
-           [ch.qos.logback.core Appender AppenderBase]
-           [org.slf4j LoggerFactory Marker MarkerFactory MDC]))
-
-(def descriptor
-  "The descriptor of the Logback logging framework."
-  {:id :logback
-   :name "Logback"
-   :constructor :cider.log.framework.logback/framework
-   :description "Logback is intended as a successor to the popular log4j
-    project, picking up where log4j 1.x leaves off."
-   :javadoc-url "https://logback.qos.ch/apidocs"
-   :website-url "https://logback.qos.ch"})
+  (:import (ch.qos.logback.classic Level Logger LoggerContext)
+           (ch.qos.logback.classic.spi ILoggingEvent LoggingEvent ThrowableProxy)
+           (ch.qos.logback.core Appender AppenderBase)
+           (org.slf4j LoggerFactory MarkerFactory MDC)))
 
 (def ^:private log-levels
   "The standard log levels of the Logback framework."
@@ -64,16 +53,15 @@
 (defn- add-appender
   "Attach the Logback appender."
   [framework appender]
-  (let [atom-appender (appender/make-atom-appender appender)
-        instance (doto (proxy [AppenderBase] []
+  (let [instance (doto (proxy [AppenderBase] []
                          (append [^ILoggingEvent event]
-                           (appender/append atom-appender (event-data event))))
-                   (.setName (:id appender))
+                           (appender/append appender (event-data event))))
+                   (.setName (:id @appender))
                    (.start))]
-    (swap! (:base atom-appender) assoc :instance instance)
+    (swap! appender assoc :instance instance)
     (doto ^Logger (get-logger Logger/ROOT_LOGGER_NAME)
       (.addAppender instance))
-    (assoc-in framework [:appenders (:id appender)] atom-appender)))
+    framework))
 
 (defn- level-int [level]
   (some-> level keyword-to-level Level/toLocationAwareLoggerInteger))
@@ -95,34 +83,19 @@
 (defn- remove-appender
   "Remove `appender` from the Logback `framework`."
   [framework appender]
-  (when-let [appender (get-in framework [:appenders (:id appender)])]
-    (.stop ^Appender (:instance @(:base appender))))
+  (.stop ^Appender (:instance @appender))
   (doto ^Logger (get-logger Logger/ROOT_LOGGER_NAME)
-    (.detachAppender ^String (:id appender)))
-  (update framework :appenders dissoc (:id appender)))
+    (.detachAppender ^String (:id @appender)))
+  framework)
 
-(defrecord Logback [name appenders]
-  p/Framework
-  (-appenders [_]
-    (vals appenders))
-  (-add-appender [framework appender]
-    (add-appender framework appender))
-  (-description [_]
-    (:description descriptor))
-  (-id [_]
-    (:id descriptor))
-  (-name [_]
-    (:name descriptor))
-  (-levels [_]
-    log-levels)
-  (-log [_ event]
-    (log event))
-  (-javadoc-url [_]
-    (:javadoc-url descriptor))
-  (-remove-appender [framework appender]
-    (remove-appender framework appender))
-  (-website-url [_]
-    (:website-url descriptor)))
-
-(defn framework []
-  (map->Logback descriptor))
+(def framework
+  "The Logback logging framework."
+  {:add-appender-fn #'add-appender
+   :constructor :cider.log.framework.logback/framework
+   :id "logback"
+   :javadoc-url "https://logback.qos.ch/apidocs"
+   :levels log-levels
+   :log-fn #'log
+   :name "Logback"
+   :remove-appender-fn #'remove-appender
+   :website-url "https://logback.qos.ch"})
