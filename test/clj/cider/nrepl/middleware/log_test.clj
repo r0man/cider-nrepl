@@ -312,7 +312,10 @@
         (is (= {} (:filters appender')))
         (is (= (:id appender) (:id appender')))
         (is (pos-int? (:size appender')))
-        (is (pos-int? (:threshold appender')))))))
+        (is (pos-int? (:threshold appender')))
+        (let [{:keys [log-frameworks status]} (session/message {:op "log-frameworks"})]
+          (is (= #{"done"} status))
+          (is (empty? (:appenders (find-framework log-frameworks framework)))))))))
 
 (deftest test-remove-consumer
   (with-framework [framework (frameworks)]
