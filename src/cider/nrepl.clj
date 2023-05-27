@@ -578,6 +578,15 @@ stack frame of the most recent exception. This op is deprecated, please use the
               :returns {"clojuredocs" "A map of information in ClojureDocs."
                         "status" "\"no-doc\" if there is no document matching to `ns` and `symbol`."}}}})
 
+(def-wrapper wrap-stateful-check cider.nrepl.middleware.stateful-check/handle-stateful-check
+  {:doc "Middleware that provides stateful check functionality."
+   :handles {"stateful-check-render"
+             {:doc "Render the test result of a stateful check specification"
+              :requires {"sym" "The symbol to lookup"
+                         "ns" "The current namespace"}
+              :returns {"fn-refs" "A list of function references."
+                        "status" "done"}}}})
+
 ;;; CIDER's nREPL Handler
 ;;
 ;; Here everything comes together. We define an nREPL handler

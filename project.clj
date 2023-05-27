@@ -106,6 +106,7 @@
                     :dependencies [[boot/base "2.8.3"]
                                    [boot/core "2.8.3"]
                                    [org.apache.httpcomponents/httpclient "4.5.13" :exclusions [commons-logging]]
+                                   [org.clojars.czan/stateful-check "0.4.2" :exclusions [org.clojure/clojure]]
                                    [leiningen-core "2.9.10" :exclusions [org.clojure/clojure
                                                                          commons-codec
                                                                          com.google.code.findbugs/jsr305]]
@@ -131,6 +132,7 @@
                                                               cider.nrepl/wrap-slurp
                                                               cider.nrepl/wrap-spec
                                                               cider.nrepl/wrap-stacktrace
+                                                              cider.nrepl/wrap-stateful-check
                                                               cider.nrepl/wrap-test
                                                               cider.nrepl/wrap-trace
                                                               cider.nrepl/wrap-tracker
