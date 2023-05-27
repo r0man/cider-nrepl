@@ -70,11 +70,6 @@
         (cleanup)))
     final-state))
 
-;; (test-result-failed-executions failed-result)
-;; (test-result-shrunk-executions failed-result)
-
-;; (assoc-execution-state failed-result)
-
 (defn- run-parallel-execution [specification executions]
   (mapv #(run-sequential-executions specification %) executions))
 
@@ -90,64 +85,19 @@
            :stateful-check.core/shrunk-execution-state
            (run-execution specification (test-event-shrunk-execution event)))))
 
-(defn- print-sequence [commands stacktrace?]
-  (doseq [[[handle cmd & args] trace] commands]
-    (printf "  %s = %s %s\n"
-            (pr-str handle)
-            (cons (:name cmd)
-                  args)
-            (if (= :stateful-check.runner/unevaluated trace)
-              ""
-              (str " = "
-                   (if ;; (instance? stateful_check.runner.CaughtException trace)
-                       (= "stateful_check.runner.CaughtException"
-                          (.getName (.getClass trace)))
-                     (if stacktrace?
-                       (with-out-str
-                         (.printStackTrace ^Throwable (:exception trace)
-                                           (java.io.PrintWriter. *out*)))
-                       (.toString ^Object (:exception trace)))
-                     trace))))))
+;; Render
 
-(defn print-execution
-  ([{:keys [sequential parallel]} stacktrace?]
-   (print-execution sequential parallel stacktrace?))
-  ([sequential parallel stacktrace?]
-   (printf "Sequential prefix:\n")
-   (print-sequence sequential stacktrace?)
-   (doseq [[i thread] (map vector (range) parallel)]
-     ;; (printf "\nThread %s:\n" (g/index->letter i))
-     (printf "\nThread %s:\n" i)
-     (print-sequence thread stacktrace?))))
+(defn- render-argument [inspector argument]
+  (-> (inspect/render inspector " ")
+      (inspect/render-value argument)))
 
-(defn render-onto [inspector coll]
-  (update-in inspector [:rendered] concat coll))
-
-(defn render [inspector & values]
-  (render-onto inspector values))
-
-(defn render-ln [inspector & values]
-  (render-onto inspector (concat values '((:newline)))))
-
-(defn render-value [inspector value]
-  (let [{:keys [counter]} inspector
-        expr `(:value ~(inspect/inspect-value value) ~counter)]
-    (-> inspector
-        (update-in [:index] conj value)
-        (update-in [:counter] inc)
-        (update-in [:rendered] concat (list expr)))))
-
-(defn- inspect-argument [inspector argument]
-  (-> (render inspector " ")
-      (render-value argument)))
-
-(defn- inspect-arguments [inspector arguments]
+(defn- render-arguments [inspector arguments]
   (-> (reduce (fn [inspector argument]
-                (inspect-argument inspector argument))
+                (render-argument inspector argument))
               inspector arguments)
-      (render-ln)))
+      (inspect/render-ln)))
 
-(defn- inspect-command [inspector [[handle cmd & args] trace]]
+(defn- render-command [inspector [[handle cmd & args] trace]]
   (printf "  %s = %s %s\n"
           (pr-str handle)
           (cons (:name cmd)
@@ -165,54 +115,75 @@
                    ;;   (.toString ^Object (:exception trace)))
                    trace))))
   (-> inspector
-      (render "  ")
-      (render (pr-str handle))
-      (render " = ")
-      (render (:name cmd))
-      (inspect-arguments args)))
+      (inspect/render "  ")
+      (inspect/render (pr-str handle))
+      (inspect/render " = ")
+      (inspect/render (:name cmd))
+      (render-arguments args)))
 
-(defn- inspect-sequence [inspector commands]
+(defn- render-command-sequence [inspector commands]
   (reduce (fn [inspector command]
-            (inspect-command inspector command))
+            (render-command inspector command))
           inspector commands))
 
-(defn inspect-execution
+(defn render-execution
   ([inspector {:keys [sequential parallel]}]
-   (inspect-execution inspector sequential parallel))
+   (render-execution inspector sequential parallel))
   ([inspector sequential parallel]
    (-> inspector
-       (render-ln "Sequential prefix:")
-       (inspect-sequence sequential))
+       (inspect/render-ln "Sequential prefix:")
+       (render-command-sequence sequential))
    ;; (doseq [[i thread] (map vector (range) parallel)]
    ;;   ;; (printf "\nThread %s:\n" (g/index->letter i))
    ;;   (printf "\nThread %s:\n" i)
    ;;   (inspect-sequence inspector thread stacktrace?))
    ))
 
-(defn- new-renderer []
-  {:path []
-   :rendered []})
+(defn render-failed-execution [inspector event]
+  (let [execution (test-event-failed-execution event)]
+    (-> inspector
+        (inspect/render-ln "--- Failed execution:")
+        (inspect/render-ln)
+        (render-execution execution)
+        (inspect/render-ln))))
 
-(defn render-event
-  [renderer event]
-  (render-ln renderer "Hello world"))
+(defn render-shrunk-execution [inspector event]
+  (let [execution (test-event-shrunk-execution event)]
+    (-> inspector
+        (inspect/render-ln "--- Shrunk execution:")
+        (inspect/render-ln)
+        (render-execution execution)
+        (inspect/render-ln))))
 
-;; (render-event (new-renderer) (analyze-event failed-result))
+(defn render-event [inspector event]
+  (-> inspector
+      (render-shrunk-execution event)
+      (render-failed-execution event)))
 
-(defn render-reports
-  [reports]
-  (reduce (fn [state report]
-            (render-event state report))
-          (new-renderer) reports))
+(defn render-events [inspector events]
+  (reduce render-event inspector events))
+
+(defn render-report [ns var]
+  (let [report (current-test-report)
+        events (test-report-events report ns var)]
+    (if-let [failed-events (seq (filter test-event-failed? events))]
+      (-> (inspect/fresh)
+          (inspect/clear)
+          (inspect/render-ln "Stateful Check Test Inspector")
+          (inspect/render-ln "=============================")
+          (inspect/render-ln)
+          (inspect/render-ln "--- Test:")
+          (inspect/render-ln)
+          (inspect/render-ln "  Namespace:   " (str ns))
+          (inspect/render-ln "  Var:         " (str var))
+          (inspect/render-ln)
+          (render-events failed-events)))))
 
 (defn- stateful-check-render-reply
   [{:keys [ns var] :as msg}]
-  (let [report (current-test-report)
-        results (test-report-events report ns var)]
-    (if-let [results (seq (filter test-event-failed? results))]
-      {:status :done
-       :reports (render-reports (map analyze-event results))}
-      {:status :no-report})))
+  (let [inspector (render-report ns var)]
+    (#'middleware.inspect/inspector-response
+     msg (middleware.inspect/swap-inspector! msg (constantly inspector)))))
 
 (defn handle-stateful-check [handler msg]
   (with-safe-transport handler msg
