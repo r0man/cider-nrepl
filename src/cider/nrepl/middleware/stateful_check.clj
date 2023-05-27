@@ -4,110 +4,91 @@
             [cider.nrepl.middleware.test :as middleware.test]
             [cider.nrepl.middleware.util :refer [transform-value]]
             [cider.nrepl.middleware.util.error-handling :refer [with-safe-transport]]
-            [orchard.inspect :as inspect]
-            [clojure.spec.alpha :as spec]))
+            [orchard.inspect :as inspect]))
 
 ;; Test report
 
-(defn current-test-report
+(defn- current-test-report
   "Return the current test report."
   []
   @middleware.test/current-report)
 
-(defn test-report-results
-  "Return the results for `ns` and `var` from `report`."
+(defn- test-report-events
+  "Return the test report events for `ns` and `var` from `report`."
   [report ns var]
   (let [ns (symbol ns), var (symbol var)]
     (get-in report [:results ns var])))
 
-(defn test-report-result-failed?
-  "Return the results for `ns` and `var` from `report`."
-  [result]
-  (= :fail (:type result)))
+;; Test report event
 
-(defn failing-test-results
-  "Return the failing test results for `ns` and `var` from `report`."
-  [report ns var]
-  (filter test-report-result-failed? (test-report-results report ns var)))
+(defn- test-event-failed?
+  "Return true if the test `result` has failed, otherwise false."
+  [event]
+  (= :fail (:type event)))
 
-;; Test report result
+(defn- test-event-failed-execution
+  "Return the failed execution from `event`."
+  [event]
+  (some-> event :stateful-check.core/results :result ex-data))
 
-(defn result-failed-executions
-  "Return the Stateful Check specification from `report`."
-  [result]
-  (some-> result :stateful-check.core/results :result ex-data))
+(defn- test-event-shrunk-execution
+  "Return the shrunk execution from `event`."
+  [event]
+  (some-> event :stateful-check.core/results :shrunk :result ex-data))
 
-(defn result-shrunk-executions
-  "Return the Stateful Check specification from `report`."
-  [report]
-  (some-> report :stateful-check.core/results :shrunk :result ex-data))
+(defn- test-event-specification
+  "Return the Stateful Check specification from `event`."
+  [event]
+  (:stateful-check.core/spec event))
 
-(defn result-specification
-  "Return the Stateful Check specification from `report`."
-  [result]
-  (:stateful-check.core/specification result))
+;; Test execution
 
-;; {:sequential [[(#<1>
-;;                 {:args #function[cider.nrepl.middleware.stateful-check-java-map-test/fn--16760],
-;;                  :command #function[cider.nrepl.middleware.stateful-check-java-map-test/fn--16762],
-;;                  :next-state #function[cider.nrepl.middleware.stateful-check-java-map-test/fn--16765],
-;;                  :name :put}
-;;                 "a" 85)
-;;                "nil"]
-;;               [(#<2>
-;;                 {:requires #function[cider.nrepl.middleware.stateful-check-java-map-test/fn--16771],
-;;                  :args #function[cider.nrepl.middleware.stateful-check-java-map-test/fn--16773],
-;;                  :command #function[cider.nrepl.middleware.stateful-check-java-map-test/fn--16775],
-;;                  :postcondition #function[cider.nrepl.middleware.stateful-check-java-map-test/fn--16778],
-;;                  :name :get}
-;;                 "a")
-;;                "\"boom\""]],
-;;  :parallel []}
-
-(defn run-sequential-execution [specification execution]
+(defn- run-sequential-executions [specification executions]
   (let [setup-result (when-let [setup (:setup specification)]
                        (setup))
         initial-state (when-let [initial-state (:initial-state specification)]
                         (if (:setup specification)
                           (initial-state setup-result)
                           (initial-state)))
-        final-state (reduce (fn [steps [symbolic-var command & args]]
-                              (prn (class symbolic-var))
-                              (let [last-state (:state (last steps))
-                                    command-result (apply (:command command) args)
-                                    next-state (if-let [next-state (:next-state command)]
-                                                 (next-state last-state args command-result)
-                                                 last-state)
-                                    next-step {:args (vec args)
-                                               :command (:name command)
-                                               :result command-result
-                                               :state next-state
-                                               :symbolic-var symbolic-var}]
+        final-state (reduce (fn [steps [[handle cmd & args :as execution] trace]]
+                              (let [previous-state (:state (last steps))
+                                    result (apply (:command cmd) args)
+                                    next-state (if-let [next-state (:next-state cmd)]
+                                                 (next-state previous-state args result)
+                                                 previous-state)
+                                    next-step {:execution {:args (vec args)
+                                                           :cmd cmd
+                                                           :handle handle
+                                                           :result result
+                                                           :trace trace}
+                                               :state next-state}]
                                 (conj steps next-step)))
-                            [{:state initial-state}] execution)]
+                            [{:state initial-state}] executions)]
     (when-let [cleanup (:cleanup specification)]
       (if (:setup specification)
         (cleanup setup-result)
         (cleanup)))
     final-state))
 
-(defn run-parallel-execution [specification executions]
-  (mapv #(run-sequential-execution specification %) executions))
+;; (test-result-failed-executions failed-result)
+;; (test-result-shrunk-executions failed-result)
 
-(defn run-execution [specification execution]
-  {:sequential (run-sequential-execution specification (:sequential execution))
+;; (assoc-execution-state failed-result)
+
+(defn- run-parallel-execution [specification executions]
+  (mapv #(run-sequential-executions specification %) executions))
+
+(defn- run-execution [specification execution]
+  {:sequential (run-sequential-executions specification (:sequential execution))
    :parallel (run-parallel-execution specification (:parallel execution))})
 
-(defn enhance-report [result]
-  (let [specification (result-specification result)
-        failed-executions (result-failed-executions result)
-        shrunk-executions (result-shrunk-executions result)]
-    (assoc result
-           :stateful-check.core/failed-state (run-execution specification failed-executions)
-           :stateful-check.core/shrunk-state (run-execution specification shrunk-executions))))
-
-;; (enhance-report failed-result)
-;; (result-failed-executions failed-result)
+(defn analyze-event [event]
+  (let [specification (test-event-specification event)]
+    (assoc event
+           :stateful-check.core/failed-execution-state
+           (run-execution specification (test-event-failed-execution event))
+           :stateful-check.core/shrunk-execution-state
+           (run-execution specification (test-event-shrunk-execution event)))))
 
 (defn- print-sequence [commands stacktrace?]
   (doseq [[[handle cmd & args] trace] commands]
@@ -225,10 +206,10 @@
 (defn- stateful-check-render-reply
   [{:keys [ns var] :as msg}]
   (let [report (current-test-report)
-        results (test-report-results report ns var)]
-    (if-let [results (seq (filter test-report-result-failed? results))]
+        results (test-report-events report ns var)]
+    (if-let [results (seq (filter test-event-failed? results))]
       {:status :done
-       :reports (render-reports (map enhance-report results))}
+       :reports (render-reports (map analyze-event results))}
       {:status :no-report})))
 
 (defn handle-stateful-check [handler msg]
@@ -238,13 +219,13 @@
 (comment
 
   (def failed-results
-    (failing-test-results
-     (current-test-report)
-     "cider.nrepl.middleware.stateful-check-java-map-test"
-     "java-map-passes-sequentially"))
+    (filter test-event-failed?
+            (test-report-events (current-test-report)
+                                "cider.nrepl.middleware.stateful-check-java-map-test"
+                                "java-map-passes-sequentially")))
 
   (def failed-result
     (first failed-results))
 
-  (result-failed-executions failed-result)
-  (result-shrunk-executions failed-result))
+  (test-event-failed-execution failed-result)
+  (test-event-shrunk-execution failed-result))
