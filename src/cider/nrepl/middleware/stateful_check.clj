@@ -94,14 +94,24 @@
 (defn- render-arguments [inspector arguments]
   (-> (reduce (fn [inspector argument]
                 (render-argument inspector argument))
-              inspector arguments)
-      (inspect/render-ln)))
+              inspector arguments)))
+
+(defn- render-trace [inspector trace]
+  (-> inspector
+      (inspect/render (if ;; (instance? stateful_check.runner.CaughtException trace)
+                          (= "stateful_check.runner.CaughtException"
+                             (.getName (.getClass trace)))
+                        (if true ;; stacktrace?
+                          (with-out-str
+                            (.printStackTrace ^Throwable (:exception trace)
+                                              (java.io.PrintWriter. *out*)))
+                          (.toString ^Object (:exception trace)))
+                        trace))))
 
 (defn- render-command [inspector [[handle cmd & args] trace]]
   (printf "  %s = %s %s\n"
           (pr-str handle)
-          (cons (:name cmd)
-                args)
+          (cons (:name cmd) args)
           (if (= :stateful-check.runner/unevaluated trace)
             ""
             (str " = "
@@ -119,7 +129,10 @@
       (inspect/render (pr-str handle))
       (inspect/render " = ")
       (inspect/render (:name cmd))
-      (render-arguments args)))
+      (render-arguments args)
+      (inspect/render " = ")
+      (render-trace trace)
+      (inspect/render-ln)))
 
 (defn- render-command-sequence [inspector commands]
   (reduce (fn [inspector command]
@@ -169,6 +182,7 @@
     (if-let [failed-events (seq (filter test-event-failed? events))]
       (-> (inspect/fresh)
           (inspect/clear)
+          (assoc :value [])
           (inspect/render-ln "Stateful Check Test Inspector")
           (inspect/render-ln "=============================")
           (inspect/render-ln)
@@ -182,6 +196,7 @@
 (defn- stateful-check-render-reply
   [{:keys [ns var] :as msg}]
   (let [inspector (render-report ns var)]
+    (def my-inspector inspector)
     (#'middleware.inspect/inspector-response
      msg (middleware.inspect/swap-inspector! msg (constantly inspector)))))
 
