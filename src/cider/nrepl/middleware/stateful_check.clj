@@ -4,7 +4,48 @@
             [cider.nrepl.middleware.test :as middleware.test]
             [cider.nrepl.middleware.util :refer [transform-value]]
             [cider.nrepl.middleware.util.error-handling :refer [with-safe-transport]]
-            [orchard.inspect :as inspect]))
+            [orchard.inspect :as inspect]
+            [clojure.spec.alpha :as spec]))
+
+;; Test report
+
+(defn current-test-report
+  "Return the current test report."
+  []
+  @middleware.test/current-report)
+
+(defn test-report-results
+  "Return the results for `ns` and `var` from `report`."
+  [report ns var]
+  (let [ns (symbol ns), var (symbol var)]
+    (get-in report [:results ns var])))
+
+(defn test-report-result-failed?
+  "Return the results for `ns` and `var` from `report`."
+  [result]
+  (= :fail (:type result)))
+
+(defn failing-test-results
+  "Return the failing test results for `ns` and `var` from `report`."
+  [report ns var]
+  (filter test-report-result-failed? (test-report-results report ns var)))
+
+;; Test report result
+
+(defn result-failed-executions
+  "Return the Stateful Check specification from `report`."
+  [result]
+  (some-> result :stateful-check.core/results :result ex-data))
+
+(defn result-shrunk-executions
+  "Return the Stateful Check specification from `report`."
+  [report]
+  (some-> report :stateful-check.core/results :shrunk :result ex-data))
+
+(defn result-specification
+  "Return the Stateful Check specification from `report`."
+  [result]
+  (:stateful-check.core/specification result))
 
 ;; {:sequential [[(#<1>
 ;;                 {:args #function[cider.nrepl.middleware.stateful-check-java-map-test/fn--16760],
@@ -57,44 +98,16 @@
   {:sequential (run-sequential-execution specification (:sequential execution))
    :parallel (run-parallel-execution specification (:parallel execution))})
 
-(defn enhance-report [report]
-  (let [specification (:stateful-check.core/specification report)
-        results (:stateful-check.core/results report)
-        failed-execution (-> results :result :fail)
-        shrunk-execution (-> report  :shrunk :smallest first)]
-    (run-execution specification failed-execution)
-    (run-execution specification shrunk-execution)))
+(defn enhance-report [result]
+  (let [specification (result-specification result)
+        failed-executions (result-failed-executions result)
+        shrunk-executions (result-shrunk-executions result)]
+    (assoc result
+           :stateful-check.core/failed-state (run-execution specification failed-executions)
+           :stateful-check.core/shrunk-state (run-execution specification shrunk-executions))))
 
-(defn current-report
-  "Return the current test report."
-  []
-  @middleware.test/current-report)
-
-(defn test-results
-  "Return all test results for `ns` and `var` from `report`."
-  [report ns var]
-  (let [ns (symbol ns), var (symbol var)]
-    (get-in report [:results ns var])))
-
-(defn failing-test-results
-  "Return the failing test results for `ns` and `var` from `report`."
-  [report ns var]
-  (filter #(= :fail (:type %)) (test-results  report ns var)))
-
-(defn report-specification
-  "Return the Stateful Check specification from `report`."
-  [report]
-  (:stateful-check.core/specification report))
-
-(defn report-failing-commands
-  "Return the Stateful Check specification from `report`."
-  [report]
-  (some-> report :stateful-check.core/results :result ex-data))
-
-(defn report-shrunk-commands
-  "Return the Stateful Check specification from `report`."
-  [report]
-  (some-> report :stateful-check.core/results :shrunk :result ex-data))
+;; (enhance-report failed-result)
+;; (result-failed-executions failed-result)
 
 (defn- print-sequence [commands stacktrace?]
   (doseq [[[handle cmd & args] trace] commands]
@@ -195,22 +208,28 @@
    ;;   (inspect-sequence inspector thread stacktrace?))
    ))
 
+(defn- new-renderer []
+  {:index []
+   :rendered []})
+
 (defn render-report
-  [state reports]
-  state)
+  [renderer report]
+  renderer)
 
 (defn render-reports
   [reports]
   (reduce (fn [state report]
             (render-report state report))
-          {:rendered []} reports))
+          (new-renderer) reports))
 
 (defn- stateful-check-render-reply
   [{:keys [ns var] :as msg}]
-  (if-let [reports (seq (failing-test-results (current-report) ns var))]
-    {:status :done
-     :reports (render-reports (map enhance-report reports))}
-    {:status :no-report}))
+  (let [report (current-test-report)
+        results (test-report-results report ns var)]
+    (if-let [results (seq (filter test-report-result-failed? results))]
+      {:status :done
+       :reports (render-reports (map enhance-report results))}
+      {:status :no-report})))
 
 (defn handle-stateful-check [handler msg]
   (with-safe-transport handler msg
@@ -218,59 +237,14 @@
 
 (comment
 
-  (def my-spec
-    (report-specification
-     (first (failing-test-results
-             (current-report)
-             "cider.nrepl.middleware.stateful-check-java-map-test"
-             "java-map-passes-sequentially"))))
+  (def failed-results
+    (failing-test-results
+     (current-test-report)
+     "cider.nrepl.middleware.stateful-check-java-map-test"
+     "java-map-passes-sequentially"))
 
-  (def my-failing-trace
-    (report-failing-commands
-     (first (failing-test-results
-             (current-report)
-             "cider.nrepl.middleware.stateful-check-java-map-test"
-             "java-map-passes-sequentially"))))
+  (def failed-result
+    (first failed-results))
 
-  (def my-shrunk-trace
-    (report-shrunk-commands
-     (first (failing-test-results
-             (current-report)
-             "cider.nrepl.middleware.stateful-check-java-map-test"
-             "java-map-passes-sequentially"))))
-
-  (inspect-report
-   (inspect/fresh)
-   (first (failing-test-results
-           (current-report)
-           "cider.nrepl.middleware.stateful-check-java-map-test"
-           "java-map-passes-sequentially")))
-
-  (-> (inspect-report
-       (inspect/fresh)
-       (first (failing-test-results
-               (current-report)
-               "cider.nrepl.middleware.stateful-check-java-map-test"
-               "java-map-passes-sequentially")))
-      (inspect/down 1))
-
-  ;; (print-execution my-shrunk-trace false)
-  ;; (clojure.pprint/pprint (inspect-execution (inspect/fresh) my-shrunk-trace))
-
-  ;; {:a {:b 1}}
-
-  (-> (inspect/fresh)
-      (inspect/start [{:a {:b 1}}
-                      {:c {:d 1}}])
-      ;; (inspect/down 2)
-      ;; (inspect/down 2)
-      )
-
-  (-> my-inspector
-      (inspect/down 0))
-
-  (-> (inspect/fresh)
-      (inspect/start (first (failing-test-results
-                             (current-report)
-                             "cider.nrepl.middleware.stateful-check-java-map-test"
-                             "java-map-passes-sequentially")))))
+  (result-failed-executions failed-result)
+  (result-shrunk-executions failed-result))
