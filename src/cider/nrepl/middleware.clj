@@ -26,6 +26,7 @@
     cider.nrepl/wrap-resource
     cider.nrepl/wrap-spec
     cider.nrepl/wrap-stacktrace
+    cider.nrepl/wrap-stateful-check
     cider.nrepl/wrap-test
     cider.nrepl/wrap-trace
     cider.nrepl/wrap-tracker
