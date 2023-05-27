@@ -822,6 +822,64 @@ You can also request to compute the info directly by requesting the \"cider/get-
               :returns {"clojuredocs" "A map of information in ClojureDocs."
                         "status" "\"no-doc\" if there is no document matching to `ns` and `symbol`."}}}})
 
+(def-wrapper wrap-stateful-check cider.nrepl.middleware.stateful-check/handle-stateful-check
+  {:doc "A debugger for the stateful-check library."
+   :requires #{#'session #'wrap-print}
+   :handles {"stateful-check/analysis"
+             {:doc "Return a Stateful Check analysis for a test."
+              :requires {"test" "The identifier of the test."}
+              :returns {"stateful-check/analysis" "The Stateful Check analysis."
+                        "status" "done"}}
+
+             "stateful-check/analyze-test"
+             {:doc "Return the Stateful Check report of a test."
+              :requires {"test" "The identifier of the Stateful Check test."}
+              :returns {"stateful-check/analyze-test" "The analysis of the test results."
+                        "status" "done"}}
+
+             "stateful-check/evaluate-step"
+             {:doc "Evaluate a Stateful Check command execution step."
+              :requires {"run" "The identifier of the run."}
+              :optional {"case" "The \"first\" or \"smallest\" failing case."}
+              :returns {"stateful-check/evaluate-step" "The Stateful Check analysis."
+                        "status" "done"}}
+
+             "stateful-check/inspect"
+             {:doc "Inspect a Stateful Check test report object."
+              :requires {"query" "The query for the object to inspect."}
+              :returns {"value" "The inspected object."
+                        "status" "done"}}
+
+             "stateful-check/print"
+             {:doc "Print a Stateful Check test report object."
+              :requires {"query" "The query for the object to print."}
+              :returns {"value" "The printed object."
+                        "status" "done"}}
+
+             "stateful-check/run"
+             {:doc "Run a Stateful Check specification."
+              :requires {"specification" "The id of the Stateful Check specification."}
+              :optional (merge wrap-print-optional-arguments
+                               {"options" "The Stateful Check options used to run the specification."})
+              :returns {"stateful-check/run" "The analysis of the test run."
+                        "status" "done"}}
+
+             "stateful-check/scan"
+             {:doc "Scan public vars and test reports for Stateful Check specifications."
+              :returns {"stateful-check/scan" "The list of Stateful Check specifications."
+                        "status" "done"}}
+
+             "stateful-check/specifications"
+             {:doc "List all Stateful Check specifications from loaded namespaces."
+              :returns {"stateful-check/specifications" "The list of Stateful Check specifications."
+                        "status" "done"}}
+
+             "stateful-check/stacktrace"
+             {:doc "Return messages describing each cause and stack frame of the exception at query."
+              :requires {"query" "The query for the exception to inspect."}
+              :optional wrap-print-optional-arguments
+              :returns {"status" "\"done\", or \"stateful-check/no-error\" no error was found."}}}})
+
 ;;; CIDER's nREPL Handler
 ;;
 ;; Here everything comes together. We define an nREPL handler
