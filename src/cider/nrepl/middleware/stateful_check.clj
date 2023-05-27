@@ -190,17 +190,19 @@
    ))
 
 (defn- new-renderer []
-  {:index []
+  {:path []
    :rendered []})
 
-(defn render-report
-  [renderer report]
-  renderer)
+(defn render-event
+  [renderer event]
+  (render-ln renderer "Hello world"))
+
+;; (render-event (new-renderer) (analyze-event failed-result))
 
 (defn render-reports
   [reports]
   (reduce (fn [state report]
-            (render-report state report))
+            (render-event state report))
           (new-renderer) reports))
 
 (defn- stateful-check-render-reply
@@ -217,6 +219,8 @@
     "stateful-check-render" stateful-check-render-reply))
 
 (comment
+
+  (inspect/fresh)
 
   (def failed-results
     (filter test-event-failed?
