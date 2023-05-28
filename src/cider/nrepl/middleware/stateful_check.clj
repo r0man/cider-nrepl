@@ -103,35 +103,34 @@
   (let [{:keys [report-path]} inspector
         expr `(:value ~(inspect/inspect-value value)
                       ~(make-cursor report-path)
-                      ~report-path
-                      ~(list :GET-IN (get-in (current-test-report) report-path)))]
+                      ;; ~report-path
+                      ;; ~(list :GET-IN (get-in (current-test-report) report-path))
+                      )]
     (-> inspector
-        ;; (update-in [:index] conj value)
-        ;; (update-in [:counter] inc)
         (update-in [:rendered] concat (list expr)))))
 
 (defn- render-argument [inspector argument]
   (-> (inspect/render inspector " ")
       (render-value argument)))
 
-(defn- render-arguments [inspector start arguments]
+(defn- render-arguments [inspector arguments]
   (-> (reduce (fn [inspector [index argument]]
-                (-> (update inspector :report-path conj (+ start index))
-                    (render-argument argument)
-                    (update :report-path pop)))
+                (-> (update inspector :report-path vector-inc-last)
+                    (render-argument argument)))
               inspector (map-indexed vector arguments))))
 
 (defn- render-trace [inspector trace]
   (-> inspector
-      (inspect/render (if ;; (instance? stateful_check.runner.CaughtException trace)
-                          (= "stateful_check.runner.CaughtException"
-                             (.getName (.getClass trace)))
-                        (if true ;; stacktrace?
-                          (with-out-str
-                            (.printStackTrace ^Throwable (:exception trace)
-                                              (java.io.PrintWriter. *out*)))
-                          (.toString ^Object (:exception trace)))
-                        trace))))
+      (render-value
+       (if ;; (instance? stateful_check.runner.CaughtException trace)
+           (= "stateful_check.runner.CaughtException"
+              (.getName (.getClass trace)))
+         (if true ;; stacktrace?
+           (with-out-str
+             (.printStackTrace ^Throwable (:exception trace)
+                               (java.io.PrintWriter. *out*)))
+           (.toString ^Object (:exception trace)))
+         trace))))
 
 (defn- render-command [inspector [[handle cmd & args] trace]]
   (printf "  %s = %s %s\n"
@@ -149,14 +148,19 @@
                    ;;                       (java.io.PrintWriter. *out*)))
                    ;;   (.toString ^Object (:exception trace)))
                    trace))))
+
   (let [{:keys [report-path]} inspector]
+    (prn (get-in (current-test-report) report-path))
     (-> (update inspector :report-path conj 0)
         (inspect/render "  ")
         (inspect/render (pr-str handle))
         (inspect/render " = ")
         (inspect/render (:name cmd))
-        (render-arguments 2 args)
+        (update :report-path conj 1)
+        (render-arguments args)
+        (update :report-path pop)
         (inspect/render " = ")
+        (update :report-path vector-inc-last)
         (render-trace trace)
         (inspect/render-ln)
         (update :report-path pop))))
@@ -194,7 +198,7 @@
 (defn render-failed-execution [inspector event]
   (let [execution (test-event-failed-execution event)]
     (-> (update inspector :report-path conj :stateful-check.core/failed)
-        (inspect/render-ln "--- Failed execution:")
+        (inspect/render-ln "--- First failed execution:")
         (inspect/render-ln)
         (render-execution execution)
         (inspect/render-ln)
