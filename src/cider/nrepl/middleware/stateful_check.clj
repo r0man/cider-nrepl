@@ -238,13 +238,10 @@
           (render-events failed-events)))))
 
 (defn get-object [report cursor]
-  (prn "INDEX:" (parse-cursor cursor))
   (get-in report (parse-cursor cursor)))
 
 (defn- stateful-check-inspect-reply
   [{:keys [index] :as msg}]
-  (prn "REPORT" (count (current-test-report)))
-  (prn (get-object (current-test-report) index))
   (if-let [object (get-object (current-test-report) index)]
     (let [inspector (inspect/start (inspect/fresh) object)]
       (#'middleware.inspect/inspector-response
