@@ -4,7 +4,12 @@
             [cider.nrepl.middleware.test :as middleware.test]
             [cider.nrepl.middleware.util :refer [transform-value]]
             [cider.nrepl.middleware.util.error-handling :refer [with-safe-transport]]
-            [orchard.inspect :as inspect]))
+            [clojure.edn :as edn]
+            [orchard.inspect :as inspect])
+  (:import (java.util Base64)))
+
+(defn- vector-inc-last [v]
+  (conj (pop v) (inc (peek v))))
 
 ;; Test report
 
@@ -29,12 +34,12 @@
 (defn- test-event-failed-execution
   "Return the failed execution from `event`."
   [event]
-  (some-> event :stateful-check.core/results :result ex-data))
+  (:stateful-check.core/failed event))
 
-(defn- test-event-shrunk-execution
+(defn- test-event-smallest-execution
   "Return the shrunk execution from `event`."
   [event]
-  (some-> event :stateful-check.core/results :shrunk :result ex-data))
+  (:stateful-check.core/smallest event))
 
 (defn- test-event-specification
   "Return the Stateful Check specification from `event`."
@@ -83,18 +88,38 @@
            :stateful-check.core/failed-execution-state
            (run-execution specification (test-event-failed-execution event))
            :stateful-check.core/shrunk-execution-state
-           (run-execution specification (test-event-shrunk-execution event)))))
+           (run-execution specification (test-event-smallest-execution event)))))
 
 ;; Render
 
+(defn- make-cursor [path]
+  (.encodeToString (Base64/getEncoder) (.getBytes (pr-str path) "UTF-8")))
+
+(defn- parse-cursor [cursor]
+  (try (edn/read-string (String. (.decode (Base64/getDecoder) cursor) "UTF-8"))
+       (catch Exception _)))
+
+(defn render-value [inspector value]
+  (let [{:keys [report-path]} inspector
+        expr `(:value ~(inspect/inspect-value value)
+                      ~(make-cursor report-path)
+                      ~report-path
+                      ~(list :GET-IN (get-in (current-test-report) report-path)))]
+    (-> inspector
+        ;; (update-in [:index] conj value)
+        ;; (update-in [:counter] inc)
+        (update-in [:rendered] concat (list expr)))))
+
 (defn- render-argument [inspector argument]
   (-> (inspect/render inspector " ")
-      (inspect/render-value argument)))
+      (render-value argument)))
 
-(defn- render-arguments [inspector arguments]
-  (-> (reduce (fn [inspector argument]
-                (render-argument inspector argument))
-              inspector arguments)))
+(defn- render-arguments [inspector start arguments]
+  (-> (reduce (fn [inspector [index argument]]
+                (-> (update inspector :report-path conj (+ start index))
+                    (render-argument argument)
+                    (update :report-path pop)))
+              inspector (map-indexed vector arguments))))
 
 (defn- render-trace [inspector trace]
   (-> inspector
@@ -124,65 +149,84 @@
                    ;;                       (java.io.PrintWriter. *out*)))
                    ;;   (.toString ^Object (:exception trace)))
                    trace))))
-  (-> inspector
-      (inspect/render "  ")
-      (inspect/render (pr-str handle))
-      (inspect/render " = ")
-      (inspect/render (:name cmd))
-      (render-arguments args)
-      (inspect/render " = ")
-      (render-trace trace)
-      (inspect/render-ln)))
+  (let [{:keys [report-path]} inspector]
+    (-> (update inspector :report-path conj 0)
+        (inspect/render "  ")
+        (inspect/render (pr-str handle))
+        (inspect/render " = ")
+        (inspect/render (:name cmd))
+        (render-arguments 2 args)
+        (inspect/render " = ")
+        (render-trace trace)
+        (inspect/render-ln)
+        (update :report-path pop))))
 
 (defn- render-command-sequence [inspector commands]
-  (reduce (fn [inspector command]
-            (render-command inspector command))
-          inspector commands))
+  (reduce (fn [inspector [index command]]
+            (-> (update inspector :report-path conj index)
+                (render-command command)
+                (update :report-path pop)))
+          inspector (map-indexed vector  commands)))
+
+(defn render-sequential-execution
+  [inspector {:keys [sequential]}]
+  (if-not (seq sequential)
+    inspector
+    (-> (update inspector :report-path conj :sequential)
+        (inspect/render-ln "Sequential prefix:")
+        (render-command-sequence sequential)
+        (update :report-path pop))))
+
+(defn render-parallel-execution
+  [inspector {:keys [parallel]}]
+  (if-not (seq parallel)
+    inspector
+    (-> (update inspector :report-path conj :parallel)
+        (inspect/render-ln "TODO: Parallel execution")
+        (update :report-path pop))))
 
 (defn render-execution
-  ([inspector {:keys [sequential parallel]}]
-   (render-execution inspector sequential parallel))
-  ([inspector sequential parallel]
-   (-> inspector
-       (inspect/render-ln "Sequential prefix:")
-       (render-command-sequence sequential))
-   ;; (doseq [[i thread] (map vector (range) parallel)]
-   ;;   ;; (printf "\nThread %s:\n" (g/index->letter i))
-   ;;   (printf "\nThread %s:\n" i)
-   ;;   (inspect-sequence inspector thread stacktrace?))
-   ))
+  [inspector execution]
+  (-> inspector
+      (render-sequential-execution execution)
+      (render-parallel-execution execution)))
 
 (defn render-failed-execution [inspector event]
   (let [execution (test-event-failed-execution event)]
-    (-> inspector
+    (-> (update inspector :report-path conj :stateful-check.core/failed)
         (inspect/render-ln "--- Failed execution:")
         (inspect/render-ln)
         (render-execution execution)
-        (inspect/render-ln))))
+        (inspect/render-ln)
+        (update :report-path pop))))
 
-(defn render-shrunk-execution [inspector event]
-  (let [execution (test-event-shrunk-execution event)]
-    (-> inspector
+(defn render-smallest-execution [inspector event]
+  (let [execution (test-event-smallest-execution event)]
+    (-> (update inspector :report-path conj :stateful-check.core/smallest)
         (inspect/render-ln "--- Shrunk execution:")
         (inspect/render-ln)
         (render-execution execution)
-        (inspect/render-ln))))
+        (inspect/render-ln)
+        (update :report-path pop))))
 
 (defn render-event [inspector event]
-  (-> inspector
-      (render-shrunk-execution event)
+  (-> (update inspector :report-path conj (:index event))
+      (render-smallest-execution event)
       (render-failed-execution event)))
 
 (defn render-events [inspector events]
   (reduce render-event inspector events))
 
 (defn render-report [ns var]
-  (let [report (current-test-report)
+  (let [ns (symbol ns)
+        var (symbol var)
+        report (current-test-report)
         events (test-report-events report ns var)]
     (if-let [failed-events (seq (filter test-event-failed? events))]
-      (-> (inspect/fresh)
-          (inspect/clear)
-          (assoc :value [])
+      (-> {:ns ns
+           :var var
+           :report-path [:results ns var]
+           :rendered []}
           (inspect/render-ln "Stateful Check Test Inspector")
           (inspect/render-ln "=============================")
           (inspect/render-ln)
@@ -193,20 +237,54 @@
           (inspect/render-ln)
           (render-events failed-events)))))
 
+(defn get-object [report cursor]
+  (prn "INDEX:" (parse-cursor cursor))
+  (get-in report (parse-cursor cursor)))
+
+(defn- stateful-check-inspect-reply
+  [{:keys [index] :as msg}]
+  (prn "REPORT" (count (current-test-report)))
+  (prn (get-object (current-test-report) index))
+  (if-let [object (get-object (current-test-report) index)]
+    (let [inspector (inspect/start (inspect/fresh) object)]
+      (#'middleware.inspect/inspector-response
+       msg (middleware.inspect/swap-inspector! msg (constantly inspector))))
+    {:status :object-not-found :index index}))
+
 (defn- stateful-check-render-reply
   [{:keys [ns var] :as msg}]
   (let [inspector (render-report ns var)]
-    (def my-inspector inspector)
     (#'middleware.inspect/inspector-response
      msg (middleware.inspect/swap-inspector! msg (constantly inspector)))))
 
 (defn handle-stateful-check [handler msg]
   (with-safe-transport handler msg
-    "stateful-check-render" stateful-check-render-reply))
+    "stateful-check-render" stateful-check-render-reply
+    "stateful-check-inspect" stateful-check-inspect-reply))
 
 (comment
 
   (inspect/fresh)
+
+  (def my-report
+    (current-test-report))
+
+  (render-report 'cider.nrepl.middleware.stateful-check-java-map-test
+                 'java-map-passes-sequentially)
+
+  (render-report 'cider.nrepl.middleware.stateful-check-java-map-test
+                 'java-map-passes-sequentially)
+
+  (->> (render-report 'cider.nrepl.middleware.stateful-check-java-map-test
+                      'java-map-passes-sequentially)
+       :rendered
+       (filter #(and (sequential? %)
+                     (= :value (first %))))
+       (map #(get-in (current-test-report) (nth % 3 nil))))
+
+  (get-in (current-test-report)
+          [:results 'cider.nrepl.middleware.stateful-check-java-map-test
+           'java-map-passes-sequentially 0 :stateful-check.core/smallest :sequential 0])
 
   (def failed-results
     (filter test-event-failed?
@@ -218,4 +296,4 @@
     (first failed-results))
 
   (test-event-failed-execution failed-result)
-  (test-event-shrunk-execution failed-result))
+  (test-event-smallest-execution failed-result))
