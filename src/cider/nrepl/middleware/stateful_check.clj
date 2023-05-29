@@ -2,7 +2,6 @@
   (:refer-clojure :exclude [ns-aliases])
   (:require [cider.nrepl.middleware.inspect :as middleware.inspect]
             [cider.nrepl.middleware.test :as middleware.test]
-            [cider.nrepl.middleware.util :refer [transform-value]]
             [cider.nrepl.middleware.util.error-handling :refer [with-safe-transport]]
             [clojure.edn :as edn]
             [orchard.inspect :as inspect])
@@ -292,7 +291,8 @@
        :rendered
        (filter #(and (sequential? %)
                      (= :value (first %))))
-       (map #(get-in (current-test-report) (nth % 3 nil))))
+       (map #(some-> (nth % 2 nil) parse-cursor))
+        (map #(get-in (current-test-report) %)))
 
   (get-in (current-test-report)
           [:results 'cider.nrepl.middleware.stateful-check-java-map-test
