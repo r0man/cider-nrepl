@@ -248,14 +248,6 @@
            :var var
            :report-path [:results ns var]
            :rendered []}
-          (inspect/render-ln "Stateful Check Test Inspector")
-          (inspect/render-ln "=============================")
-          (inspect/render-ln)
-          (inspect/render-ln "--- Test:")
-          (inspect/render-ln)
-          (inspect/render-ln "  Namespace:   " (str ns))
-          (inspect/render-ln "  Var:         " (str var))
-          (inspect/render-ln)
           (render-events failed-events)))))
 
 (defn get-object [report cursor]
