@@ -2,9 +2,11 @@
   (:refer-clojure :exclude [ns-aliases])
   (:require [cider.nrepl.middleware.inspect :as middleware.inspect]
             [cider.nrepl.middleware.test :as middleware.test]
+            [cider.nrepl.middleware.util :refer [transform-value]]
             [cider.nrepl.middleware.util.error-handling :refer [with-safe-transport]]
             [clojure.edn :as edn]
-            [orchard.inspect :as inspect])
+            [orchard.inspect :as inspect]
+            [haystack.analyzer :as analyzer])
   (:import (java.util Base64)))
 
 (def ^:private thread-names
@@ -53,6 +55,24 @@
 
 ;; Test execution
 
+(defn- find-argument-list [command args]
+  (let [arg-num (count args)]
+    (first (filter #(= arg-num (count %))
+                   (-> command :meta :arglists)))))
+
+(defn- analyze-argument [command args index value]
+  (let [arg-list (find-argument-list command args)
+        arg-name (str (nth arg-list index index))]
+    (cond-> {:index index
+             :value value}
+      arg-name (assoc :name arg-name))))
+
+(defn- analyze-command [cmd args]
+  (let [command (assoc cmd :meta (-> cmd :command meta))]
+    (assoc command :arguments (mapv (fn [[index value]]
+                                      (analyze-argument command args index value))
+                                    (map-indexed vector args)))))
+
 (defn- run-sequential-executions [specification executions]
   (let [setup-result (when-let [setup (:setup specification)]
                        (setup))
@@ -66,11 +86,11 @@
                                     next-state (if-let [next-state (:next-state cmd)]
                                                  (next-state previous-state args result)
                                                  previous-state)
-                                    next-step {:execution {:args (vec args)
-                                                           :cmd cmd
-                                                           :handle handle
-                                                           :result result
-                                                           :trace trace}
+                                    next-step {:execution
+                                               {:command (analyze-command cmd args)
+                                                :handle handle
+                                                :result result
+                                                :trace trace}
                                                :state next-state}]
                                 (conj steps next-step)))
                             [{:state initial-state}] executions)]
@@ -79,6 +99,10 @@
         (cleanup setup-result)
         (cleanup)))
     final-state))
+
+;; (-> #'run-sequential-executions meta)
+
+;; (analyze-event failed-result)
 
 (defn- run-parallel-execution [specification executions]
   (mapv #(run-sequential-executions specification %) executions))
@@ -273,10 +297,17 @@
 
 (comment
 
-  (inspect/fresh)
+  (def failed-results
+    (filter test-event-failed?
+            (test-report-events (current-test-report)
+                                "cider.nrepl.middleware.stateful-check-java-map-test"
+                                "java-map-passes-sequentially")))
 
-  (def my-report
-    (current-test-report))
+  (def failed-result
+    (first failed-results))
+
+  ;; (find-argument-list my-command my-args)
+  ;; (:stateful-check.core/shrunk-execution-state (analyze-event failed-result))
 
   (test-report-events
    (current-test-report)
@@ -292,20 +323,22 @@
        (filter #(and (sequential? %)
                      (= :value (first %))))
        (map #(some-> (nth % 2 nil) parse-cursor))
-        (map #(get-in (current-test-report) %)))
+       (map #(get-in (current-test-report) %)))
 
   (get-in (current-test-report)
           [:results 'cider.nrepl.middleware.stateful-check-java-map-test
            'java-map-passes-sequentially 0 :stateful-check.core/smallest :sequential 0])
 
-  (def failed-results
-    (filter test-event-failed?
-            (test-report-events (current-test-report)
-                                "cider.nrepl.middleware.stateful-check-java-map-test"
-                                "java-map-passes-sequentially")))
+  (-> failed-result
+      :stateful-check.core/spec
+      :commands :put meta)
 
-  (def failed-result
-    (first failed-results))
+  (:stateful-check.core/shrunk-execution-state (analyze-event failed-result))
+  (transform-value (:stateful-check.core/failed-execution-state (analyze-event failed-result)))
+
+  (-> (analyze-event failed-result)
+      :stateful-check.core/shrunk-execution-state
+      :sequential last :execution :command :command meta)
 
   (test-event-failed-execution failed-result)
   (test-event-smallest-execution failed-result))

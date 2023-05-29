@@ -7,16 +7,22 @@
 
 (def test-keys ["" "a" "house" "tree" "λ"])
 
+(defn map-put [key value]
+  (.put system-under-test key (if (> value 42) "boom" value)))
+
+(defn map-get [key]
+  (.get system-under-test key))
+
 (def put-command
   {:args (fn [state] [(gen/elements test-keys) gen/int])
-   :command #(.put system-under-test %1 (if (> %2 42) "boom" %2))
+   :command #'map-put
    :next-state (fn [state [k v] _]
                  (assoc state k v))})
 
 (def get-command
   {:requires (fn [state] (seq state))
    :args (fn [state] [(gen/elements test-keys)])
-   :command #(.get system-under-test %1)
+   :command #'map-get
    :postcondition (fn [prev-state _ [k] val]
                     (= (get prev-state k) val))})
 
