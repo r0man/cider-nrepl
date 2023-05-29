@@ -8,6 +8,15 @@
 
 (use-fixtures :each session/session-fixture)
 
+;; (defn- make-failed-event [specification]
+;;   (let [result (stateful-check.core/run-specification specification)]
+;;     {:index 0
+;;      :stateful-check.core/spec specification
+;;      :stateful-check.core/failed (:fail result)
+;;      :stateful-check.core/shrunk (:smallest (:shrunk result))}))
+
+;; (make-failed-event tests/java-map-specification)
+
 (deftest test-stateful-check-render
   (session/message {:op "test"
                     :ns "cider.nrepl.middleware.stateful-check-java-map-test"})
