@@ -8,6 +8,12 @@
             [orchard.inspect :as inspect])
   (:import (java.util Base64)))
 
+(def ^:private thread-names
+  "abcdefghijklmnopqrstuvwxzy")
+
+(defn- index->letter [n]
+  (nth thread-names n))
+
 (defn- vector-inc-last [v]
   (conj (pop v) (inc (peek v))))
 
@@ -110,26 +116,30 @@
         (update-in [:rendered] concat (list expr)))))
 
 (defn- render-argument [inspector argument]
-  (-> (inspect/render inspector " ")
-      (render-value argument)))
+  (-> (inspect/render inspector "      ")
+      (render-value argument)
+      (inspect/render-ln)))
 
 (defn- render-arguments [inspector arguments]
-  (-> (reduce (fn [inspector [index argument]]
+  (-> (reduce (fn [inspector argument]
                 (-> (update inspector :report-path vector-inc-last)
                     (render-argument argument)))
-              inspector (map-indexed vector arguments))))
+              (inspect/render-ln inspector "    Arguments:")
+              arguments)))
+
+(defn- caught-exception?
+  "Return true if `x` is a Stateful Check caught exception, otherwise false."
+  [x]
+  (= "stateful_check.runner.CaughtException"
+     (some-> x .getClass .getName)))
 
 (defn- render-trace [inspector trace]
   (-> inspector
+      (inspect/render-ln "    Result:")
+      (inspect/render "      ")
       (render-value
-       (if ;; (instance? stateful_check.runner.CaughtException trace)
-           (= "stateful_check.runner.CaughtException"
-              (.getName (.getClass trace)))
-         (if true ;; stacktrace?
-           (with-out-str
-             (.printStackTrace ^Throwable (:exception trace)
-                               (java.io.PrintWriter. *out*)))
-           (.toString ^Object (:exception trace)))
+       (if (caught-exception? trace)
+         (:exception trace)
          trace))))
 
 (defn- render-command [inspector [[handle cmd & args] trace]]
@@ -139,14 +149,12 @@
           (if (= :stateful-check.runner/unevaluated trace)
             ""
             (str " = "
-                 (if ;; (instance? stateful_check.runner.CaughtException trace)
-                     (= "stateful_check.runner.CaughtException"
-                        (.getName (.getClass trace)))
-                   ;; (if stacktrace?
-                   ;;   (with-out-str
-                   ;;     (.printStackTrace ^Throwable (:exception trace)
-                   ;;                       (java.io.PrintWriter. *out*)))
-                   ;;   (.toString ^Object (:exception trace)))
+                 (if (caught-exception? trace)
+                   (if false ;; stacktrace?
+                     (with-out-str
+                       (.printStackTrace ^Throwable (:exception trace)
+                                         (java.io.PrintWriter. *out*)))
+                     (.toString ^Object (:exception trace)))
                    trace))))
 
   (let [{:keys [report-path]} inspector]
@@ -154,14 +162,14 @@
     (-> (update inspector :report-path conj 0)
         (inspect/render "  ")
         (inspect/render (pr-str handle))
-        (inspect/render " = ")
-        (inspect/render (:name cmd))
+        (inspect/render " ")
+        (inspect/render-ln (:name cmd))
         (update :report-path conj 1)
         (render-arguments args)
         (update :report-path pop)
-        (inspect/render " = ")
         (update :report-path vector-inc-last)
         (render-trace trace)
+        (inspect/render-ln)
         (inspect/render-ln)
         (update :report-path pop))))
 
@@ -181,12 +189,21 @@
         (render-command-sequence sequential)
         (update :report-path pop))))
 
+(defn render-parallel-threads
+  [inspector commands]
+  (reduce (fn [inspector [index commands]]
+            (-> (update inspector :report-path conj index)
+                (inspect/render-ln (format "Thread %s:" (index->letter index)))
+                (render-command-sequence commands)
+                (update :report-path pop)))
+          inspector (map-indexed vector commands)))
+
 (defn render-parallel-execution
   [inspector {:keys [parallel]}]
   (if-not (seq parallel)
     inspector
     (-> (update inspector :report-path conj :parallel)
-        (inspect/render-ln "TODO: Parallel execution")
+        (render-parallel-threads parallel)
         (update :report-path pop))))
 
 (defn render-execution
@@ -270,8 +287,10 @@
   (def my-report
     (current-test-report))
 
-  (render-report 'cider.nrepl.middleware.stateful-check-java-map-test
-                 'java-map-passes-sequentially)
+  (test-report-events
+   (current-test-report)
+   'cider.nrepl.middleware.stateful-check-java-map-test
+   'java-map-passes-sequentially)
 
   (render-report 'cider.nrepl.middleware.stateful-check-java-map-test
                  'java-map-passes-sequentially)

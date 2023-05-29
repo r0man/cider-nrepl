@@ -26,4 +26,5 @@
    :setup #(.clear system-under-test)})
 
 (deftest java-map-passes-sequentially
-  (is (specification-correct? java-map-specification)))
+  (is (specification-correct? java-map-specification
+                              {:gen {:threads 2}})))
