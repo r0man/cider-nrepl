@@ -5,8 +5,9 @@
             [cider.nrepl.middleware.util :refer [transform-value]]
             [cider.nrepl.middleware.util.error-handling :refer [with-safe-transport]]
             [clojure.edn :as edn]
+            [haystack.analyzer :as analyzer]
             [orchard.inspect :as inspect]
-            [haystack.analyzer :as analyzer])
+            [orchard.misc :as misc])
   (:import (java.util Base64)))
 
 (def ^:private thread-names
@@ -113,11 +114,9 @@
 
 (defn analyze-event [event]
   (let [specification (test-event-specification event)]
-    (assoc event
-           :stateful-check.core/failed-execution-state
-           (run-execution specification (test-event-failed-execution event))
-           :stateful-check.core/shrunk-execution-state
-           (run-execution specification (test-event-smallest-execution event)))))
+    {:specification specification
+     :executions {:failed (run-execution specification (test-event-failed-execution event))
+                  :smallest (run-execution specification (test-event-smallest-execution event))}}))
 
 ;; Render
 
@@ -290,10 +289,48 @@
     (#'middleware.inspect/inspector-response
      msg (middleware.inspect/swap-inspector! msg (constantly inspector)))))
 
+(defn stateful-check-reports [test-report & [opts]]
+  (let [ns (some-> opts :ns symbol)
+        var (some-> opts :var symbol)]
+    (cond->> (->> (:results test-report)
+                  (vals)
+                  (mapcat vals)
+                  (mapcat identity)
+                  (filter test-event-failed?))
+      ns (filter #(= ns (:ns %)))
+      var (filter #(= var (:var %)))
+      true (map analyze-event))))
+
+(defn make-report
+  "Make a Stateful Check report from a Clojure Test `test-report`."
+  [test-report]
+  (update test-report :results
+          (fn [results]
+            (misc/update-vals
+             (fn [ns-map]
+               (misc/update-vals
+                (fn [events]
+                  (some->> events
+                           (filter test-event-failed?)
+                           last
+                           analyze-event))
+                ns-map))
+             results))))
+
+;; (stateful-check-reports (current-test-report)
+;;                         {:ns "cider.nrepl.middleware.stateful-check-java-map-test"
+;;                          :var "java-map-passes-sequentially"})
+
+(defn- stateful-check-reports-reply
+  [{:keys [ns var] :as msg}]
+  (let [reports (stateful-check-reports (current-test-report) ns var)]
+    {:stateful-check-reports reports}))
+
 (defn handle-stateful-check [handler msg]
   (with-safe-transport handler msg
+    "stateful-check-inspect" stateful-check-inspect-reply
     "stateful-check-render" stateful-check-render-reply
-    "stateful-check-inspect" stateful-check-inspect-reply))
+    "stateful-check-reports" stateful-check-reports-reply))
 
 (comment
 
