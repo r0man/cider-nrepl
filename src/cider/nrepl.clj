@@ -711,15 +711,21 @@ stack frame of the most recent exception. This op is deprecated, please use the
 (def-wrapper wrap-stateful-check cider.nrepl.middleware.stateful-check/handle-stateful-check
   {:doc "Middleware that provides stateful check functionality."
    :handles {"stateful-check-inspect"
-             {:doc "Inspect an object of a stateful check report."
+             {:doc "Inspect a Stateful Check test report object."
               :requires {"index" "The index of the object to inspect."}
               :returns {"value" "The inspected object."
                         "status" "done"}}
              "stateful-check-render"
-             {:doc "Render the test result of a stateful check specification"
-              :requires {"sym" "The symbol to lookup"
-                         "ns" "The current namespace"}
+             {:doc "Render a Stateful Check test report."
+              :optional {"ns" "The name of the test namespace."
+                         "sym" "The name of the test symbol."}
               :returns {"value" "The rendered report."
+                        "status" "done"}}
+             "stateful-check-reports"
+             {:doc "Return the Stateful Check test reports."
+              :optional {"ns" "The name of the test namespace."
+                         "sym" "The name of the test symbol."}
+              :returns {"stateful-check-reports" "The test reports."
                         "status" "done"}}}})
 
 ;;; CIDER's nREPL Handler
