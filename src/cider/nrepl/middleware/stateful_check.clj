@@ -5,9 +5,7 @@
             [cider.nrepl.middleware.util :refer [transform-value]]
             [cider.nrepl.middleware.util.error-handling :refer [with-safe-transport]]
             [clojure.edn :as edn]
-            [haystack.analyzer :as analyzer]
-            [orchard.inspect :as inspect]
-            [orchard.misc :as misc])
+            [orchard.inspect :as inspect])
   (:import (java.util Base64)))
 
 (def ^:private thread-names
@@ -21,40 +19,35 @@
 
 ;; Test report
 
-(defn- current-test-report
+(defn- test-report
   "Return the current test report."
   []
   @middleware.test/current-report)
-
-(defn- test-report-events
-  "Return the test report events for `ns` and `var` from `report`."
-  [report ns var]
-  (let [ns (symbol ns), var (symbol var)]
-    (get-in report [:results ns var])))
 
 ;; Test report event
 
 (defn- test-event-failed?
   "Return true if the test `result` has failed, otherwise false."
   [event]
-  (= :fail (:type event)))
+  (and (:stateful-check event)
+       (= :fail (:type event))))
 
 (defn- test-event-failed-execution
   "Return the failed execution from `event`."
   [event]
-  (:stateful-check.core/failed event))
+  (-> event :stateful-check :failures :first))
 
 (defn- test-event-smallest-execution
   "Return the shrunk execution from `event`."
   [event]
-  (:stateful-check.core/smallest event))
+  (-> event :stateful-check :failures :smallest))
 
 (defn- test-event-specification
   "Return the Stateful Check specification from `event`."
   [event]
-  (:stateful-check.core/spec event))
+  (-> event :stateful-check :specification))
 
-;; Test execution
+;; Analyze
 
 (defn- find-argument-list [command args]
   (let [arg-num (count args)]
@@ -68,55 +61,68 @@
              :value value}
       arg-name (assoc :name arg-name))))
 
-(defn- analyze-command [cmd args]
-  (let [command (assoc cmd :meta (-> cmd :command meta))]
-    (assoc command :arguments (mapv (fn [[index value]]
-                                      (analyze-argument command args index value))
-                                    (map-indexed vector args)))))
+(defn- analyze-command
+  "Analyze the Stateful Check `cmd` map."
+  [cmd]
+  (let [meta-data (some-> cmd :command meta)]
+    (cond-> {:name (:name cmd)}
+      meta-data (assoc :meta meta-data))))
 
-(defn- run-sequential-executions [specification executions]
+(defn- analyze-arguments
+  "Analyze the Stateful Check `args`."
+  [command args]
+  (mapv (fn [[index value]]
+          (analyze-argument command args index value))
+        (map-indexed vector args)))
+
+(defn- analyze-handle
+  "Analyze the command `handle`."
+  [handle]
+  {:name (pr-str handle)
+   :value handle})
+
+(defn- analyze-sequential-executions [specification executions]
   (let [setup-result (when-let [setup (:setup specification)]
                        (setup))
         initial-state (when-let [initial-state (:initial-state specification)]
                         (if (:setup specification)
                           (initial-state setup-result)
                           (initial-state)))
-        final-state (reduce (fn [steps [[handle cmd & args :as execution] trace]]
-                              (let [previous-state (:state (last steps))
-                                    result (apply (:command cmd) args)
-                                    next-state (if-let [next-state (:next-state cmd)]
-                                                 (next-state previous-state args result)
-                                                 previous-state)
-                                    next-step {:execution
-                                               {:command (analyze-command cmd args)
-                                                :handle handle
-                                                :result result
-                                                :trace trace}
-                                               :state next-state}]
-                                (conj steps next-step)))
-                            [{:state initial-state}] executions)]
+        final-traces (reduce (fn [traces [[handle cmd & args :as execution] trace]]
+                               (let [previous-state (:state (last traces))
+                                     result (apply (:command cmd) args)
+                                     next-state (if-let [next-state (:next-state cmd)]
+                                                  (next-state previous-state args result)
+                                                  previous-state)
+                                     command (analyze-command cmd)
+                                     next-trace {:command command
+                                                 :arguments (analyze-arguments command args)
+                                                 :handle (analyze-handle handle)
+                                                 :result result
+                                                 :trace trace
+                                                 :state next-state}]
+                                 (conj traces next-trace)))
+                             [{:state initial-state}] executions)]
     (when-let [cleanup (:cleanup specification)]
       (if (:setup specification)
         (cleanup setup-result)
         (cleanup)))
-    final-state))
+    final-traces))
 
-;; (-> #'run-sequential-executions meta)
+(defn- analyze-parallel-execution [specification executions]
+  (mapv #(analyze-sequential-executions specification %) executions))
 
-;; (analyze-event failed-result)
+(defn- analyze-execution [specification {:keys [sequential parallel]}]
+  {:sequential (analyze-sequential-executions specification sequential)
+   :parallel (analyze-parallel-execution specification parallel)})
 
-(defn- run-parallel-execution [specification executions]
-  (mapv #(run-sequential-executions specification %) executions))
-
-(defn- run-execution [specification execution]
-  {:sequential (run-sequential-executions specification (:sequential execution))
-   :parallel (run-parallel-execution specification (:parallel execution))})
-
-(defn analyze-event [event]
+(defn analyze-event
+  "Analyze the Clojure Test `event`."
+  [event]
   (let [specification (test-event-specification event)]
-    {:specification specification
-     :executions {:failed (run-execution specification (test-event-failed-execution event))
-                  :smallest (run-execution specification (test-event-smallest-execution event))}}))
+    (update-in event [:stateful-check :failures] merge
+               {:first (analyze-execution specification (test-event-failed-execution event))
+                :smallest (analyze-execution specification (test-event-smallest-execution event))})))
 
 ;; Render
 
@@ -124,7 +130,8 @@
   (.encodeToString (Base64/getEncoder) (.getBytes (pr-str path) "UTF-8")))
 
 (defn- parse-cursor [cursor]
-  (try (edn/read-string (String. (.decode (Base64/getDecoder) cursor) "UTF-8"))
+  (try (let [result (edn/read-string (String. (.decode (Base64/getDecoder) cursor) "UTF-8"))]
+         (when (sequential? result) result))
        (catch Exception _)))
 
 (defn render-value [inspector value]
@@ -155,227 +162,117 @@
   (= "stateful_check.runner.CaughtException"
      (some-> x .getClass .getName)))
 
-(defn- render-trace [inspector trace]
-  (-> inspector
-      (inspect/render-ln "    Result:")
-      (inspect/render "      ")
-      (render-value
-       (if (caught-exception? trace)
-         (:exception trace)
-         trace))))
-
-(defn- render-command [inspector [[handle cmd & args] trace]]
-  (printf "  %s = %s %s\n"
-          (pr-str handle)
-          (cons (:name cmd) args)
-          (if (= :stateful-check.runner/unevaluated trace)
-            ""
-            (str " = "
-                 (if (caught-exception? trace)
-                   (if false ;; stacktrace?
-                     (with-out-str
-                       (.printStackTrace ^Throwable (:exception trace)
-                                         (java.io.PrintWriter. *out*)))
-                     (.toString ^Object (:exception trace)))
-                   trace))))
-
-  (let [{:keys [report-path]} inspector]
-    (prn (get-in (current-test-report) report-path))
-    (-> (update inspector :report-path conj 0)
-        (inspect/render "  ")
-        (inspect/render (pr-str handle))
-        (inspect/render " ")
-        (inspect/render-ln (:name cmd))
-        (update :report-path conj 1)
-        (render-arguments args)
-        (update :report-path pop)
-        (update :report-path vector-inc-last)
-        (render-trace trace)
-        (inspect/render-ln)
-        (inspect/render-ln)
-        (update :report-path pop))))
-
-(defn- render-command-sequence [inspector commands]
-  (reduce (fn [inspector [index command]]
-            (-> (update inspector :report-path conj index)
-                (render-command command)
-                (update :report-path pop)))
-          inspector (map-indexed vector  commands)))
-
-(defn render-sequential-execution
-  [inspector {:keys [sequential]}]
-  (if-not (seq sequential)
-    inspector
-    (-> (update inspector :report-path conj :sequential)
-        (inspect/render-ln "Sequential prefix:")
-        (render-command-sequence sequential)
-        (update :report-path pop))))
-
-(defn render-parallel-threads
-  [inspector commands]
-  (reduce (fn [inspector [index commands]]
-            (-> (update inspector :report-path conj index)
-                (inspect/render-ln (format "Thread %s:" (index->letter index)))
-                (render-command-sequence commands)
-                (update :report-path pop)))
-          inspector (map-indexed vector commands)))
-
-(defn render-parallel-execution
-  [inspector {:keys [parallel]}]
-  (if-not (seq parallel)
-    inspector
-    (-> (update inspector :report-path conj :parallel)
-        (render-parallel-threads parallel)
-        (update :report-path pop))))
-
-(defn render-execution
-  [inspector execution]
-  (-> inspector
-      (render-sequential-execution execution)
-      (render-parallel-execution execution)))
-
-(defn render-failed-execution [inspector event]
-  (let [execution (test-event-failed-execution event)]
-    (-> (update inspector :report-path conj :stateful-check.core/failed)
-        (inspect/render-ln "--- First failed execution:")
-        (inspect/render-ln)
-        (render-execution execution)
-        (inspect/render-ln)
-        (update :report-path pop))))
-
-(defn render-smallest-execution [inspector event]
-  (let [execution (test-event-smallest-execution event)]
-    (-> (update inspector :report-path conj :stateful-check.core/smallest)
-        (inspect/render-ln "--- Shrunk execution:")
-        (inspect/render-ln)
-        (render-execution execution)
-        (inspect/render-ln)
-        (update :report-path pop))))
-
-(defn render-event [inspector event]
-  (-> (update inspector :report-path conj (:index event))
-      (render-smallest-execution event)
-      (render-failed-execution event)))
-
-(defn render-events [inspector events]
-  (reduce render-event inspector events))
-
-(defn render-report [ns var]
-  (let [ns (symbol ns)
-        var (symbol var)
-        report (current-test-report)
-        events (test-report-events report ns var)]
-    (if-let [failed-events (seq (filter test-event-failed? events))]
-      (-> {:ns ns
-           :var var
-           :report-path [:results ns var]
-           :rendered []}
-          (render-events failed-events)))))
-
 (defn get-object [report cursor]
-  (get-in report (parse-cursor cursor)))
+  (some->> cursor parse-cursor (get-in report)))
+
+(defn test-report-events [test-report]
+  (->> test-report :results vals
+       (mapcat vals)
+       (apply concat)
+       (filter test-event-failed?)))
+
+(defn- matches-criteria? [event filters]
+  (let [ns (some-> filters :ns symbol)
+        var (some-> filters :var symbol)]
+    (and (or (nil? ns) (= ns (:ns event)))
+         (or (nil? var) (= var (:var event))))))
+
+(defn- search-events [criteria events]
+  (filter #(matches-criteria? % criteria) events))
+
+(defn- make-inspector
+  "Make a new Stateful Check Inspector."
+  []
+  {:summary {} :results {}})
+
+(defn- inspector-reports
+  "Return the Stateful Check reports of the `inspector`."
+  [inspector]
+  (->> inspector :results vals (mapcat vals)))
+
+(defn- inspector-add-reports [inspector reports]
+  (reduce (fn [inspector report]
+            (assoc-in inspector [:results (:ns report) (:var report)] report))
+          inspector reports))
+
+(defn- inspector-filter
+  "Return a new inspector with results filtered by `criteria`"
+  [inspector criteria]
+  (inspector-add-reports (assoc inspector :results {})
+                         (filter #(matches-criteria? % criteria)
+                                 (inspector-reports inspector))))
+
+(defn stateful-check-analyze
+  "Analyze the Stateful Check events in a Cider test report."
+  [inspector test-report & [opts]]
+  (reduce (fn [inspector {:keys [ns var] :as event}]
+            (assoc-in inspector [:results ns var] (analyze-event event)))
+          inspector (search-events opts (test-report-events test-report))))
+
+(defn stateful-check-report
+  "Return the Stateful Check reports matching `criteria`."
+  [inspector & [criteria]]
+  (inspector-filter inspector criteria))
+
+;; Middleware
+
+(defn- criteria
+  "Make the search criteria map from the NREPL msg."
+  [{:keys [ns var]}]
+  (cond-> {}
+    (or (string? ns) (symbol? ns))
+    (assoc :ns (symbol (name ns)))
+    (or (string? var) (symbol? var))
+    (assoc :ns (symbol (name ns)))))
+
+(defn- inspector
+  "Return the Stateful Check inspector from the `msg`."
+  [msg]
+  (or (-> msg :session meta ::inspector)
+      (make-inspector)))
+
+(defn swap-inspector!
+  "Apply `f` with `args` to the inspector of the NREPL `session`."
+  [{:keys [session]} f & args]
+  (-> session
+      (alter-meta! update ::inspector #(apply f % args))
+      (get ::inspector)))
+
+(defn- stateful-check-analyze-reply
+  "Handle a Stateful Check test analysis NREPL operation."
+  [msg]
+  {:stateful-check-analyze
+   (-> (swap-inspector! msg #(-> (stateful-check-analyze % (test-report) (criteria msg))
+                                 (inspector-filter criteria)))
+       (transform-value))})
 
 (defn- stateful-check-inspect-reply
   [{:keys [index] :as msg}]
-  (if-let [object (get-object (current-test-report) index)]
+  (if-let [object (get-object (test-report) index)]
     (let [inspector (inspect/start (inspect/fresh) object)]
       (#'middleware.inspect/inspector-response
        msg (middleware.inspect/swap-inspector! msg (constantly inspector))))
     {:status :object-not-found :index index}))
 
-(defn- stateful-check-render-reply
-  [{:keys [ns var] :as msg}]
-  (let [inspector (render-report ns var)]
-    (#'middleware.inspect/inspector-response
-     msg (middleware.inspect/swap-inspector! msg (constantly inspector)))))
+(defn- stateful-check-report-reply
+  "Handle a Stateful Check test report NREPL operation."
+  [msg]
+  (let [inspector (stateful-check-report (inspector msg) msg)]
+    {:stateful-check-report (transform-value inspector)}))
 
-(defn stateful-check-reports [test-report & [opts]]
-  (let [ns (some-> opts :ns symbol)
-        var (some-> opts :var symbol)]
-    (cond->> (->> (:results test-report)
-                  (vals)
-                  (mapcat vals)
-                  (mapcat identity)
-                  (filter test-event-failed?))
-      ns (filter #(= ns (:ns %)))
-      var (filter #(= var (:var %)))
-      true (map analyze-event))))
-
-(defn make-report
-  "Make a Stateful Check report from a Clojure Test `test-report`."
-  [test-report]
-  (update test-report :results
-          (fn [results]
-            (misc/update-vals
-             (fn [ns-map]
-               (misc/update-vals
-                (fn [events]
-                  (some->> events
-                           (filter test-event-failed?)
-                           last
-                           analyze-event))
-                ns-map))
-             results))))
-
-;; (stateful-check-reports (current-test-report)
-;;                         {:ns "cider.nrepl.middleware.stateful-check-java-map-test"
-;;                          :var "java-map-passes-sequentially"})
-
-(defn- stateful-check-reports-reply
-  [{:keys [ns var] :as msg}]
-  (let [reports (stateful-check-reports (current-test-report) ns var)]
-    {:stateful-check-reports reports}))
-
-(defn handle-stateful-check [handler msg]
+(defn handle-stateful-check
+  "Handle a Stateful Check NREPL `msg`."
+  [handler msg]
   (with-safe-transport handler msg
+    "stateful-check-analyze" stateful-check-analyze-reply
     "stateful-check-inspect" stateful-check-inspect-reply
-    "stateful-check-render" stateful-check-render-reply
-    "stateful-check-reports" stateful-check-reports-reply))
+    "stateful-check-report" stateful-check-report-reply))
 
 (comment
 
-  (def failed-results
-    (filter test-event-failed?
-            (test-report-events (current-test-report)
-                                "cider.nrepl.middleware.stateful-check-java-map-test"
-                                "java-map-passes-sequentially")))
+  (stateful-check-report
+   (stateful-check-analyze (make-inspector) (test-report))
+   {:ns 'cider.nrepl.middleware.test-stateful-check
+    :var 'java-map-passes-sequentially})
 
-  (def failed-result
-    (first failed-results))
-
-  ;; (find-argument-list my-command my-args)
-  ;; (:stateful-check.core/shrunk-execution-state (analyze-event failed-result))
-
-  (test-report-events
-   (current-test-report)
-   'cider.nrepl.middleware.stateful-check-java-map-test
-   'java-map-passes-sequentially)
-
-  (render-report 'cider.nrepl.middleware.stateful-check-java-map-test
-                 'java-map-passes-sequentially)
-
-  (->> (render-report 'cider.nrepl.middleware.stateful-check-java-map-test
-                      'java-map-passes-sequentially)
-       :rendered
-       (filter #(and (sequential? %)
-                     (= :value (first %))))
-       (map #(some-> (nth % 2 nil) parse-cursor))
-       (map #(get-in (current-test-report) %)))
-
-  (get-in (current-test-report)
-          [:results 'cider.nrepl.middleware.stateful-check-java-map-test
-           'java-map-passes-sequentially 0 :stateful-check.core/smallest :sequential 0])
-
-  (-> failed-result
-      :stateful-check.core/spec
-      :commands :put meta)
-
-  (:stateful-check.core/shrunk-execution-state (analyze-event failed-result))
-  (transform-value (:stateful-check.core/failed-execution-state (analyze-event failed-result)))
-
-  (-> (analyze-event failed-result)
-      :stateful-check.core/shrunk-execution-state
-      :sequential last :execution :command :command meta)
-
-  (test-event-failed-execution failed-result)
-  (test-event-smallest-execution failed-result))
+  )
