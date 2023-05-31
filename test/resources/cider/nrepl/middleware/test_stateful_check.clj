@@ -1,4 +1,4 @@
-(ns cider.nrepl.middleware.stateful-check-java-map-test
+(ns cider.nrepl.middleware.test-stateful-check
   (:require [clojure.test :refer [deftest is]]
             [clojure.test.check.generators :as gen]
             [stateful-check.core :refer [specification-correct?]]))
@@ -8,7 +8,7 @@
 (def test-keys ["" "a" "house" "tree" "λ"])
 
 (defn map-put [key value]
-  (.put system-under-test key (if (> value 42) "boom" value)))
+  (.put system-under-test key (if (> 42 value) "boom" value)))
 
 (defn map-get [key]
   (.get system-under-test key))
@@ -24,7 +24,7 @@
    :args (fn [state] [(gen/elements test-keys)])
    :command #'map-get
    :postcondition (fn [prev-state _ [k] val]
-                    (= (get prev-state k) val))})
+                    (is (= (get prev-state k) val)))})
 
 (def java-map-specification
   {:commands {:put #'put-command

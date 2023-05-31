@@ -1,40 +1,50 @@
 (ns cider.nrepl.middleware.stateful-check-test
-  (:require
-   [cider.nrepl.middleware.stateful-check :as middleware]
-   [clojure.test :refer [deftest is use-fixtures run-tests]]
-   [cider.nrepl.middleware.stateful-check-java-map-test :as tests]
-   [cider.nrepl.test-session :as session]
-   [stateful-check.core :refer [run-specification specification-correct?]]))
+  (:require [cider.nrepl.test-session :as session]
+            [clojure.test :refer [deftest is use-fixtures]]))
 
 (use-fixtures :each session/session-fixture)
 
-;; (defn- make-failed-event [specification]
-;;   (let [result (stateful-check.core/run-specification specification)]
-;;     {:index 0
-;;      :stateful-check.core/spec specification
-;;      :stateful-check.core/failed (:fail result)
-;;      :stateful-check.core/shrunk (:smallest (:shrunk result))}))
-
-;; (make-failed-event tests/java-map-specification)
-
-(deftest test-stateful-check-render
+(defn- run-failing-test []
+  (require 'cider.nrepl.middleware.test-stateful-check)
   (session/message {:op "test"
-                    :ns "cider.nrepl.middleware.stateful-check-java-map-test"})
-  (clojure.pprint/pprint
-   (session/message {:op "stateful-check-render"
-                     :ns "cider.nrepl.middleware.stateful-check-java-map-test"
-                     :var "java-map-passes-sequentially"}))
-  (is true))
+                    :ns "cider.nrepl.middleware.test-stateful-check"
+                    :var "java-map-passes-sequentially"}))
 
-;; (deftest test-make-report-sequential
-;;   (let [specification tests/java-map-specification
-;;         result (run-specification specification)]
-;;     (clojure.pprint/pprint (middleware/enhance-report specification result))))
+(deftest test-stateful-check-analyze
+  (run-failing-test)
+  (let [result (session/message {:op "stateful-check-analyze"})]
+    (is (= #{"done"} (:status result)))
+    (let [report (:stateful-check-analyze result)]
+      (is (seq (:results report))))))
 
-;; (deftest test-make-report-parallel
-;;   (let [specification tests/java-map-specification
-;;         result (run-specification specification
-;;                                   {:gen {:threads 2}
-;;                                    :run {:max-tries 100}})]
-;;     (def my-result result)
-;;     (clojure.pprint/pprint (middleware/enhance-report specification result))))
+(deftest test-stateful-check-analyze-no-events
+  (let [result (session/message {:op "stateful-check-analyze"})]
+    (is (= #{"done"} (:status result)))
+    (let [report (:stateful-check-analyze result)]
+      (is (empty? (:results report))))))
+
+(deftest test-stateful-check-inspect
+  (let [result (session/message {:op "stateful-check-inspect" :index "garbage"})]
+    (is (= #{"done" "object-not-found"} (:status result)))
+    (is (= "garbage" (:index result)))))
+
+(deftest test-stateful-check-report
+  (run-failing-test)
+  (session/message {:op "stateful-check-analyze"})
+  (let [result (session/message {:op "stateful-check-report"})]
+    (is (= #{"done"} (:status result)))
+    (let [report (:stateful-check-report result)]
+      (is (seq (:results report))))))
+
+(deftest test-stateful-check-report-without-events
+  (let [result (session/message {:op "stateful-check-report"})]
+    (is (= #{"done"} (:status result)))
+    (let [report (:stateful-check-report result)]
+      (is (empty? (:results report))))))
+
+(deftest test-stateful-check-report-events-not-analyzed
+  (run-failing-test)
+  (let [result (session/message {:op "stateful-check-report"})]
+    (is (= #{"done"} (:status result)))
+    (let [report (:stateful-check-report result)]
+      (is (empty? (:results report))))))
