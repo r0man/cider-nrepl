@@ -11,6 +11,21 @@
 (def ^:private thread-names
   "abcdefghijklmnopqrstuvwxzy")
 
+(defn- make-cursor [path]
+  (.encodeToString (Base64/getEncoder) (.getBytes (pr-str path) "UTF-8")))
+
+(defn- parse-cursor [cursor]
+  (try (let [result (edn/read-string (String. (.decode (Base64/getDecoder) cursor) "UTF-8"))]
+         (when (sequential? result)
+           result))
+       (catch Exception _)))
+
+(defn- cursor [specification & paths]
+  (make-cursor (into (:index specification []) paths)))
+
+;; (defn- cursor [specification & paths]
+;;   (into (:index specification []) paths))
+
 (defn- index->letter [n]
   (nth thread-names n))
 
@@ -54,11 +69,13 @@
     (first (filter #(= arg-num (count %))
                    (-> command :meta :arglists)))))
 
-(defn- analyze-argument [command args index value]
+(defn- analyze-argument [specification command args index value]
   (let [arg-list (find-argument-list command args)
         arg-name (str (nth arg-list index index))]
-    (cond-> {:index index
-             :value value}
+    (cond-> {:cursor (cursor specification :value)
+             :index index
+             :value value
+             :rendered (inspect/inspect-value value)}
       arg-name (assoc :name arg-name))))
 
 (defn- analyze-command
@@ -70,16 +87,20 @@
 
 (defn- analyze-arguments
   "Analyze the Stateful Check `args`."
-  [command args]
-  (mapv (fn [[index value]]
-          (analyze-argument command args index value))
-        (map-indexed vector args)))
+  [specification command args]
+  (let [specification (update specification :index conj :arguments)]
+    (mapv (fn [[index value]]
+            (-> (update specification :index conj index)
+                (analyze-argument command args index value)))
+          (map-indexed vector args))))
 
 (defn- analyze-handle
   "Analyze the command `handle`."
-  [handle]
-  {:name (pr-str handle)
-   :value handle})
+  [specification handle]
+  {:cursor (cursor specification)
+   :name (pr-str handle)
+   :value handle
+   :rendered (pr-str handle)})
 
 (defn- analyze-sequential-executions [specification executions]
   (let [setup-result (when-let [setup (:setup specification)]
@@ -88,21 +109,32 @@
                         (if (:setup specification)
                           (initial-state setup-result)
                           (initial-state)))
-        final-traces (reduce (fn [traces [[handle cmd & args :as execution] trace]]
-                               (let [previous-state (:state (last traces))
+        final-traces (reduce (fn [traces [index [[handle cmd & args :as execution] trace]]]
+                               (let [index (inc index)
+                                     specification (update specification :index conj index)
+                                     previous-state (-> (last traces) :state :value)
                                      result (apply (:command cmd) args)
                                      next-state (if-let [next-state (:next-state cmd)]
                                                   (next-state previous-state args result)
                                                   previous-state)
                                      command (analyze-command cmd)
                                      next-trace {:command command
-                                                 :arguments (analyze-arguments command args)
-                                                 :handle (analyze-handle handle)
-                                                 :result result
-                                                 :trace trace
-                                                 :state next-state}]
+                                                 :arguments (analyze-arguments specification command args)
+                                                 :handle (analyze-handle specification handle)
+                                                 :result {:cursor (cursor specification :result :value)
+                                                          :value result
+                                                          :rendered (inspect/inspect-value result)}
+                                                 :trace {:cursor (cursor specification :trace :value)
+                                                         :value trace
+                                                         :rendered (inspect/inspect-value trace)}
+                                                 :state {:cursor (cursor specification :state :value)
+                                                         :value next-state
+                                                         :rendered (inspect/inspect-value next-state)}}]
                                  (conj traces next-trace)))
-                             [{:state initial-state}] executions)]
+                             [{:state {:cursor (cursor  specification 0 :state :value)
+                                       :value initial-state
+                                       :rendered (inspect/inspect-value initial-state)}}]
+                             (map-indexed vector executions))]
     (when-let [cleanup (:cleanup specification)]
       (if (:setup specification)
         (cleanup setup-result)
@@ -110,29 +142,68 @@
     final-traces))
 
 (defn- analyze-parallel-execution [specification executions]
-  (mapv #(analyze-sequential-executions specification %) executions))
+  (let [specification (update specification :index conj :parallel)]
+    (mapv (fn [[index executions]]
+            (-> (update specification :index conj index)
+                (analyze-sequential-executions executions)))
+          (map-indexed vector executions))))
+
+;; (def my-inspector
+;;   (stateful-check-report
+;;    (stateful-check-analyze (make-inspector) (test-report))
+;;    {:ns 'cider.nrepl.middleware.test-stateful-check
+;;     :var 'java-map-passes-sequentially}))
+
+;; (get-in my-inspector
+;;         '[:results
+;;             cider.nrepl.middleware.test-stateful-check
+;;             java-map-passes-sequentially
+;;             :stateful-check
+;;             :failures
+;;             :first
+;;             :parallel
+;;             0
+;;             0
+;;             :state
+;;             :rendered])
+
+(defn- analyze-sequential-execution [specification executions]
+  (let [specification (update specification :index conj :sequential)]
+    (analyze-sequential-executions specification executions)))
 
 (defn- analyze-execution [specification {:keys [sequential parallel]}]
-  {:sequential (analyze-sequential-executions specification sequential)
+  {:sequential (analyze-sequential-execution specification sequential)
    :parallel (analyze-parallel-execution specification parallel)})
+
+(defn- analyze-first-case
+  "Analyze the first failing case of `specification` and `event`."
+  [specification event]
+  (-> (update specification :index conj :first)
+      (analyze-execution (test-event-failed-execution event))))
+
+(defn- analyze-smallest-case
+  "Analyze the smallest failing case of `specification` and `event`."
+  [specification event]
+  (-> (update specification :index conj :smallest)
+      (analyze-execution (test-event-smallest-execution event))))
+
+(defn- analyze-failures
+  "Analyze the failures of `specification` and `event`."
+  [specification event]
+  (let [specification (update specification :index #(vec (concat % [:stateful-check :failures])))]
+    (update-in event [:stateful-check :failures] merge
+               {:INDEX (:index specification)
+                :first (analyze-first-case specification event)
+                :smallest (analyze-smallest-case specification event)})))
 
 (defn analyze-event
   "Analyze the Clojure Test `event`."
   [event]
-  (let [specification (test-event-specification event)]
-    (update-in event [:stateful-check :failures] merge
-               {:first (analyze-execution specification (test-event-failed-execution event))
-                :smallest (analyze-execution specification (test-event-smallest-execution event))})))
+  (let [specification (test-event-specification event)
+        specification (assoc specification :index [:results (:ns event) (:var event)])]
+    (analyze-failures specification event)))
 
 ;; Render
-
-(defn- make-cursor [path]
-  (.encodeToString (Base64/getEncoder) (.getBytes (pr-str path) "UTF-8")))
-
-(defn- parse-cursor [cursor]
-  (try (let [result (edn/read-string (String. (.decode (Base64/getDecoder) cursor) "UTF-8"))]
-         (when (sequential? result) result))
-       (catch Exception _)))
 
 (defn render-value [inspector value]
   (let [{:keys [report-path]} inspector
@@ -162,8 +233,8 @@
   (= "stateful_check.runner.CaughtException"
      (some-> x .getClass .getName)))
 
-(defn get-object [report cursor]
-  (some->> cursor parse-cursor (get-in report)))
+(defn get-object [inspector cursor]
+  (some->> cursor parse-cursor (get-in inspector)))
 
 (defn test-report-events [test-report]
   (->> test-report :results vals
@@ -248,7 +319,7 @@
 
 (defn- stateful-check-inspect-reply
   [{:keys [index] :as msg}]
-  (if-let [object (get-object (test-report) index)]
+  (if-let [object (get-object (inspector msg) index)]
     (let [inspector (inspect/start (inspect/fresh) object)]
       (#'middleware.inspect/inspector-response
        msg (middleware.inspect/swap-inspector! msg (constantly inspector))))

@@ -33,4 +33,7 @@
 
 (deftest java-map-passes-sequentially
   (is (specification-correct? java-map-specification
-                              {:gen {:threads 2}})))
+                              {:gen {:threads 2}
+                               :report {:command-frequency? true
+                                        :first-case? true
+                                        :stacktrace? true}})))
