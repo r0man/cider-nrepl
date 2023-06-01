@@ -85,7 +85,8 @@
         (pr-str value)
         (symbolic-lookup-var? value)
         (pr-str value)
-        :else (inspect/inspect-value value)))
+        :else (binding [inspect/*max-atom-length* 50]
+                (inspect/inspect-value value))))
 
 (defn- analyze-argument [specification command args index value]
   (let [arg-list (find-argument-list command args)
