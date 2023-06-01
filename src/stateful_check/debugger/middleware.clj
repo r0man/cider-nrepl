@@ -34,13 +34,13 @@
   {:stateful-check-analyze
    (transform-value
     (swap-debugger! msg (fn [debugger]
-                           (-> (debugger/stateful-check-analyze
+                           (-> (debugger/analyze-test-report
                                 debugger @current-report (criteria msg))
                                (debugger/filter-reports criteria)))))})
 
 (defn- stateful-check-inspect-reply
   [{:keys [index] :as msg}]
-  (if-let [object (debugger/get-object (debugger msg) index)]
+  (if-let [object (debugger/inspect-value (debugger msg) index)]
     (let [inspector (inspect/start (inspect/fresh) object)]
       (#'middleware.inspect/inspector-response
        msg (middleware.inspect/swap-inspector! msg (constantly inspector))))
