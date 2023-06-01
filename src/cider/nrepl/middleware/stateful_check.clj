@@ -69,13 +69,31 @@
     (first (filter #(= arg-num (count %))
                    (-> command :meta :arglists)))))
 
+(defn- caught-exception?
+  "Return true if `x` is a Stateful Check caught exception, otherwise false."
+  [x]
+  (= "stateful_check.runner.CaughtException" (some-> x .getClass .getName)))
+
+(defn- symbolic-root-var? [x]
+  (= "stateful_check.symbolic_values.RootVar" (some-> x .getClass .getName)))
+
+(defn- symbolic-lookup-var? [x]
+  (= "stateful_check.symbolic_values.LookupVar" (some-> x .getClass .getName)))
+
+(defn- render-value [value]
+  (cond (symbolic-root-var? value)
+        (pr-str value)
+        (symbolic-lookup-var? value)
+        (pr-str value)
+        :else (inspect/inspect-value value)))
+
 (defn- analyze-argument [specification command args index value]
   (let [arg-list (find-argument-list command args)
         arg-name (str (nth arg-list index index))]
     (cond-> {:cursor (cursor specification :value)
              :index index
              :value value
-             :rendered (inspect/inspect-value value)}
+             :rendered (render-value value)}
       arg-name (assoc :name arg-name))))
 
 (defn- analyze-command
@@ -202,36 +220,6 @@
   (let [specification (test-event-specification event)
         specification (assoc specification :index [:results (:ns event) (:var event)])]
     (analyze-failures specification event)))
-
-;; Render
-
-(defn render-value [inspector value]
-  (let [{:keys [report-path]} inspector
-        expr `(:value ~(inspect/inspect-value value)
-                      ~(make-cursor report-path)
-                      ;; ~report-path
-                      ;; ~(list :GET-IN (get-in (current-test-report) report-path))
-                      )]
-    (-> inspector
-        (update-in [:rendered] concat (list expr)))))
-
-(defn- render-argument [inspector argument]
-  (-> (inspect/render inspector "      ")
-      (render-value argument)
-      (inspect/render-ln)))
-
-(defn- render-arguments [inspector arguments]
-  (-> (reduce (fn [inspector argument]
-                (-> (update inspector :report-path vector-inc-last)
-                    (render-argument argument)))
-              (inspect/render-ln inspector "    Arguments:")
-              arguments)))
-
-(defn- caught-exception?
-  "Return true if `x` is a Stateful Check caught exception, otherwise false."
-  [x]
-  (= "stateful_check.runner.CaughtException"
-     (some-> x .getClass .getName)))
 
 (defn get-object [inspector cursor]
   (some->> cursor parse-cursor (get-in inspector)))
