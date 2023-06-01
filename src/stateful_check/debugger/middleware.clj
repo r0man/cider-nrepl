@@ -15,32 +15,32 @@
     (or (string? var) (symbol? var))
     (assoc :ns (symbol (name ns)))))
 
-(defn- inspector
-  "Return the Stateful Check inspector from the `msg`."
+(defn- debugger
+  "Return the Stateful Check debugger from the `msg`."
   [msg]
-  (or (-> msg :session meta ::inspector)
-      (debugger/make-inspector)))
+  (or (-> msg :session meta ::debugger)
+      (debugger/make-debugger)))
 
-(defn- swap-inspector!
-  "Apply `f` with `args` to the inspector of the NREPL `session`."
+(defn- swap-debugger!
+  "Apply `f` with `args` to the debugger of the NREPL `session`."
   [{:keys [session]} f & args]
   (-> session
-      (alter-meta! update ::inspector #(apply f % args))
-      (get ::inspector)))
+      (alter-meta! update ::debugger #(apply f % args))
+      (get ::debugger)))
 
 (defn- stateful-check-analyze-reply
   "Handle a Stateful Check test analysis NREPL operation."
   [msg]
   {:stateful-check-analyze
    (transform-value
-    (swap-inspector! msg (fn [inspector]
+    (swap-debugger! msg (fn [debugger]
                            (-> (debugger/stateful-check-analyze
-                                inspector @current-report (criteria msg))
+                                debugger @current-report (criteria msg))
                                (debugger/filter-reports criteria)))))})
 
 (defn- stateful-check-inspect-reply
   [{:keys [index] :as msg}]
-  (if-let [object (debugger/get-object (inspector msg) index)]
+  (if-let [object (debugger/get-object (debugger msg) index)]
     (let [inspector (inspect/start (inspect/fresh) object)]
       (#'middleware.inspect/inspector-response
        msg (middleware.inspect/swap-inspector! msg (constantly inspector))))
@@ -49,8 +49,8 @@
 (defn- stateful-check-report-reply
   "Handle a Stateful Check test report NREPL operation."
   [msg]
-  (let [inspector (debugger/stateful-check-report (inspector msg) msg)]
-    {:stateful-check-report (transform-value inspector)}))
+  (let [debugger (debugger/stateful-check-report (debugger msg) msg)]
+    {:stateful-check-report (transform-value debugger)}))
 
 (defn handle-message
   "Handle a Stateful Check NREPL `msg`."

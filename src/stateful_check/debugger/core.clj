@@ -4,9 +4,6 @@
             [orchard.inspect :as inspect])
   (:import (java.util Base64)))
 
-(def ^:private thread-names
-  "abcdefghijklmnopqrstuvwxzy")
-
 (defn- make-cursor [path]
   (.encodeToString (Base64/getEncoder) (.getBytes (pr-str path) "UTF-8")))
 
@@ -21,12 +18,6 @@
 
 ;; (defn- cursor [specification & paths]
 ;;   (into (:index specification []) paths))
-
-(defn- index->letter [n]
-  (nth thread-names n))
-
-(defn- vector-inc-last [v]
-  (conj (pop v) (inc (peek v))))
 
 ;; Test report event
 
@@ -156,25 +147,6 @@
                 (analyze-sequential-executions executions)))
           (map-indexed vector executions))))
 
-;; (def my-inspector
-;;   (stateful-check-report
-;;    (stateful-check-analyze (make-inspector) (test-report))
-;;    {:ns 'cider.nrepl.middleware.test-stateful-check
-;;     :var 'java-map-passes-sequentially}))
-
-;; (get-in my-inspector
-;;         '[:results
-;;             cider.nrepl.middleware.test-stateful-check
-;;             java-map-passes-sequentially
-;;             :stateful-check
-;;             :failures
-;;             :first
-;;             :parallel
-;;             0
-;;             0
-;;             :state
-;;             :rendered])
-
 (defn- analyze-sequential-execution [specification executions]
   (let [specification (update specification :index conj :sequential)]
     (analyze-sequential-executions specification executions)))
@@ -211,8 +183,8 @@
         specification (assoc specification :index [:results (:ns event) (:var event)])]
     (analyze-failures specification event)))
 
-(defn get-object [inspector cursor]
-  (some->> cursor parse-cursor (get-in inspector)))
+(defn get-object [debugger cursor]
+  (some->> cursor parse-cursor (get-in debugger)))
 
 (defn test-report-events [test-report]
   (->> test-report :results vals
@@ -229,44 +201,44 @@
 (defn- search-events [criteria events]
   (filter #(matches-criteria? % criteria) events))
 
-(defn make-inspector
-  "Make a new Stateful Check Inspector."
+(defn make-debugger
+  "Make a new Stateful Check Debugger."
   []
   {:summary {} :results {}})
 
-(defn- inspector-reports
-  "Return the Stateful Check reports of the `inspector`."
-  [inspector]
-  (->> inspector :results vals (mapcat vals)))
+(defn- debugger-reports
+  "Return the Stateful Check reports of the `debugger`."
+  [debugger]
+  (->> debugger :results vals (mapcat vals)))
 
-(defn- inspector-add-reports [inspector reports]
-  (reduce (fn [inspector report]
-            (assoc-in inspector [:results (:ns report) (:var report)] report))
-          inspector reports))
+(defn- debugger-add-reports [debugger reports]
+  (reduce (fn [debugger report]
+            (assoc-in debugger [:results (:ns report) (:var report)] report))
+          debugger reports))
 
 (defn filter-reports
-  "Return a new inspector with results filtered by `criteria`"
-  [inspector criteria]
-  (inspector-add-reports (assoc inspector :results {})
+  "Return a new debugger with results filtered by `criteria`"
+  [debugger criteria]
+  (debugger-add-reports (assoc debugger :results {})
                          (filter #(matches-criteria? % criteria)
-                                 (inspector-reports inspector))))
+                                 (debugger-reports debugger))))
 
 (defn stateful-check-analyze
   "Analyze the Stateful Check events in a Cider test report."
-  [inspector test-report & [opts]]
-  (reduce (fn [inspector {:keys [ns var] :as event}]
-            (assoc-in inspector [:results ns var] (analyze-event event)))
-          inspector (search-events opts (test-report-events test-report))))
+  [debugger test-report & [opts]]
+  (reduce (fn [debugger {:keys [ns var] :as event}]
+            (assoc-in debugger [:results ns var] (analyze-event event)))
+          debugger (search-events opts (test-report-events test-report))))
 
 (defn stateful-check-report
   "Return the Stateful Check reports matching `criteria`."
-  [inspector & [criteria]]
-  (filter-reports inspector criteria))
+  [debugger & [criteria]]
+  (filter-reports debugger criteria))
 
 (comment
 
   (stateful-check-report
-   (stateful-check-analyze (make-inspector) @cider.nrepl.middleware.test/current-report)
+   (stateful-check-analyze (make-debugger) @cider.nrepl.middleware.test/current-report)
    {:ns 'cider.nrepl.middleware.test-stateful-check
     :var 'java-map-passes-sequentially})
 
