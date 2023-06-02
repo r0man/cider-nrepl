@@ -4,7 +4,8 @@
             [cider.nrepl.middleware.util :refer [transform-value]]
             [cider.nrepl.middleware.util.error-handling :refer [with-safe-transport]]
             [orchard.inspect :as inspect]
-            [stateful-check.debugger.core :as debugger]))
+            [stateful-check.debugger.core :as debugger]
+            [stateful-check.core :as stateful-check]))
 
 (defn- criteria
   "Make the search criteria map from the NREPL msg."
@@ -13,19 +14,26 @@
     (or (string? ns) (symbol? ns))
     (assoc :ns (symbol (name ns)))
     (or (string? var) (symbol? var))
-    (assoc :ns (symbol (name ns)))))
+    (assoc :var (symbol (name var)))))
+
+(defn- make-debugger
+  "Make a new debugger."
+  []
+  (debugger/make-debugger
+   {:analyzer {:render (fn [value]
+                         (binding [inspect/*max-atom-length* 50]
+                           (inspect/inspect-value value)))}}))
 
 (defn- debugger
-  "Return the Stateful Check debugger from the `msg`."
+  "Return the debugger from `msg` or a new one."
   [msg]
-  (or (-> msg :session meta ::debugger)
-      (debugger/make-debugger)))
+  (or (-> msg :session meta ::debugger) (make-debugger)))
 
 (defn- swap-debugger!
   "Apply `f` with `args` to the debugger of the NREPL `session`."
   [{:keys [session]} f & args]
   (-> session
-      (alter-meta! update ::debugger #(apply f % args))
+      (alter-meta! update ::debugger #(apply f (or % (make-debugger)) args))
       (get ::debugger)))
 
 (defn- stateful-check-analyze-reply
@@ -33,10 +41,8 @@
   [msg]
   {:stateful-check-analyze
    (transform-value
-    (swap-debugger! msg (fn [debugger]
-                           (-> (debugger/analyze-test-report
-                                debugger @current-report (criteria msg))
-                               (debugger/filter-reports criteria)))))})
+    (swap-debugger! msg #(-> (debugger/analyze-test-report % @current-report (criteria msg))
+                             (debugger/filter-results criteria))))})
 
 (defn- stateful-check-inspect-reply
   [{:keys [index] :as msg}]
@@ -49,7 +55,7 @@
 (defn- stateful-check-report-reply
   "Handle a Stateful Check test report NREPL operation."
   [msg]
-  (let [debugger (debugger/stateful-check-report (debugger msg) msg)]
+  (let [debugger (debugger/filter-results (debugger msg) msg)]
     {:stateful-check-report (transform-value debugger)}))
 
 (defn handle-message
@@ -59,3 +65,6 @@
     "stateful-check-analyze" stateful-check-analyze-reply
     "stateful-check-inspect" stateful-check-inspect-reply
     "stateful-check-report" stateful-check-report-reply))
+
+;; (stateful-check-analyze-reply {:session (atom nil)})
+;; (stateful-check-report-reply {})

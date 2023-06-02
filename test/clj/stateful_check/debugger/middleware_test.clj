@@ -25,10 +25,9 @@
     (let [report (:stateful-check-analyze result)]
       (is (empty? (:results report))))))
 
-(deftest test-stateful-check-inspect
-  (let [result (session/message {:op "stateful-check-inspect" :index "garbage"})]
-    (is (= #{"done" "object-not-found"} (:status result)))
-    (is (= "garbage" (:index result)))))
+(deftest test-stateful-check-inspect-invalid-index
+  (let [result (session/message {:op "stateful-check-inspect" :index "invalid"})]
+    (is (= #{"done" "stateful-check-inspect-error"} (:status result)))))
 
 (deftest test-stateful-check-report
   (run-failing-test)

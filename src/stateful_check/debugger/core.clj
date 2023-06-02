@@ -1,10 +1,13 @@
 (ns stateful-check.debugger.core
-  (:require [stateful-check.debugger.analyzer :as analyzer]))
+  (:require [stateful-check.debugger.analyzer :as analyzer]
+            [stateful-check.debugger.cursor :as cursor]))
 
 (defn make-debugger
   "Make a Stateful Check Debugger."
-  []
-  {:summary {} :results {}})
+  [& [{:keys [analyzer]}]]
+  {:analyzer (analyzer/analyzer analyzer)
+   :summary {}
+   :results {}})
 
 (defn- failed-event?
   "Return true if `event` is a failed Stateful Check test event,
@@ -20,10 +23,12 @@
        (apply concat)
        (filter failed-event?)))
 
-(defn- criteria? [event criteria]
-  (let [ns (some-> criteria :ns symbol)
-        var (some-> criteria :var symbol)]
-    (and (or (nil? ns) (= ns (:ns event)))
+(defn- criteria?
+  [event {:keys [id ns var] :as criteria}]
+  (let [ns (some-> ns symbol)
+        var (some-> var symbol)]
+    (and (or (nil? id) (= id (:id event)))
+         (or (nil? ns) (= ns (:ns event)))
          (or (nil? var) (= var (:var event))))))
 
 (defn- search-events [criteria events]
@@ -32,12 +37,12 @@
 (defn- reports
   "Return the Stateful Check reports of the `debugger`."
   [debugger]
-  (->> debugger :results vals (mapcat vals)))
+  (-> debugger :results vals))
 
 (defn- add-report [debugger report]
-  (assoc-in debugger [:results (:ns report) (:var report)] report))
+  (assoc-in debugger [:results (:id report)] report))
 
-(defn filter-reports
+(defn filter-results
   "Return a new debugger with results filtered by `criteria`"
   [debugger criteria]
   (reduce add-report
@@ -47,24 +52,24 @@
 (defn analyze-test-report
   "Analyze the Stateful Check events in a Cider test report."
   [debugger test-report & [opts]]
-  (reduce (fn [debugger {:keys [ns var] :as event}]
-            (let [analysis (analyzer/analyze-test-event event)]
-              (assoc-in debugger [:results ns var] analysis)))
+  (reduce (fn [{:keys [analyzer] :as debugger} {:keys [ns var] :as event}]
+            (let [analyzer (analyzer/push-path analyzer :results (str ns "/" var))
+                  analysis (analyzer/analyze-test-report-event analyzer event)]
+              (assoc-in debugger [:results (:id analysis)] analysis)))
           debugger (search-events opts (failed-test-events test-report))))
-
-(defn stateful-check-report
-  "Return the Stateful Check reports matching `criteria`."
-  [debugger & [criteria]]
-  (filter-reports debugger criteria))
 
 (defn inspect-value
   "Return the value in the `debugger` to which `cursor` refers to."
   [debugger cursor]
-  (some->> cursor analyzer/parse-cursor (get-in debugger)))
+  (some->> cursor cursor/parse (get-in debugger)))
 
 (comment
 
-  (stateful-check-report
+  (reports (analyze-test-report (make-debugger) @cider.nrepl.middleware.test/current-report))
+
+  (failed-test-events @cider.nrepl.middleware.test/current-report)
+
+  (filter-results
    (analyze-test-report (make-debugger) @cider.nrepl.middleware.test/current-report)
    {:ns 'cider.nrepl.middleware.test-stateful-check
     :var 'java-map-passes-sequentially})
