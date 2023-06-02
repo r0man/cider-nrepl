@@ -8,7 +8,7 @@
 (def test-keys ["" "a" "house" "tree" "λ"])
 
 (defn map-put [key value]
-  (.put system-under-test key (if (> 42 value) "boom" value)))
+  (.put system-under-test key (if (> value 42) "boom" value)))
 
 (defn map-get [key]
   (.get system-under-test key))
