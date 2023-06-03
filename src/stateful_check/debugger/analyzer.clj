@@ -77,16 +77,53 @@
   (let [analyzer (push-path analyzer :result)]
     (analyze-value analyzer result)))
 
+(defn- analyze-failure-event
+  "Analyze the test report failure `event`."
+  [analyzer {:keys [actual expected] :as event}]
+  (cond-> event
+    (contains? event :actual)
+    (update :actual #(analyze-value (push-path analyzer :actual) %))
+    (contains? event :expected)
+    (update :expected #(analyze-value (push-path analyzer :expected) %))))
+
+(defn- analyze-failure-events
+  "Analyze the test report failure `events`."
+  [analyzer events]
+  (let [analyzer (push-path analyzer :events)]
+    (mapv (fn [[index event]]
+            (analyze-failure-event (push-path analyzer index) event))
+          (map-indexed vector events))))
+
+(defn- analyze-failure
+  "Analyze the command `failure`."
+  [analyzer {:keys [message events] :as failure}]
+  (cond-> {}
+    message
+    (assoc :message message)
+    (seq events)
+    (assoc :events (analyze-failure-events analyzer events))))
+
+(defn- analyze-failures
+  "Analyze the command `result`."
+  [analyzer failures]
+  (let [analyzer (push-path analyzer :failures)]
+    (mapv (fn [[index failure]]
+            (analyze-failure (push-path analyzer index) failure))
+          (map-indexed vector failures))))
+
 (defn- analyze-execution-trace
   "Analyze the execution `trace`."
   [analyzer commands]
   (mapv (fn [[index [[handle cmd & args] result]]]
           (let [analyzer (push-path analyzer index)
-                command (analyze-command cmd)]
-            {:arguments (analyze-arguments analyzer command args)
-             :command command
-             :handle (analyze-handle analyzer handle)
-             :result (analyze-result analyzer result)}))
+                command (analyze-command cmd)
+                failures (get-in analyzer [:failures handle])]
+            (cond-> {:arguments (analyze-arguments analyzer command args)
+                     :command command
+                     :handle (analyze-handle analyzer handle)
+                     :result (analyze-result analyzer result)}
+              (seq failures)
+              (assoc :failures (analyze-failures analyzer failures)))))
         (map-indexed vector commands)))
 
 (defn- analyze-parallel
@@ -106,9 +143,10 @@
 (defn- analyze-executions
   "Analyze the sequential and parallel `executions` map."
   [analyzer executions]
-  (-> executions
-      (update :sequential #(analyze-sequential analyzer %))
-      (update :parallel #(analyze-parallel analyzer %))))
+  (let [analyzer (assoc analyzer :failures (:messages executions))]
+    (-> executions
+        (update :sequential #(analyze-sequential analyzer %))
+        (update :parallel #(analyze-parallel analyzer %)))))
 
 (defn analyze-quick-check
   "Analyze the Stateful Check `results`."
