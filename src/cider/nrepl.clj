@@ -596,6 +596,11 @@ stack frame of the most recent exception. This op is deprecated, please use the
               :optional {"ns" "Filter test reports matching namespace."
                          "var" "Filter test reports matching var."}
               :returns {"stateful-check-reports" "The test reports."
+                        "status" "done"}}
+             "stateful-check-print"
+             {:doc "Print a Stateful Check test report object."
+              :requires {"index" "The index of the object to print."}
+              :returns {"value" "The printed object."
                         "status" "done"}}}})
 
 ;;; CIDER's nREPL Handler
