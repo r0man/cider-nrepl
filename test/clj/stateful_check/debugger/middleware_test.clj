@@ -29,6 +29,10 @@
   (let [result (session/message {:op "stateful-check-inspect" :index "invalid"})]
     (is (= #{"done" "stateful-check-inspect-error"} (:status result)))))
 
+(deftest test-stateful-check-print-invalid-index
+  (let [result (session/message {:op "stateful-check-print" :index "invalid"})]
+    (is (= #{"done" "stateful-check-print-error"} (:status result)))))
+
 (deftest test-stateful-check-report
   (run-failing-test)
   (session/message {:op "stateful-check-analyze"})

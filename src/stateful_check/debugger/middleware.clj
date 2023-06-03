@@ -3,9 +3,10 @@
             [cider.nrepl.middleware.test :refer [current-report]]
             [cider.nrepl.middleware.util :refer [transform-value]]
             [cider.nrepl.middleware.util.error-handling :refer [with-safe-transport]]
+            [nrepl.middleware.print :as print]
             [orchard.inspect :as inspect]
-            [stateful-check.debugger.core :as debugger]
-            [stateful-check.core :as stateful-check]))
+            [stateful-check.debugger.core :as debugger])
+  (:import [java.io StringWriter]))
 
 (defn- criteria
   "Make the search criteria map from the NREPL msg."
@@ -45,6 +46,7 @@
                              (debugger/filter-results criteria))))})
 
 (defn- stateful-check-inspect-reply
+  "Handle a Stateful Check inspect NREPL operation."
   [{:keys [index] :as msg}]
   (if-let [object (debugger/inspect-value (debugger msg) index)]
     (let [inspector (inspect/start (inspect/fresh) object)]
@@ -58,12 +60,22 @@
   (let [debugger (debugger/filter-results (debugger msg) msg)]
     {:stateful-check-report (transform-value debugger)}))
 
+(defn- stateful-check-print-reply
+  "Handle a Stateful Check print NREPL operation."
+  [{:keys [index ::print/print-fn] :as msg}]
+  (let [debugger (debugger msg)
+        object (debugger/inspect-value debugger index)
+        writer (StringWriter.)]
+    (print-fn object writer)
+    {:stateful-check-print (str writer)}))
+
 (defn handle-message
   "Handle a Stateful Check NREPL `msg`."
   [handler msg]
   (with-safe-transport handler msg
     "stateful-check-analyze" stateful-check-analyze-reply
     "stateful-check-inspect" stateful-check-inspect-reply
+    "stateful-check-print" stateful-check-print-reply
     "stateful-check-report" stateful-check-report-reply))
 
 ;; (stateful-check-analyze-reply {:session (atom nil)})
