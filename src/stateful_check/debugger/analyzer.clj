@@ -150,11 +150,11 @@
 
 (defn analyze-quick-check
   "Analyze the Stateful Check `results`."
-  [analyzer specification options {:keys [id result shrunk] :as results}]
+  [analyzer {:keys [id result shrunk] :as results}]
   (when (stateful-check/failure-exception? result)
     {:id (str (or id (UUID/randomUUID)))
-     :specification specification
-     :options options
+     :specification (-> result ex-data :specification)
+     :options (-> result ex-data :options)
      :results results
      :executions {:first (analyze-executions
                           (push-path analyzer :executions :first)
@@ -166,10 +166,7 @@
 (defn analyze-test-report-event
   "Analyze the Clojure Test report `event`."
   [analyzer {:keys [ns var] :as event}]
-  (let [specification (-> event :stateful-check :specification)
-        options (-> event :stateful-check :options)
-        results (-> event :stateful-check :results)
-        id (str ns "/" var)]
-    (when (and specification results)
-      (-> (analyze-quick-check analyzer specification options results)
+  (let [id (str ns "/" var)]
+    (when-let [results (:stateful-check event)]
+      (-> (analyze-quick-check analyzer results)
           (assoc :id id :ns ns :var var :test-report event)))))

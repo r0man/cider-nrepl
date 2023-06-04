@@ -3,7 +3,8 @@
             [clojure.test :refer [deftest is testing]]
             [stateful-check.core :refer [run-specification]]
             [stateful-check.debugger.analyzer :as analyzer]
-            [stateful-check.debugger.cursor :as cursor]))
+            [stateful-check.debugger.cursor :as cursor])
+  (:import [java.util UUID]))
 
 (def specification
   test-stateful-check/java-map-specification)
@@ -55,16 +56,13 @@
 
 (deftest test-analyze-quick-check
   (let [results (run-specification specification options)
-        analysis (analyzer/analyze-quick-check (analyzer/analyzer) specification options results)]
+        analysis (analyzer/analyze-quick-check (analyzer/analyzer) results)]
+    (is (UUID/fromString (:id analysis)))
     (check-analysis specification options results analysis)))
 
 (deftest test-analyze-test-report-event
   (let [results (run-specification specification options)
-        test-event {:ns 'user
-                    :var 'test
-                    :stateful-check
-                    {:specification specification
-                     :options options
-                     :results results}}
+        test-event {:ns 'user :var 'test :stateful-check results}
         analysis (analyzer/analyze-test-report-event (analyzer/analyzer) test-event)]
+    (is (= "user/test" (:id analysis)))
     (check-analysis specification options results analysis)))
