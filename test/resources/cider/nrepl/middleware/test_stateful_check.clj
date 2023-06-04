@@ -36,4 +36,5 @@
                               {:gen {:threads 2}
                                :report {:command-frequency? true
                                         :first-case? true
-                                        :stacktrace? true}})))
+                                        :stacktrace? true}
+                               :run {:seed 0}})))
