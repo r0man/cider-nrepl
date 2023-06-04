@@ -1,6 +1,7 @@
 (ns stateful-check.debugger.core
   (:require [stateful-check.debugger.analyzer :as analyzer]
-            [stateful-check.debugger.cursor :as cursor]))
+            [stateful-check.debugger.cursor :as cursor]
+            [stateful-check.debugger.render :as render]))
 
 (defn make-debugger
   "Make a Stateful Check Debugger."
@@ -63,9 +64,17 @@
   [debugger cursor]
   (some->> cursor cursor/parse (get-in debugger)))
 
+(defn render
+  "Render the `debugger` in a Bencode compatible format."
+  [debugger]
+  (render/render-debugger debugger))
+
 (comment
 
-  (reports (analyze-test-report (make-debugger) @cider.nrepl.middleware.test/current-report))
+  (some->> my-cursor cursor/parse)
+
+  (def my-debugger
+    (analyze-test-report (make-debugger) @cider.nrepl.middleware.test/current-report))
 
   (failed-test-events @cider.nrepl.middleware.test/current-report)
 

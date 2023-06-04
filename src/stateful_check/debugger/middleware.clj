@@ -37,11 +37,14 @@
       (alter-meta! update ::debugger #(apply f (or % (make-debugger)) args))
       (get ::debugger)))
 
+(defn render-debugger [debugger]
+  (transform-value (debugger/render debugger)))
+
 (defn- stateful-check-analyze-reply
   "Handle a Stateful Check test analysis NREPL operation."
   [msg]
   {:stateful-check-analyze
-   (transform-value
+   (render-debugger
     (swap-debugger! msg #(-> (debugger/analyze-test-report % @current-report (criteria msg))
                              (debugger/filter-results criteria))))})
 
@@ -58,7 +61,7 @@
   "Handle a Stateful Check test report NREPL operation."
   [msg]
   (let [debugger (debugger/filter-results (debugger msg) msg)]
-    {:stateful-check-report (transform-value debugger)}))
+    {:stateful-check-report (render-debugger debugger)}))
 
 (defn- stateful-check-print-reply
   "Handle a Stateful Check print NREPL operation."
