@@ -111,17 +111,26 @@
             (analyze-failure (push-path analyzer index) failure))
           (map-indexed vector failures))))
 
+(defn- analyze-state
+  "Analyze the command `state`."
+  [analyzer state]
+  (let [analyzer (push-path analyzer :state)]
+    (analyze-value analyzer state)))
+
 (defn- analyze-execution-trace
   "Analyze the execution `trace`."
   [analyzer commands]
-  (mapv (fn [[index [[handle cmd & args] result]]]
+  (mapv (fn [[index [[handle cmd & args] result-str result]]]
           (let [analyzer (push-path analyzer index)
                 command (analyze-command cmd)
+                bindings (get-in analyzer [:environment handle :state :before])
+                state (get-in analyzer [:environment handle :state :after])
                 failures (get-in analyzer [:failures handle])]
             (cond-> {:arguments (analyze-arguments analyzer command args)
                      :command command
                      :handle (analyze-handle analyzer handle)
-                     :result (analyze-result analyzer result)}
+                     :result (analyze-result analyzer result)
+                     :state (analyze-state analyzer state)}
               (seq failures)
               (assoc :failures (analyze-failures analyzer failures)))))
         (map-indexed vector commands)))
@@ -142,8 +151,8 @@
 
 (defn- analyze-executions
   "Analyze the sequential and parallel `executions` map."
-  [analyzer executions]
-  (let [analyzer (assoc analyzer :failures (:messages executions))]
+  [analyzer {:keys [environment messages] :as executions}]
+  (let [analyzer (assoc analyzer :environment environment :failures messages)]
     (-> executions
         (update :sequential #(analyze-sequential analyzer %))
         (update :parallel #(analyze-parallel analyzer %)))))
