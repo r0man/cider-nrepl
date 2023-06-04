@@ -9,9 +9,11 @@
 (defn- render-command [command]
   (select-keys command [:cursor :index :name :rendered]))
 
-(defn- render-execution [{:keys [arguments command handle result state]}]
+(defn- render-execution
+  [{:keys [arguments command failures handle result state]}]
   {:arguments (mapv render-argument arguments)
    :command (render-command command)
+   :failures failures
    :handle (render-value handle)
    :result (render-value result)
    :state (render-value state)})
