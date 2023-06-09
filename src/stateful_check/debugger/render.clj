@@ -9,13 +9,16 @@
 (defn- render-command [command]
   (select-keys command [:cursor :index :name :rendered]))
 
+(defn- render-result [value]
+  (select-keys value [:cursor :index :exception :rendered]))
+
 (defn- render-execution
   [{:keys [arguments command failures handle result state]}]
   {:arguments (mapv render-argument arguments)
    :command (render-command command)
    :failures failures
    :handle (render-value handle)
-   :result (render-value result)
+   :result (render-result result)
    :state (render-value state)})
 
 (defn- render-sequential [commands]
@@ -37,7 +40,7 @@
   (-> (select-keys results [:failing-size :frequencies :num-tests :seed])
       (update :shrunk select-keys [:depth :total-nodes-visited] )))
 
-(defn- render-result
+(defn- render-analysis
   [{:keys [executions results] :as report}]
   (-> (select-keys report [:id :specification :options :ns :var])
       (assoc :results (render-quickcheck-results results))
@@ -45,7 +48,7 @@
 
 (defn- render-results
   [results]
-  (into {} (for [[id result] results] [id (render-result result)])))
+  (into {} (for [[id analysis] results] [id (render-analysis analysis)])))
 
 (defn render-debugger
   "Render the `debugger` in a Bencode compatible format."

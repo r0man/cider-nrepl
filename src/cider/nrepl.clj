@@ -601,7 +601,11 @@ stack frame of the most recent exception. This op is deprecated, please use the
              {:doc "Print a Stateful Check test report object."
               :requires {"index" "The index of the object to print."}
               :returns {"value" "The printed object."
-                        "status" "done"}}}})
+                        "status" "done"}}
+             "stateful-check-stacktrace"
+             {:doc "Return messages describing each cause and stack frame of the exception at index."
+              :requires {"index" "The index of the exception to inspect."}
+              :returns {"status" "\"done\", or \"no-error\" no exception was raised."}}}})
 
 ;;; CIDER's nREPL Handler
 ;;

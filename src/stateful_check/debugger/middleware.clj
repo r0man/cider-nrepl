@@ -1,9 +1,13 @@
 (ns stateful-check.debugger.middleware
   (:require [cider.nrepl.middleware.inspect :as middleware.inspect]
+            [cider.nrepl.middleware.stacktrace :as middleware.stacktrace]
             [cider.nrepl.middleware.test :refer [current-report]]
             [cider.nrepl.middleware.util :refer [transform-value]]
             [cider.nrepl.middleware.util.error-handling :refer [with-safe-transport]]
             [nrepl.middleware.print :as print]
+            [haystack.analyzer :as haystack.analyzer]
+            [nrepl.misc :refer [response-for]]
+            [nrepl.transport :as t]
             [orchard.inspect :as inspect]
             [stateful-check.debugger.core :as debugger])
   (:import [java.io StringWriter]))
@@ -51,7 +55,7 @@
 (defn- stateful-check-inspect-reply
   "Handle a Stateful Check inspect NREPL operation."
   [{:keys [index] :as msg}]
-  (if-let [object (debugger/inspect-value (debugger msg) index)]
+  (if-let [object (debugger/get-value (debugger msg) index)]
     (let [inspector (inspect/start (inspect/fresh) object)]
       (#'middleware.inspect/inspector-response
        msg (middleware.inspect/swap-inspector! msg (constantly inspector))))
@@ -67,10 +71,26 @@
   "Handle a Stateful Check print NREPL operation."
   [{:keys [index ::print/print-fn] :as msg}]
   (let [debugger (debugger msg)
-        object (debugger/inspect-value debugger index)
+        object (debugger/get-value debugger index)
         writer (StringWriter.)]
     (print-fn object writer)
     {:stateful-check-print (str writer)}))
+
+(defn stateful-check-stacktrace-reply
+  "Handle a Stateful Check stacktrace NREPL operation."
+  [{:keys [stacktrace] :as msg}]
+  (let [stacktrace (debugger/get-value (debugger msg) stacktrace)]
+    (#'middleware.stacktrace/analyze-stacktrace (assoc msg :stacktrace stacktrace))))
+
+(defn stateful-check-stacktrace-reply
+  "Handle a Stateful Check stacktrace NREPL operation."
+  [{:keys [index transport ::print/print-fn] :as msg}]
+  (let [exception (debugger/get-value (debugger msg) index)]
+    (if (and exception (instance? Throwable exception))
+      (do (doseq [cause (haystack.analyzer/analyze exception print-fn)]
+            (t/send transport (response-for msg cause)))
+          (t/send transport (response-for msg :status :done)))
+      (t/send transport (response-for msg :status :no-error)))))
 
 (defn handle-message
   "Handle a Stateful Check NREPL `msg`."
@@ -79,7 +99,8 @@
     "stateful-check-analyze" stateful-check-analyze-reply
     "stateful-check-inspect" stateful-check-inspect-reply
     "stateful-check-print" stateful-check-print-reply
-    "stateful-check-report" stateful-check-report-reply))
+    "stateful-check-report" stateful-check-report-reply
+    "stateful-check-stacktrace" stateful-check-stacktrace-reply))
 
 ;; (stateful-check-analyze-reply {:session (atom nil)})
 ;; (stateful-check-report-reply {})
