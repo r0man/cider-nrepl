@@ -160,25 +160,23 @@
         (update :sequential #(analyze-sequential analyzer %))
         (update :parallel #(analyze-parallel analyzer %)))))
 
-(defn analyze-quick-check
+(defn analyze-results
   "Analyze the Stateful Check `results`."
   [analyzer {:keys [result-data shrunk pass?] :as results}]
   (when (and (not pass?) (:specification result-data))
-    {:id (str (:id result-data))
-     :specification (:specification result-data)
-     :options (:options result-data)
-     :results results
-     :executions {:first (analyze-executions
-                          (push-path analyzer :executions :first)
-                          result-data)
-                  :smallest (analyze-executions
-                             (push-path analyzer :executions :smallest)
-                             (:result-data shrunk))}}))
+    (assoc-in results [:result-data :executions]
+              {:first-failing
+               (analyze-executions
+                (push-path analyzer :result-data :executions :first-failing)
+                result-data)
+               :smallest-failing
+               (analyze-executions
+                (push-path analyzer :result-data :executions :smallest-failing)
+                (:result-data shrunk))})))
 
-(defn analyze-test-report-event
+(defn analyze-test-event
   "Analyze the Clojure Test report `event`."
   [analyzer {:keys [ns var] :as event}]
-  (let [id (str ns "/" var)]
-    (when-let [results (:stateful-check event)]
-      (-> (analyze-quick-check analyzer results)
-          (assoc :id id :ns ns :var var :test-report event)))))
+  (when-let [results (:stateful-check event)]
+    (-> (analyze-results analyzer results)
+        (assoc :test {:ns ns :var var :event event}))))

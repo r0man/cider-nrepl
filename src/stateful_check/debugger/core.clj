@@ -1,14 +1,16 @@
 (ns stateful-check.debugger.core
+  (:refer-clojure :exclude [print])
   (:require [stateful-check.debugger.analyzer :as analyzer]
             [stateful-check.debugger.cursor :as cursor]
-            [stateful-check.debugger.render :as render]))
+            [stateful-check.debugger.render :as render]
+            [stateful-check.report :as report]))
 
 (defn make-debugger
   "Make a Stateful Check Debugger."
   [& [{:keys [analyzer]}]]
   {:analyzer (analyzer/analyzer analyzer)
    :summary {}
-   :results {}})
+   :analyses {}})
 
 (defn- failed-event?
   "Return true if `event` is a failed Stateful Check test event,
@@ -25,43 +27,62 @@
        (filter failed-event?)))
 
 (defn- criteria?
-  [event {:keys [id ns var] :as criteria}]
+  [analysis {:keys [id ns var]}]
   (let [ns (some-> ns symbol)
         var (some-> var symbol)]
-    (and (or (nil? id) (= id (:id event)))
-         (or (nil? ns) (= ns (:ns event)))
-         (or (nil? var) (= var (:var event))))))
+    (and (or (nil? id) (= id (some-> analysis :result-data :id)))
+         (or (nil? ns) (= ns (some-> analysis :test :ns)))
+         (or (nil? var) (= var (some-> analysis :test :var))))))
 
-(defn- search-events [criteria events]
-  (filter #(criteria? % criteria) events))
-
-(defn- reports
-  "Return the Stateful Check reports of the `debugger`."
+(defn analyses
+  "Return all analyses of the `debugger`."
   [debugger]
-  (-> debugger :results vals))
+  (-> debugger :analyses vals))
 
-(defn- add-report [debugger report]
-  (assoc-in debugger [:results (:id report)] report))
+(defn- add-analysis [debugger analysis]
+  (assoc-in debugger [:analyses (-> analysis :result-data :id)] analysis))
 
-(defn filter-results
-  "Return a new debugger with results filtered by `criteria`"
+(defn- remove-analysis [debugger analysis]
+  (update debugger :analyses dissoc (-> analysis :result-data :id)))
+
+(defn- remove-test-analysis [debugger ns var]
+  (let [test-analyses (filter #(criteria? % {:ns ns :var var}) (analyses debugger))]
+    (reduce remove-analysis debugger test-analyses)))
+
+(defn filter-analyses
+  "Return a new debugger with :analyses filtered by `criteria`"
   [debugger criteria]
-  (reduce add-report
-          (assoc debugger :results {})
-          (filter #(criteria? % criteria) (reports debugger))))
+  (reduce add-analysis
+          (assoc debugger :analyses {})
+          (filter #(criteria? % criteria) (analyses debugger))))
+
+(defn analyze-results
+  "Analyze the Stateful Check results."
+  [debugger results]
+  (let [id (-> results :result-data :id)
+        analyzer (analyzer/push-path (:analyzer debugger) :analyses id)
+        analysis (analyzer/analyze-results analyzer results)]
+    (assoc-in debugger [:analyses id] analysis)))
+
+(defn analyze-test-event
+  "Analyze the Clojure Test `event`."
+  [debugger {:keys [ns var] :as event}]
+  (let [id (-> event :stateful-check :result-data :id)
+        analyzer (analyzer/push-path (:analyzer debugger) :analyses id)]
+    (-> (remove-test-analysis debugger ns var)
+        (add-analysis (analyzer/analyze-test-event analyzer event)))))
 
 (defn analyze-test-report
-  "Analyze the Stateful Check events in a Cider test report."
-  [debugger test-report & [opts]]
-  (reduce (fn [{:keys [analyzer] :as debugger} {:keys [ns var] :as event}]
-            (let [analyzer (analyzer/push-path analyzer :results (str ns "/" var))
-                  analysis (analyzer/analyze-test-report-event analyzer event)]
-              (assoc-in debugger [:results (:id analysis)] analysis)))
-          debugger (search-events opts (failed-test-events test-report))))
+  "Analyze the Cider test report."
+  [debugger report & [opts]]
+  (reduce analyze-test-event debugger
+          (filter #(criteria? {:test %} opts)
+                  (failed-test-events report))))
 
 (defn get-value
   "Return the value in the `debugger` to which `cursor` refers to."
   [debugger cursor]
+  (prn (some->> cursor cursor/parse))
   (some->> cursor cursor/parse (get-in debugger)))
 
 (defn render
@@ -69,18 +90,37 @@
   [debugger]
   (render/render-debugger debugger))
 
+(defn print
+  "Print the `debugger`.
+
+  Prints the analyzed execution traces of the debugger with
+  `stateful-check.report/print-results`."
+  [debugger]
+  (doseq [{:keys [ns var] :as analysis} (analyses debugger)]
+    (printf "Id: %s" (-> analysis :result-data :id))
+    (when (and ns var)
+      (printf ", Namespace: %s, Var: %s" ns var))
+    (println)
+    (#'report/print-results nil analysis)
+    (println)))
+
 (comment
 
   (some->> my-cursor cursor/parse)
+
+  (require 'cider.nrepl.middleware.test)
+
+  (render my-debugger)
 
   (def my-debugger
     (analyze-test-report (make-debugger) @cider.nrepl.middleware.test/current-report))
 
   (failed-test-events @cider.nrepl.middleware.test/current-report)
 
-  (filter-results
-   (analyze-test-report (make-debugger) @cider.nrepl.middleware.test/current-report)
+  (filter-analyses
+   my-debugger
    {:ns 'cider.nrepl.middleware.test-stateful-check
-    :var 'java-map-passes-sequentially})
+    :var 'java-map-passes-sequentially
+    })
 
   )
