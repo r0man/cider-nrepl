@@ -37,20 +37,19 @@
              [id (render-executions execution)])))
 
 (defn- render-quickcheck-results [results]
-  (-> (select-keys results [:failing-size :frequencies :num-tests :seed])
-      (update :shrunk select-keys [:depth :total-nodes-visited] )))
+  (-> (select-keys results [:failing-size :frequencies :num-tests :seed :result-data])
+      (update :shrunk select-keys [:depth :total-nodes-visited :result-data] )))
 
 (defn- render-analysis
-  [{:keys [executions results] :as report}]
-  (-> (select-keys report [:id :specification :options :ns :var])
-      (assoc :results (render-quickcheck-results results))
-      (assoc :executions (render-executions-index executions))))
+  [{:keys [executions results] :as analysis}]
+  (-> (render-quickcheck-results analysis)
+      (update-in [:result-data :executions] render-executions-index)))
 
-(defn- render-results
-  [results]
-  (into {} (for [[id analysis] results] [id (render-analysis analysis)])))
+(defn- render-analyses
+  [analyses]
+  (into {} (for [[id analysis] analyses] [id (render-analysis analysis)])))
 
 (defn render-debugger
   "Render the `debugger` in a Bencode compatible format."
   [debugger]
-  (update debugger :results render-results))
+  (update debugger :analyses render-analyses))

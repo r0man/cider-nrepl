@@ -24,32 +24,28 @@
 (defn- parallel-results [analysis path]
   (->> (get-in analysis path) :parallel (mapcat identity) (map :result)))
 
-(defn- check-analysis [specification options results analysis]
-  (is (string? (:id analysis)))
-  (is (= specification (:specification analysis)))
-  (is (= results (:results analysis)) results)
-  (is (= options (:options analysis)) results)
-  (doseq [executions [[:executions :first]
-                      [:executions :smallest]]]
+(defn- check-analysis [analysis]
+  (doseq [path [[:result-data :executions :first-failing]
+                [:result-data :executions :smallest-failing]]]
     (testing "sequential execution"
       (testing "arguments have been indexed for inspection"
-        (doseq [argument (sequential-arguments analysis executions)]
+        (doseq [argument (sequential-arguments analysis path)]
           (is (= (:value argument)
                  (get-in analysis (:path argument))
                  (get-in analysis (cursor/parse (:cursor argument))))))))
     (testing "results have been indexed for inspection"
-      (doseq [result (sequential-results analysis executions)]
+      (doseq [result (sequential-results analysis path)]
         (is (= (:value result)
                (get-in analysis (:path result))
                (get-in analysis (cursor/parse (:cursor result)))))))
     (testing "parallel execution"
       (testing "arguments have been indexed for inspection"
-        (doseq [argument (parallel-arguments analysis executions)]
+        (doseq [argument (parallel-arguments analysis path)]
           (is (= (:value argument)
                  (get-in analysis (:path argument))
                  (get-in analysis (cursor/parse (:cursor argument))))))))
     (testing "results have been indexed for inspection"
-      (doseq [result (parallel-results analysis executions)]
+      (doseq [result (parallel-results analysis path)]
         (is (= (:value result)
                (get-in analysis (:path result))
                (get-in analysis (cursor/parse (:cursor result)))))))))
@@ -57,21 +53,21 @@
 (deftest test-analyze-quick-check
   (let [specification test-stateful-check/java-map-specification
         results (run-specification specification options)
-        analysis (analyzer/analyze-quick-check (analyzer/analyzer) results)]
-    (is (UUID/fromString (:id analysis)))
-    (check-analysis specification options results analysis)))
+        analysis (analyzer/analyze-results (analyzer/analyzer) results)]
+    (check-analysis analysis)))
 
 (deftest test-analyze-quick-check-exception
   (let [specification test-stateful-check/throw-exception-specification
         results (run-specification specification options)
-        analysis (analyzer/analyze-quick-check (analyzer/analyzer) results)]
-    (is (UUID/fromString (:id analysis)))
-    (check-analysis specification options results analysis)))
+        analysis (analyzer/analyze-results (analyzer/analyzer) results)]
+    (check-analysis analysis)))
 
 (deftest test-analyze-test-report-event
   (let [specification test-stateful-check/java-map-specification
         results (run-specification specification options)
-        test-event {:ns 'user :var 'test :stateful-check results}
-        analysis (analyzer/analyze-test-report-event (analyzer/analyzer) test-event)]
-    (is (= "user/test" (:id analysis)))
-    (check-analysis specification options results analysis)))
+        event {:ns 'user :var 'test :stateful-check results}
+        analysis (analyzer/analyze-test-event (analyzer/analyzer) event)]
+    (is (= 'user (:ns (:test analysis))))
+    (is (= 'test (:var (:test analysis))))
+    (is (= event (:event (:test analysis))))
+    (check-analysis analysis)))
