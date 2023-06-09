@@ -47,10 +47,11 @@
 (defn- stateful-check-analyze-reply
   "Handle a Stateful Check test analysis NREPL operation."
   [msg]
-  {:stateful-check-analyze
-   (render-debugger
-    (swap-debugger! msg #(-> (debugger/analyze-test-report % @current-report (criteria msg))
-                             (debugger/filter-analyses criteria))))})
+  (let [criteria (criteria msg)]
+    {:stateful-check-analyze
+     (render-debugger
+      (swap-debugger! msg #(-> (debugger/analyze-test-report % @current-report criteria)
+                               (debugger/filter-analyses criteria))))}))
 
 (defn- stateful-check-inspect-reply
   "Handle a Stateful Check inspect NREPL operation."
