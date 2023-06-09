@@ -10,12 +10,15 @@
             [nrepl.transport :as t]
             [orchard.inspect :as inspect]
             [stateful-check.debugger.core :as debugger])
-  (:import [java.io StringWriter]))
+  (:import [java.io StringWriter]
+           [java.util UUID]))
 
 (defn- criteria
   "Make the search criteria map from the NREPL msg."
-  [{:keys [ns var]}]
+  [{:keys [analysis ns var]}]
   (cond-> {}
+    (string? analysis)
+    (assoc :id (UUID/fromString analysis))
     (or (string? ns) (symbol? ns))
     (assoc :ns (symbol (name ns)))
     (or (string? var) (symbol? var))
