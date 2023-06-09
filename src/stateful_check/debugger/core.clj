@@ -59,7 +59,7 @@
               (assoc-in debugger [:results (:id analysis)] analysis)))
           debugger (search-events opts (failed-test-events test-report))))
 
-(defn inspect-value
+(defn get-value
   "Return the value in the `debugger` to which `cursor` refers to."
   [debugger cursor]
   (some->> cursor cursor/parse (get-in debugger)))

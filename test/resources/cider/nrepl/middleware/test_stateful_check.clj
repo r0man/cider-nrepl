@@ -38,3 +38,12 @@
                                         :first-case? true
                                         :stacktrace? true}
                                :run {:seed 0}})))
+
+(def throw-exception-specification
+  {:commands {:cmd {:command (constantly true)
+                    :postcondition (fn [_ _ _ _]
+                                     (is (throw (ex-info "An exception!" {:oh "no"}))))}}})
+
+;; (deftest exception-in-assertion-is-printed
+;;   (is (throw (ex-info "An exception!" {:oh "no"})))
+;;   (is (specification-correct? throw-exception-specification)))

@@ -3,7 +3,8 @@
             [stateful-check.core :as stateful-check]
             [stateful-check.debugger.cursor :as cursor]
             [stateful-check.symbolic-values :as symbolic])
-  (:import (java.util Base64 UUID)))
+  (:import [java.util Base64 UUID]
+           [stateful_check.runner CaughtException]))
 
 (defn analyzer
   "Make a new analyzer."
@@ -75,7 +76,9 @@
   "Analyze the command `result`."
   [analyzer result]
   (let [analyzer (push-path analyzer :result)]
-    (analyze-value analyzer result)))
+    (cond-> (analyze-value analyzer result)
+      (instance? CaughtException result)
+      (assoc :exception {:message (ex-message (:exception result))} ))))
 
 (defn- analyze-failure-event
   "Analyze the test report failure `event`."
@@ -159,18 +162,18 @@
 
 (defn analyze-quick-check
   "Analyze the Stateful Check `results`."
-  [analyzer {:keys [id result shrunk] :as results}]
-  (when (stateful-check/failure-exception? result)
-    {:id (str (or id (UUID/randomUUID)))
-     :specification (-> result ex-data :specification)
-     :options (-> result ex-data :options)
+  [analyzer {:keys [result-data shrunk pass?] :as results}]
+  (when (and (not pass?) (:specification result-data))
+    {:id (str (:id result-data))
+     :specification (:specification result-data)
+     :options (:options result-data)
      :results results
      :executions {:first (analyze-executions
                           (push-path analyzer :executions :first)
-                          (ex-data result))
+                          result-data)
                   :smallest (analyze-executions
                              (push-path analyzer :executions :smallest)
-                             (ex-data (:result shrunk)))}}))
+                             (:result-data shrunk))}}))
 
 (defn analyze-test-report-event
   "Analyze the Clojure Test report `event`."
