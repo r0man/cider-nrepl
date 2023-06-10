@@ -1,53 +1,109 @@
-(ns stateful-check.debugger.render)
+(ns stateful-check.debugger.render
+  (:require [cider.nrepl.middleware.test.extensions :refer [diffs-result]]
+            [clojure.pprint :as pp]
+            [orchard.inspect :as inspect]
+            [stateful-check.symbolic-values :as sv]))
 
 (defn- render-value [value]
-  (select-keys value [:cursor :index :rendered]))
+  (if (satisfies? sv/SymbolicValue value)
+    (pr-str value)
+    (binding [inspect/*max-atom-length* 50]
+      (inspect/inspect-value value))))
 
-(defn- render-argument [command]
-  (select-keys command [:cursor :index :name :rendered]))
+(defn- render-cmds-and-traces
+  [[[handle cmd-obj & args] result-str result]]
+  {:arguments (mapv render-value args)
+   :command (select-keys cmd-obj [:name])
+   :handle (pr-str handle)
+   :result (render-value result)
+   :result-str result-str})
 
-(defn- render-command [command]
-  (select-keys command [:cursor :index :name :rendered]))
+(defn- render-sequential [cmds-and-traces]
+  (mapv render-cmds-and-traces cmds-and-traces))
 
-(defn- render-result [value]
-  (select-keys value [:cursor :index :exception :rendered]))
+(defn- render-parallel [cmds-and-traces]
+  (mapv render-sequential cmds-and-traces))
 
-(defn- render-execution
-  [{:keys [arguments command failures handle result state]}]
-  {:arguments (mapv render-argument arguments)
-   :command (render-command command)
-   :failures failures
-   :handle (render-value handle)
-   :result (render-result result)
-   :state (render-value state)})
+(defn- render-argument [argument]
+  (-> (select-keys argument [:index :value])
+      (update-in [:value :real] render-value)
+      (update-in [:value :symbolic] pr-str)))
 
-(defn- render-sequential [commands]
-  (mapv render-execution commands))
+(defn- print-object
+  "Print `object` using println for matcher-combinators results and pprint
+   otherwise. The matcher-combinators library uses a custom print-method
+   which doesn't get picked up by pprint since it uses a different dispatch
+   mechanism."
+  [object]
+  (let [matcher-combinators-result? (= (:type (meta object))
+                                       :matcher-combinators.clj-test/mismatch)
+        print-fn (if matcher-combinators-result?
+                   println
+                   pp/pprint)]
+    (with-out-str (print-fn object))))
 
-(defn- render-parallel [commands]
-  (mapv render-sequential commands))
+(defn- render-event [event]
+  (cond-> event
+    (contains? event :actual)
+    (update :actual print-object)
+    (contains? event :diffs)
+    (update :diffs diffs-result)
+    (contains? event :expected)
+    (update :expected print-object)))
 
-(defn- render-executions [{:keys [sequential parallel] :as execution}]
-  (-> (select-keys execution [:specification :options])
-      (assoc :sequential (render-sequential sequential))
-      (assoc :parallel (render-parallel parallel))))
+(defn- render-failure [failure]
+  (cond-> (select-keys failure [:message :events])
+    (seq (:events failure))
+    (update :events #(mapv render-event %))))
 
-(defn- render-executions-index [executions]
-  (into {} (for [[id execution] executions]
-             [id (render-executions execution)])))
+(defn- render-bindings [bindings]
+  (into {} (for [[handle value] bindings]
+             [(pr-str handle) (render-value value)])))
+
+(defn- render-frame [frame]
+  (-> (select-keys frame [:arguments :bindings :command :failure :handle :index :result :state :thread])
+      (update :arguments #(mapv render-argument %))
+      (update :command select-keys [:name])
+      (update :failure render-failure)
+      (update :handle pr-str)
+      (update :result render-value)
+      (update-in [:bindings :after] render-bindings)
+      (update-in [:bindings :before] render-bindings)
+      (update-in [:state :after :real] render-value)
+      (update-in [:state :after :symbolic] render-value)
+      (update-in [:state :before :real] render-value)
+      (update-in [:state :before :symbolic] render-value)))
+
+(defn- render-environments [environment]
+  (into {} (for [[handle frame] environment]
+             [(pr-str handle) (render-frame frame)])))
+
+(defn- render-executions [{:keys [sequential parallel]}]
+  {:sequential (mapv render-frame sequential)
+   :parallel (mapv #(mapv render-frame %) parallel)})
+
+(defn render-result-data
+  [result-data]
+  (-> (select-keys result-data [:executions :specification :options])
+      ;; (update :environments render-environments)
+      (update :executions render-executions)
+      ;; (update :parallel render-parallel)
+      ;; (update :sequential render-sequential)
+      ))
 
 (defn- render-quickcheck-results [results]
-  (-> (select-keys results [:failing-size :frequencies :num-tests :seed :result-data])
-      (update :shrunk select-keys [:depth :total-nodes-visited :result-data] )))
+  (-> (select-keys results [:id :failing-size :frequencies :num-tests :seed :shrunk :result-data])
+      (update :shrunk select-keys [:depth :total-nodes-visited :result-data])))
 
-(defn- render-analysis
-  [{:keys [executions results] :as analysis}]
+(defn render-analysis [analysis]
   (-> (render-quickcheck-results analysis)
-      (update-in [:result-data :executions] render-executions-index)))
+      (update-in [:result-data] render-result-data)
+      (update-in [:shrunk :result-data] render-result-data)))
 
 (defn- render-analyses
   [analyses]
-  (into {} (for [[id analysis] analyses] [id (render-analysis analysis)])))
+  (into {} (for [[id analysis] analyses]
+             [id (render-analysis analysis)])))
 
 (defn render-debugger
   "Render the `debugger` in a Bencode compatible format."
