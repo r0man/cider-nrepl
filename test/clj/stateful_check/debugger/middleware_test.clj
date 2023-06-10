@@ -1,6 +1,7 @@
 (ns stateful-check.debugger.middleware-test
   (:require [cider.nrepl.test-session :as session]
-            [clojure.test :refer [deftest is use-fixtures]]))
+            [clojure.test :refer [deftest is use-fixtures]])
+  (:import [java.util UUID]))
 
 (use-fixtures :each session/session-fixture)
 
@@ -25,13 +26,13 @@
     (let [report (:stateful-check-analyze result)]
       (is (empty? (:results report))))))
 
-(deftest test-stateful-check-inspect-invalid-index
-  (let [result (session/message {:op "stateful-check-inspect" :index "invalid"})]
-    (is (= #{"done" "stateful-check-inspect-error"} (:status result)))))
+(deftest test-stateful-check-inspect-object-not-found
+  (let [result (session/message {:op "stateful-check-inspect"})]
+    (is (= #{"done" "stateful-check-object-not-found"} (:status result)))))
 
-(deftest test-stateful-check-print-invalid-index
-  (let [result (session/message {:op "stateful-check-print" :index "invalid"})]
-    (is (= #{"done" "stateful-check-print-error"} (:status result)))))
+(deftest test-stateful-check-print-object-not-found
+  (let [result (session/message {:op "stateful-check-print"})]
+    (is (= #{"done" "stateful-check-object-not-found"} (:status result)))))
 
 (deftest test-stateful-check-report
   (run-failing-test)

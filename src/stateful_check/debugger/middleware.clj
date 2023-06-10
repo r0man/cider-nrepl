@@ -27,7 +27,7 @@
 (defn- make-debugger
   "Make a new debugger."
   []
-  (debugger/make-debugger
+  (debugger/debugger
    {:analyzer {:render (fn [value]
                          (binding [inspect/*max-atom-length* 50]
                            (inspect/inspect-value value)))}}))
@@ -56,14 +56,21 @@
       (swap-debugger! msg #(-> (debugger/analyze-test-report % @current-report criteria)
                                (debugger/filter-analyses criteria))))}))
 
+(defn- parse-query [query]
+  (cond-> query
+    (string? (:analysis query))
+    (update :analysis #(UUID/fromString %))))
+
 (defn- stateful-check-inspect-reply
   "Handle a Stateful Check inspect NREPL operation."
-  [{:keys [index] :as msg}]
-  (if-let [object (debugger/get-value (debugger msg) index)]
-    (let [inspector (inspect/start (inspect/fresh) object)]
-      (#'middleware.inspect/inspector-response
-       msg (middleware.inspect/swap-inspector! msg (constantly inspector))))
-    {:status :object-not-found :index index}))
+  [msg]
+  (let [query (parse-query (:query msg))]
+    (if-let [object (debugger/get-object (debugger msg) query)]
+      (let [inspector (inspect/start (inspect/fresh) object)]
+        (#'middleware.inspect/inspector-response
+         msg (middleware.inspect/swap-inspector! msg (constantly inspector))))
+      {:status :stateful-check-object-not-found
+       :query (transform-value query)})))
 
 (defn- stateful-check-report-reply
   "Handle a Stateful Check test report NREPL operation."
@@ -73,23 +80,18 @@
 
 (defn- stateful-check-print-reply
   "Handle a Stateful Check print NREPL operation."
-  [{:keys [index ::print/print-fn] :as msg}]
-  (let [debugger (debugger msg)
-        object (debugger/get-value debugger index)
-        writer (StringWriter.)]
-    (print-fn object writer)
-    {:stateful-check-print (str writer)}))
+  [{:keys [query ::print/print-fn] :as msg}]
+  (if-let [object (debugger/get-object (debugger msg) (parse-query query))]
+    (let [writer (StringWriter.)]
+      (print-fn object writer)
+      {:stateful-check-print (str writer)})
+    {:status :stateful-check-object-not-found
+     :query (transform-value query)}))
 
 (defn stateful-check-stacktrace-reply
   "Handle a Stateful Check stacktrace NREPL operation."
-  [{:keys [stacktrace] :as msg}]
-  (let [stacktrace (debugger/get-value (debugger msg) stacktrace)]
-    (#'middleware.stacktrace/analyze-stacktrace (assoc msg :stacktrace stacktrace))))
-
-(defn stateful-check-stacktrace-reply
-  "Handle a Stateful Check stacktrace NREPL operation."
-  [{:keys [index transport ::print/print-fn] :as msg}]
-  (let [exception (debugger/get-value (debugger msg) index)]
+  [{:keys [query transport ::print/print-fn] :as msg}]
+  (let [exception (debugger/get-object (debugger msg) query)]
     (if (and exception (instance? Throwable exception))
       (do (doseq [cause (haystack.analyzer/analyze exception print-fn)]
             (t/send transport (response-for msg cause)))
@@ -105,6 +107,3 @@
     "stateful-check-print" stateful-check-print-reply
     "stateful-check-report" stateful-check-report-reply
     "stateful-check-stacktrace" stateful-check-stacktrace-reply))
-
-;; (stateful-check-analyze-reply {:session (atom nil)})
-;; (stateful-check-report-reply {})

@@ -7,7 +7,7 @@
   (:import [java.util UUID]))
 
 (def debugger
-  (debugger/make-debugger))
+  (debugger/debugger))
 
 (deftest test-analyze-results
   (let [results (run-specification test-stateful-check/java-map-specification)

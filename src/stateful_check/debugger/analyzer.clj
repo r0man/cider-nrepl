@@ -1,182 +1,145 @@
 (ns stateful-check.debugger.analyzer
-  (:require [orchard.inspect :as inspect]
-            [stateful-check.core :as stateful-check]
-            [stateful-check.debugger.cursor :as cursor]
-            [stateful-check.symbolic-values :as symbolic])
-  (:import [java.util Base64 UUID]
-           [stateful_check.runner CaughtException]))
+  (:require [stateful-check.command-utils :as u]
+            [stateful-check.generator :as g]
+            [stateful-check.symbolic-values :as sv]
+            [haystack.analyzer :as analyzer])
+  (:import [java.util Base64 UUID]))
 
-(defn analyzer
-  "Make a new analyzer."
-  [& [{:keys [path render]}]]
-  {:path (vec path)
-   :render (or render pr-str)})
+(defn- find-argument-list [command num-args]
+  (first (filter #(= num-args (count %)) (-> command :meta :arglists))))
 
-(defn push-path
-  "Push the `paths` onto the current path of `analyzer`."
-  [analyzer & paths]
-  (update analyzer :path into paths))
-
-(defn- path
-  "Return the concatenation of the `analyzer` path and `paths`."
-  [analyzer & paths]
-  (into (:path analyzer []) paths))
-
-(defn- cursor
-  "Return the concatenation of the `analyzer` path and `paths` as a cursor."
-  [analyzer & paths]
-  (cursor/cursor (apply path analyzer paths)))
-
-(defn- find-argument-list [command args]
-  (let [arg-num (count args)]
-    (first (filter #(= arg-num (count %))
-                   (-> command :meta :arglists)))))
-
-(defn- render-value [analyzer value]
-  (if (satisfies? symbolic/SymbolicValue value)
-    (pr-str value)
-    (binding [inspect/*max-atom-length* 50]
-      (inspect/inspect-value value))))
-
-(defn- analyze-value [analyzer value]
-  {:cursor (cursor analyzer :value)
-   :path (path analyzer :value)
-   :rendered (render-value analyzer value)
-   :value value})
-
-(defn- analyze-argument [analyzer command args index value]
-  (let [arg-list (find-argument-list command args)
+(defn- analyze-argument
+  [command arg-num {:keys [index] :as argument}]
+  (let [arg-list (find-argument-list command arg-num)
         arg-name (str (nth arg-list index index))]
-    (cond-> (analyze-value analyzer value)
-      true (assoc :index index)
+    (cond-> argument
       arg-name (assoc :name arg-name))))
 
 (defn- analyze-command
   "Analyze the Stateful Check `cmd` map."
   [cmd]
   (let [meta-data (some-> cmd :command meta)]
-    (cond-> {:name (:name cmd)}
-      meta-data (assoc :meta meta-data))))
+    (cond-> cmd
+      meta-data
+      (assoc :meta meta-data))))
 
-(defn- analyze-arguments
-  "Analyze the Stateful Check `args`."
-  [analyzer command args]
-  (let [analyzer (push-path analyzer :arguments)]
-    (mapv (fn [[index value]]
-            (analyze-argument (push-path analyzer index) command args index value))
-          (map-indexed vector args))))
-
-(defn- analyze-handle
-  "Analyze the command `handle`."
-  [analyzer handle]
-  (let [analyzer (push-path analyzer :handle)]
-    (analyze-value analyzer handle)))
-
-(defn- analyze-result
-  "Analyze the command `result`."
-  [analyzer result]
-  (let [analyzer (push-path analyzer :result)]
-    (cond-> (analyze-value analyzer result)
-      (instance? CaughtException result)
-      (assoc :exception {:message (ex-message (:exception result))} ))))
-
-(defn- analyze-failure-event
-  "Analyze the test report failure `event`."
-  [analyzer {:keys [actual expected] :as event}]
-  (cond-> event
-    (contains? event :actual)
-    (update :actual #(analyze-value (push-path analyzer :actual) %))
-    (contains? event :expected)
-    (update :expected #(analyze-value (push-path analyzer :expected) %))))
-
-(defn- analyze-failure-events
-  "Analyze the test report failure `events`."
-  [analyzer events]
-  (let [analyzer (push-path analyzer :events)]
-    (mapv (fn [[index event]]
-            (analyze-failure-event (push-path analyzer index) event))
-          (map-indexed vector events))))
+(defn- analyze-event
+  "Analyze a test report event in a similar way to
+  `cider.nrepl.middleware.test/test-report`, with the exception the
+  difference that we don't have a test namespace, var and testing
+  context available. Printing is done in the rendering code."
+  [[index m]]
+  (let [{:keys [actual expected fault] t :type} m]
+    (merge (dissoc m :expected :actual)
+           {:index index}
+           (when (and (#{:fail :error} t) (not fault))
+             {:expected expected})
+           (when (#{:fail} t)
+             {:actual actual})
+           (when (#{:error} t)
+             (let [exception actual]
+               {:error exception
+                :line (some-> exception .getStackTrace first .getLineNumber)})))))
 
 (defn- analyze-failure
-  "Analyze the command `failure`."
-  [analyzer {:keys [message events] :as failure}]
-  (cond-> {}
-    message
-    (assoc :message message)
+  "Analyze a postcondition failure."
+  [{:keys [events] :as failure}]
+  (cond-> failure
     (seq events)
-    (assoc :events (analyze-failure-events analyzer events))))
+    (update :events #(mapv analyze-event (map-indexed vector %)))))
 
-(defn- analyze-failures
-  "Analyze the command `result`."
-  [analyzer failures]
-  (let [analyzer (push-path analyzer :failures)]
-    (mapv (fn [[index failure]]
-            (analyze-failure (push-path analyzer index) failure))
-          (map-indexed vector failures))))
+(defn- analyze-sequential-environment
+  "Return a map from a command handle to execution frame."
+  [cmds-and-traces state bindings & [thread]]
+  (first (reduce (fn [[env state bindings]
+                      [index [[handle cmd-obj & symbolic-args] _result-str result]]]
+                   (let [real-args (sv/get-real-value symbolic-args bindings)
+                         next-bindings (assoc bindings handle result)
+                         next-state {:real (u/make-next-state cmd-obj (:real state) real-args result)
+                                     :symbolic (u/make-next-state cmd-obj (:symbolic state) symbolic-args handle)}
+                         failure (u/check-postcondition cmd-obj (:real state) (:real next-state) real-args result)
+                         command (analyze-command cmd-obj)
+                         num-args (count symbolic-args)
+                         frame (cond-> {:arguments (mapv (fn [index real symbolic]
+                                                           (analyze-argument
+                                                            command num-args
+                                                            {:index index
+                                                             :value {:real real :symbolic symbolic}}))
+                                                         (range (count symbolic-args)) real-args symbolic-args)
+                                        :bindings {:after next-bindings :before bindings}
+                                        :command command
+                                        :handle handle
+                                        :index index
+                                        :result result
+                                        :state {:after next-state :before state}}
+                                 failure (assoc :failure (analyze-failure failure))
+                                 thread (assoc :thread thread))]
+                     [(assoc env handle frame) next-state next-bindings]))
+                 [{} state bindings] (map-indexed vector cmds-and-traces))))
 
-(defn- analyze-state
-  "Analyze the command `state`."
-  [analyzer state]
-  (let [analyzer (push-path analyzer :state)]
-    (analyze-value analyzer state)))
+(defn- analyze-environments
+  "Return a map mapping from a command handle to execution environment."
+  [spec cmds-and-traces]
+  (let [setup-fn (:setup spec)
+        setup-result (when-let [setup setup-fn]
+                       (setup))
+        bindings (if setup-fn
+                   {g/setup-var setup-result}
+                   {})
+        init-state-fn (or (:initial-state spec)
+                          (constantly nil))
+        init-state (if (:setup spec)
+                     (init-state-fn (get bindings g/setup-var))
+                     (init-state-fn))
+        sequential-env (analyze-sequential-environment
+                        (:sequential cmds-and-traces)
+                        {:real init-state :symbolic init-state}
+                        bindings)
+        last-env (get sequential-env (ffirst (last (:sequential cmds-and-traces))))]
+    (into sequential-env
+          (mapcat (fn [[thread sequential]]
+                    (analyze-sequential-environment
+                     sequential
+                     (-> last-env :state :after)
+                     (-> last-env :bindings :after)
+                     thread))
+                  (map-indexed vector (:parallel cmds-and-traces))))))
 
-(defn- analyze-execution-trace
-  "Analyze the execution `trace`."
-  [analyzer commands]
-  (mapv (fn [[index [[handle cmd & args] result-str result]]]
-          (let [analyzer (push-path analyzer index)
-                command (analyze-command cmd)
-                bindings (get-in analyzer [:environment handle :state :before])
-                state (get-in analyzer [:environment handle :state :after])
-                failures (get-in analyzer [:failures handle])]
-            (cond-> {:arguments (analyze-arguments analyzer command args)
-                     :command command
-                     :handle (analyze-handle analyzer handle)
-                     :result (analyze-result analyzer result)
-                     :state (analyze-state analyzer state)}
-              (seq failures)
-              (assoc :failures (analyze-failures analyzer failures)))))
-        (map-indexed vector commands)))
+(defn- analyze-sequential-executions
+  "Analyze the sequential executions."
+  [environments executions]
+  (vec (for [[[handle cmd-obj & symbolic-args] result-str] executions]
+         (get environments handle))))
 
-(defn- analyze-parallel
-  "Analyze the parallel `executions`."
-  [analyzer executions]
-  (let [analyzer (push-path analyzer :parallel)]
-    (mapv (fn [[index executions]]
-            (analyze-execution-trace (push-path analyzer index) executions))
-          (map-indexed vector executions))))
-
-(defn- analyze-sequential
-  "Analyze the sequential `executions`."
-  [analyzer executions]
-  (let [analyzer (push-path analyzer :sequential)]
-    (analyze-execution-trace analyzer executions)))
+(defn- analyze-parallel-executions
+  "Analyze the parallel executions."
+  [environments executions]
+  (mapv #(analyze-sequential-executions environments %) executions))
 
 (defn- analyze-executions
-  "Analyze the sequential and parallel `executions` map."
-  [analyzer {:keys [environment messages] :as executions}]
-  (let [analyzer (assoc analyzer :environment environment :failures messages)]
-    (-> executions
-        (update :sequential #(analyze-sequential analyzer %))
-        (update :parallel #(analyze-parallel analyzer %)))))
+  "Analyze the sequential and parallel executions."
+  [environments {:keys [sequential parallel]}]
+  {:sequential (analyze-sequential-executions environments sequential)
+   :parallel (analyze-parallel-executions environments parallel)})
+
+(defn- analyze-result-data
+  [{:keys [specification] :as result-data}]
+  (let [environments (analyze-environments specification result-data)
+        executions (analyze-executions environments result-data)]
+    (assoc result-data :environments environments :executions executions)))
 
 (defn analyze-results
   "Analyze the Stateful Check `results`."
-  [analyzer {:keys [result-data shrunk pass?] :as results}]
-  (when (and (not pass?) (:specification result-data))
-    (assoc-in results [:result-data :executions]
-              {:first-failing
-               (analyze-executions
-                (push-path analyzer :result-data :executions :first-failing)
-                result-data)
-               :smallest-failing
-               (analyze-executions
-                (push-path analyzer :result-data :executions :smallest-failing)
-                (:result-data shrunk))})))
+  [{:keys [id result-data pass?] :as results}]
+  (let [{:keys [specification]} result-data]
+    (when (and (not pass?) specification)
+      (-> (assoc results :id (or id (UUID/randomUUID)))
+          (update-in [:result-data] analyze-result-data)
+          (update-in [:shrunk :result-data] analyze-result-data)))))
 
 (defn analyze-test-event
   "Analyze the Clojure Test report `event`."
-  [analyzer {:keys [ns var] :as event}]
+  [{:keys [ns var] :as event}]
   (when-let [results (:stateful-check event)]
-    (-> (analyze-results analyzer results)
-        (assoc :test {:ns ns :var var :event event}))))
+    (some-> (analyze-results results)
+            (assoc :test {:ns ns :var var :event event}))))
