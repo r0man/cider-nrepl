@@ -5,8 +5,12 @@
             [stateful-check.symbolic-values :as sv]))
 
 (defn- render-value [value]
-  (if (satisfies? sv/SymbolicValue value)
+  (cond
+    (satisfies? sv/SymbolicValue value)
     (pr-str value)
+    (instance? clojure.lang.Atom value)
+    (pr-str value) ;; Atom's aren't printed nicely by orchard
+    :else
     (binding [inspect/*max-atom-length* 50]
       (inspect/inspect-value value))))
 
