@@ -109,8 +109,10 @@
 
 (defn- analyze-environments
   "Return a map mapping from a command handle to execution environment."
-  [{:keys [specification failures sequential parallel] :as result-data}]
+  [{:keys [specification sequential parallel] :as result-data}]
   (let [setup-fn (:setup specification)
+        ;; TODO: Don't call setup, since it might change mutable objects. Get
+        ;; initial bindings from somewhere else.
         setup-result (when-let [setup setup-fn]
                        (setup))
         bindings (if setup-fn
@@ -125,15 +127,21 @@
                         result-data sequential
                         {:real init-state :symbolic init-state}
                         bindings)
-        last-env (get sequential-env (ffirst (last sequential)))]
-    (into sequential-env
-          (mapcat (fn [[thread sequential]]
-                    (analyze-sequential-environment
-                     result-data sequential
-                     (-> last-env :state :after)
-                     (-> last-env :bindings :after)
-                     thread))
-                  (map-indexed vector parallel)))))
+        last-env (get sequential-env (ffirst (last sequential)))
+        environments (into sequential-env
+                           (mapcat (fn [[thread sequential]]
+                                     (analyze-sequential-environment
+                                      result-data sequential
+                                      (-> last-env :state :after)
+                                      (-> last-env :bindings :after)
+                                      thread))
+                                   (map-indexed vector parallel)))]
+    ;; TODO: Don't call setup (see above) and also not cleanup
+    (when-let [cleanup (:cleanup specification)]
+      (if (:setup specification)
+        (cleanup setup-result)
+        (cleanup)))
+    environments))
 
 (defn- analyze-sequential-executions
   "Analyze the sequential executions."
