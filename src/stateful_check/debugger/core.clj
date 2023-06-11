@@ -97,12 +97,29 @@
         analysis
         (get-analysis debugger query)))
 
+(defn- get-failure-error
+  "Find the failure error for `query` in `debugger`."
+  [debugger {:keys [failure event] :as query}]
+  (when (and (nat-int? failure) (nat-int? event))
+    (when-let [command (get-command debugger query)]
+      (let [event (get-in (:failures command) [failure :events event] nil)]
+        (when (instance? Throwable (:error event))
+          (:error event))))))
+
+(defn- get-result-error
+  "Find the result error for `query` in `debugger`."
+  [debugger query]
+  (when-let [{:keys [result]} (get-command debugger query)]
+    (when (instance? Throwable (:error result))
+      (:error result))))
+
 (defn get-error
   "Find the error for `query` in `debugger`."
-  [debugger {:keys [result] :as query}]
-  (when-let [command (get-command debugger query)]
-    (cond (and result (instance? Throwable (-> command :result :error)))
-          (-> command :result :error))))
+  [debugger {:keys [failure event result] :as query}]
+  (cond (and (nat-int? failure) (nat-int? event))
+        (get-failure-error debugger query)
+        result
+        (get-result-error debugger query)))
 
 (defn last-analysis
   "Return the last analysis from the `debugger`."
