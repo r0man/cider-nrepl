@@ -10,19 +10,10 @@
     (binding [inspect/*max-atom-length* 50]
       (inspect/inspect-value value))))
 
-(defn- render-cmds-and-traces
-  [[[handle cmd-obj & args] result-str result]]
-  {:arguments (mapv render-value args)
-   :command (select-keys cmd-obj [:name])
-   :handle (pr-str handle)
-   :result (render-value result)
-   :result-str result-str})
-
-(defn- render-sequential [cmds-and-traces]
-  (mapv render-cmds-and-traces cmds-and-traces))
-
-(defn- render-parallel [cmds-and-traces]
-  (mapv render-sequential cmds-and-traces))
+(defn- render-result [result]
+  (cond-> result
+    (not (:mutated result))
+    (update :value render-value)))
 
 (defn- render-argument [argument]
   (-> (select-keys argument [:index :value])
@@ -66,17 +57,13 @@
       (update :command select-keys [:name])
       (update :failures #(mapv render-failure %))
       (update :handle pr-str)
-      (update :result render-value)
+      (update :result render-result)
       (update-in [:bindings :after] render-bindings)
       (update-in [:bindings :before] render-bindings)
       (update-in [:state :after :real] render-value)
       (update-in [:state :after :symbolic] render-value)
       (update-in [:state :before :real] render-value)
       (update-in [:state :before :symbolic] render-value)))
-
-(defn- render-environments [environment]
-  (into {} (for [[handle frame] environment]
-             [(pr-str handle) (render-frame frame)])))
 
 (defn- render-executions [{:keys [sequential parallel]}]
   {:sequential (mapv render-frame sequential)
@@ -85,11 +72,7 @@
 (defn render-result-data
   [result-data]
   (-> (select-keys result-data [:executions :specification :options])
-      ;; (update :environments render-environments)
-      (update :executions render-executions)
-      ;; (update :parallel render-parallel)
-      ;; (update :sequential render-sequential)
-      ))
+      (update :executions render-executions)))
 
 (defn- render-quickcheck-results [results]
   (-> (select-keys results [:id :failing-size :frequencies :num-tests :seed :shrunk :result-data])

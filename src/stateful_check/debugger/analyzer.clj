@@ -53,11 +53,29 @@
   [failures]
   (mapv analyze-failure (map-indexed vector failures)))
 
+(def ^:private mutated-rexeg
+  #"(?s)(.*)(\n\s+>> object may have been mutated later into (.+) <<\n)")
+
+(defn- analyze-result
+  "Analyze the execution `result` and `result-str`."
+  [options result result-str]
+  (let [assume-immutable-results? (-> options :run :assume-immutable-results true?)
+        matches (re-matches mutated-rexeg result-str)]
+    (cond-> {:value result :string-value result-str}
+      (not assume-immutable-results?)
+      ;; TODO: Can't detect this ourselves since a message has been appended to
+      ;; result-str by stateful-check.
+      (assoc :mutated (some? (seq matches)))
+      ;; TODO: Would be nice to get mutation info as data, like :message, :mutated-into object
+      (and (not assume-immutable-results?) (seq matches))
+      (assoc :string-value (nth matches 1)
+             :value (nth matches 3)))))
+
 (defn- analyze-sequential-environment
   "Return a map from a command handle to execution frame."
-  [failures cmds-and-traces state bindings & [thread]]
+  [{:keys [failures options]} cmds-and-traces state bindings & [thread]]
   (first (reduce (fn [[env state bindings]
-                      [index [[handle cmd-obj & symbolic-args] _result-str result]]]
+                      [index [[handle cmd-obj & symbolic-args] result-str result]]]
                    (let [real-args (sv/get-real-value symbolic-args bindings)
                          next-bindings (assoc bindings handle result)
                          next-state {:real (u/make-next-state cmd-obj (:real state) real-args result)
@@ -80,7 +98,7 @@
                                         :command command
                                         :handle handle
                                         :index index
-                                        :result result
+                                        :result (analyze-result options result result-str)
                                         :state {:after next-state :before state}}
                                  (seq failures)
                                  (assoc :failures (analyze-failures failures))
@@ -91,7 +109,7 @@
 
 (defn- analyze-environments
   "Return a map mapping from a command handle to execution environment."
-  [{:keys [specification failures sequential parallel]}]
+  [{:keys [specification failures sequential parallel] :as result-data}]
   (let [setup-fn (:setup specification)
         setup-result (when-let [setup setup-fn]
                        (setup))
@@ -104,14 +122,14 @@
                      (init-state-fn (get bindings g/setup-var))
                      (init-state-fn))
         sequential-env (analyze-sequential-environment
-                        failures sequential
+                        result-data sequential
                         {:real init-state :symbolic init-state}
                         bindings)
         last-env (get sequential-env (ffirst (last sequential)))]
     (into sequential-env
           (mapcat (fn [[thread sequential]]
                     (analyze-sequential-environment
-                     failures sequential
+                     result-data sequential
                      (-> last-env :state :after)
                      (-> last-env :bindings :after)
                      thread))
