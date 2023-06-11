@@ -82,10 +82,16 @@
 (deftest test-store-record-spec
   (is (specification-correct? records-spec records-spec-options)))
 
+;; Throw within an `is` assertion
+
 (def throw-exception-specification
   {:commands {:cmd {:command (constantly true)
                     :postcondition (fn [_ _ _ _]
                                      (is (throw (ex-info "An exception!" {:oh "no"}))))}}})
+
+
+(deftest exception-in-assertion-is-printed
+  (is (specification-correct? throw-exception-specification)))
 
 
 ;; Mutation detection
@@ -102,16 +108,9 @@
    :initial-state (constantly 0)})
 
 (def returning-atom-as-result-options
-  {:run {:assume-immutable-results false
+  {:run {:assume-immutable-results true
          :seed 0}
-   :report {:first-case? false}})
+   :report {:first-case? true}})
 
 (deftest returning-atom-as-result
   (is (specification-correct? returning-atom-as-result-spec returning-atom-as-result-options)))
-
-(-> (run-specification returning-atom-as-result-spec returning-atom-as-result-options)
-    :shrunk :result-data)
-
-;; (deftest exception-in-assertion-is-printed
-;;   (is (throw (ex-info "An exception!" {:oh "no"})))
-;;   (is (specification-correct? throw-exception-specification)))

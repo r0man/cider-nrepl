@@ -80,7 +80,10 @@
   "Find the command execution argument for `query` in `debugger`."
   [debugger query]
   (when (contains? query :result)
-    (some-> (get-command debugger query) :result)))
+    (when-let [{:keys [result]} (get-command debugger query)]
+      (if (:mutated result)
+        (:printed-value result)
+        (:value result)))))
 
 (defn get-object
   "Find the object for `query` in `debugger`."
