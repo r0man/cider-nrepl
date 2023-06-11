@@ -43,21 +43,31 @@
 
 (defn- analyze-failure
   "Analyze a postcondition failure."
-  [{:keys [events] :as failure}]
-  (cond-> failure
+  [[index {:keys [events] :as failure}]]
+  (cond-> (assoc failure :index index)
     (seq events)
     (update :events #(mapv analyze-event (map-indexed vector %)))))
 
+(defn- analyze-failures
+  "Analyze all postcondition failures."
+  [failures]
+  (mapv analyze-failure (map-indexed vector failures)))
+
 (defn- analyze-sequential-environment
   "Return a map from a command handle to execution frame."
-  [cmds-and-traces state bindings & [thread]]
+  [failures cmds-and-traces state bindings & [thread]]
   (first (reduce (fn [[env state bindings]
                       [index [[handle cmd-obj & symbolic-args] _result-str result]]]
                    (let [real-args (sv/get-real-value symbolic-args bindings)
                          next-bindings (assoc bindings handle result)
                          next-state {:real (u/make-next-state cmd-obj (:real state) real-args result)
                                      :symbolic (u/make-next-state cmd-obj (:symbolic state) symbolic-args handle)}
-                         failure (u/check-postcondition cmd-obj (:real state) (:real next-state) real-args result)
+                         ;; TODO: Can we do this here? The failures captured by
+                         ;; stateful-check are from all sequential and parallel
+                         ;; inter-leavings. The failures captured here only from
+                         ;; this failing one.
+                         ;; failure (u/check-postcondition cmd-obj (:real state) (:real next-state) real-args result)
+                         failures (get failures handle)
                          command (analyze-command cmd-obj)
                          num-args (count symbolic-args)
                          frame (cond-> {:arguments (mapv (fn [index real symbolic]
@@ -72,38 +82,40 @@
                                         :index index
                                         :result result
                                         :state {:after next-state :before state}}
-                                 failure (assoc :failure (analyze-failure failure))
-                                 thread (assoc :thread thread))]
+                                 (seq failures)
+                                 (assoc :failures (analyze-failures failures))
+                                 thread
+                                 (assoc :thread thread))]
                      [(assoc env handle frame) next-state next-bindings]))
                  [{} state bindings] (map-indexed vector cmds-and-traces))))
 
 (defn- analyze-environments
   "Return a map mapping from a command handle to execution environment."
-  [spec cmds-and-traces]
-  (let [setup-fn (:setup spec)
+  [{:keys [specification failures sequential parallel]}]
+  (let [setup-fn (:setup specification)
         setup-result (when-let [setup setup-fn]
                        (setup))
         bindings (if setup-fn
                    {g/setup-var setup-result}
                    {})
-        init-state-fn (or (:initial-state spec)
+        init-state-fn (or (:initial-state specification)
                           (constantly nil))
-        init-state (if (:setup spec)
+        init-state (if (:setup specification)
                      (init-state-fn (get bindings g/setup-var))
                      (init-state-fn))
         sequential-env (analyze-sequential-environment
-                        (:sequential cmds-and-traces)
+                        failures sequential
                         {:real init-state :symbolic init-state}
                         bindings)
-        last-env (get sequential-env (ffirst (last (:sequential cmds-and-traces))))]
+        last-env (get sequential-env (ffirst (last sequential)))]
     (into sequential-env
           (mapcat (fn [[thread sequential]]
                     (analyze-sequential-environment
-                     sequential
+                     failures sequential
                      (-> last-env :state :after)
                      (-> last-env :bindings :after)
                      thread))
-                  (map-indexed vector (:parallel cmds-and-traces))))))
+                  (map-indexed vector parallel)))))
 
 (defn- analyze-sequential-executions
   "Analyze the sequential executions."
@@ -123,8 +135,8 @@
    :parallel (analyze-parallel-executions environments parallel)})
 
 (defn- analyze-result-data
-  [{:keys [specification] :as result-data}]
-  (let [environments (analyze-environments specification result-data)
+  [result-data]
+  (let [environments (analyze-environments result-data)
         executions (analyze-executions environments result-data)]
     (assoc result-data :environments environments :executions executions)))
 
