@@ -580,6 +580,7 @@ stack frame of the most recent exception. This op is deprecated, please use the
 
 (def-wrapper wrap-stateful-check cider.nrepl.middleware.stateful-check/handle-stateful-check
   {:doc "Middleware that provides stateful check functionality."
+   :requires #{#'wrap-print #'session}
    :handles {"stateful-check-analyze"
              {:doc "Analyze Stateful Check test reports."
               :optional {"ns" "Analyze test reports matching namespace."
