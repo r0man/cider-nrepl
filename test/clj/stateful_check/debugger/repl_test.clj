@@ -1,5 +1,5 @@
 (ns stateful-check.debugger.repl-test
-  (:require [cider.nrepl.middleware.test-stateful-check :as test-stateful-check]
+  (:require [cider.nrepl.middleware.test-stateful-check :as examples]
             [clojure.test :refer [deftest is]]
             [stateful-check.debugger.core :as debugger]
             [stateful-check.debugger.render :as render]
@@ -8,10 +8,10 @@
   (:import [java.util UUID]))
 
 (def specification
-  test-stateful-check/records-spec)
+  examples/records-spec)
 
 (def options
-  test-stateful-check/records-spec-options)
+  examples/records-spec-options)
 
 (deftest test-reset!
   (is (= (debugger/debugger) (repl/reset!))))
@@ -51,6 +51,10 @@
 (comment
 
   (repl/run-specification specification options)
+
+  (-> (repl/run-specification examples/returning-atom-as-result-spec
+                              examples/returning-atom-as-result-options)
+      :shrunk :result-data)
 
   (-> (repl/run-specification specification options)
       :shrunk :result-data :executions)

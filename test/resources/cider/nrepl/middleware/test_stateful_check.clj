@@ -87,6 +87,31 @@
                     :postcondition (fn [_ _ _ _]
                                      (is (throw (ex-info "An exception!" {:oh "no"}))))}}})
 
+
+;; Mutation detection
+
+(def test-atom (atom 0))
+
+(def returning-atom-as-result-spec
+  {:commands {:inc {:command #(do (swap! test-atom inc)
+                                  test-atom)
+                    :next-state (fn [s _ _] (inc s))
+                    :postcondition (fn [_ ns _ result]
+                                     (is (= ns @result)))}}
+   :setup #(reset! test-atom 0)
+   :initial-state (constantly 0)})
+
+(def returning-atom-as-result-options
+  {:run {:assume-immutable-results false
+         :seed 0}
+   :report {:first-case? false}})
+
+(deftest returning-atom-as-result
+  (is (specification-correct? returning-atom-as-result-spec returning-atom-as-result-options)))
+
+(-> (run-specification returning-atom-as-result-spec returning-atom-as-result-options)
+    :shrunk :result-data)
+
 ;; (deftest exception-in-assertion-is-printed
 ;;   (is (throw (ex-info "An exception!" {:oh "no"})))
 ;;   (is (specification-correct? throw-exception-specification)))

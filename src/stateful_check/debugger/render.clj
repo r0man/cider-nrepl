@@ -52,7 +52,7 @@
     (update :expected print-object)))
 
 (defn- render-failure [failure]
-  (cond-> (select-keys failure [:message :events])
+  (cond-> (select-keys failure [:events :index :message])
     (seq (:events failure))
     (update :events #(mapv render-event %))))
 
@@ -61,10 +61,10 @@
              [(pr-str handle) (render-value value)])))
 
 (defn- render-frame [frame]
-  (-> (select-keys frame [:arguments :bindings :command :failure :handle :index :result :state :thread])
+  (-> (select-keys frame [:arguments :bindings :command :failures :handle :index :result :state :thread])
       (update :arguments #(mapv render-argument %))
       (update :command select-keys [:name])
-      (update :failure render-failure)
+      (update :failures #(mapv render-failure %))
       (update :handle pr-str)
       (update :result render-value)
       (update-in [:bindings :after] render-bindings)
