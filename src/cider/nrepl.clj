@@ -719,7 +719,7 @@ stack frame of the most recent exception. This op is deprecated, please use the
                         "status" "done"}}
              "stateful-check-inspect"
              {:doc "Inspect a Stateful Check test report object."
-              :requires {"index" "The index of the object to inspect."}
+              :requires {"query" "The query for the object to inspect."}
               :returns {"value" "The inspected object."
                         "status" "done"}}
              "stateful-check-report"
@@ -730,12 +730,12 @@ stack frame of the most recent exception. This op is deprecated, please use the
                         "status" "done"}}
              "stateful-check-print"
              {:doc "Print a Stateful Check test report object."
-              :requires {"index" "The index of the object to print."}
+              :requires {"query" "The query for the object to print."}
               :returns {"value" "The printed object."
                         "status" "done"}}
              "stateful-check-stacktrace"
-             {:doc "Return messages describing each cause and stack frame of the exception at index."
-              :requires {"index" "The index of the exception to inspect."}
+             {:doc "Return messages describing each cause and stack frame of the exception at query."
+              :requires {"query" "The query for the exception to inspect."}
               :optional wrap-print-optional-arguments
               :returns {"status" "\"done\", or \"no-error\" no exception was raised."}}}})
 
