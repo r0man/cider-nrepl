@@ -3,7 +3,8 @@
             [stateful-check.generator :as g]
             [stateful-check.symbolic-values :as sv]
             [haystack.analyzer :as analyzer])
-  (:import [java.util Base64 UUID]))
+  (:import [java.util Base64 UUID]
+           [stateful_check.runner CaughtException]))
 
 (defn- find-argument-list [command num-args]
   (first (filter #(= num-args (count %)) (-> command :meta :arglists))))
@@ -60,16 +61,20 @@
   "Analyze the execution `result` and `result-str`."
   [options result result-str]
   (let [assume-immutable-results? (-> options :run :assume-immutable-results true?)
-        matches (re-matches mutated-rexeg result-str)]
+        matches (when (string? result-str)
+                  (re-matches mutated-rexeg result-str))]
     (cond-> {:value result :string-value result-str}
+      (instance? CaughtException result)
+      (assoc :error (:exception result))
+      (instance? CaughtException result)
+      (dissoc :value)
       (not assume-immutable-results?)
       ;; TODO: Can't detect this ourselves since a message has been appended to
       ;; result-str by stateful-check.
       (assoc :mutated (some? (seq matches)))
       ;; TODO: Would be nice to get mutation info as data, like :message, :mutated-into object
       (and (not assume-immutable-results?) (seq matches))
-      (assoc :string-value (nth matches 1)
-             :value (nth matches 3)))))
+      (assoc :string-value (nth matches 1) :value (nth matches 3)))))
 
 (defn- analyze-sequential-environment
   "Return a map from a command handle to execution frame."
