@@ -4,7 +4,9 @@
             [orchard.inspect :as inspect]
             [stateful-check.symbolic-values :as sv]))
 
-(defn- render-value [value]
+(defn- render-value
+  "Render the given `value` as a string."
+  [value]
   (cond
     (satisfies? sv/SymbolicValue value)
     (pr-str value)
@@ -14,12 +16,18 @@
     (binding [inspect/*max-atom-length* 50]
       (inspect/inspect-value value))))
 
-(defn- render-result [result]
+(defn- render-result
+  "Render the command execution `result`."
+  [result]
   (cond-> result
+    (:error result)
+    (update :error str)
     (not (:mutated result))
     (update :value render-value)))
 
-(defn- render-argument [argument]
+(defn- render-argument
+  "Render the command execution `argument`."
+  [argument]
   (-> (select-keys argument [:index :value])
       (update-in [:value :real] render-value)
       (update-in [:value :symbolic] pr-str)))

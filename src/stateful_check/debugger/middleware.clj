@@ -91,12 +91,11 @@
 (defn stateful-check-stacktrace-reply
   "Handle a Stateful Check stacktrace NREPL operation."
   [{:keys [query transport ::print/print-fn] :as msg}]
-  (let [exception (debugger/get-object (debugger msg) query)]
-    (if (and exception (instance? Throwable exception))
-      (do (doseq [cause (haystack.analyzer/analyze exception print-fn)]
-            (t/send transport (response-for msg cause)))
-          (t/send transport (response-for msg :status :done)))
-      (t/send transport (response-for msg :status :no-error)))))
+  (if-let [exception (debugger/get-error (debugger msg) (parse-query query))]
+    (do (doseq [cause (haystack.analyzer/analyze exception print-fn)]
+          (t/send transport (response-for msg cause)))
+        (t/send transport (response-for msg :status :done)))
+    (t/send transport (response-for msg :status :stateful-check-no-error))))
 
 (defn handle-message
   "Handle a Stateful Check NREPL `msg`."

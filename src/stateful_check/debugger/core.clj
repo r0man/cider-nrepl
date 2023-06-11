@@ -77,7 +77,7 @@
             :arguments (nth argument nil))))
 
 (defn get-result
-  "Find the command execution argument for `query` in `debugger`."
+  "Find the command execution result for `query` in `debugger`."
   [debugger query]
   (when (contains? query :result)
     (when-let [{:keys [result]} (get-command debugger query)]
@@ -96,6 +96,13 @@
         (get-command debugger query)
         analysis
         (get-analysis debugger query)))
+
+(defn get-error
+  "Find the error for `query` in `debugger`."
+  [debugger {:keys [result] :as query}]
+  (when-let [command (get-command debugger query)]
+    (cond (and result (instance? Throwable (-> command :result :error)))
+          (-> command :result :error))))
 
 (defn last-analysis
   "Return the last analysis from the `debugger`."
