@@ -186,7 +186,8 @@
 (defn test-report
   "Analyze the Cider test report."
   [debugger]
-  (some-> debugger :test :report deref test-events))
+  (some->> debugger :test :report deref test-events
+           (filter :stateful-check)))
 
 (defn render
   "Render the `debugger` in a Bencode compatible format."
