@@ -113,5 +113,4 @@
    :report {:first-case? true}})
 
 (deftest returning-atom-as-result
-  (is (specification-correct? returning-atom-as-result-spec
-                              returning-atom-as-result-options)))
+  (is (specification-correct? returning-atom-as-result-spec returning-atom-as-result-options)))
