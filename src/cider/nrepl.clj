@@ -717,27 +717,37 @@ stack frame of the most recent exception. This op is deprecated, please use the
                          "var" "Analyze test reports matching var."}
               :returns {"value" "The rendered report."
                         "status" "done"}}
+
              "stateful-check/inspect"
              {:doc "Inspect a Stateful Check test report object."
               :requires {"query" "The query for the object to inspect."}
               :returns {"value" "The inspected object."
                         "status" "done"}}
+
              "stateful-check/report"
              {:doc "Return Stateful Check test reports."
               :optional {"ns" "Filter test reports matching namespace."
                          "var" "Filter test reports matching var."}
               :returns {"stateful-check/report" "The test reports."
                         "status" "done"}}
+
              "stateful-check/print"
              {:doc "Print a Stateful Check test report object."
               :requires {"query" "The query for the object to print."}
               :returns {"value" "The printed object."
                         "status" "done"}}
+
              "stateful-check/stacktrace"
              {:doc "Return messages describing each cause and stack frame of the exception at query."
               :requires {"query" "The query for the exception to inspect."}
               :optional wrap-print-optional-arguments
-              :returns {"status" "\"done\", or \"stateful-check/no-error\" no error was found."}}}})
+              :returns {"status" "\"done\", or \"stateful-check/no-error\" no error was found."}}
+
+             "stateful-check/test-reports"
+             {:doc "List all Stateful Check CIDER test reports."
+              :requires {"query" "The query for the object to print."}
+              :returns {"stateful-check/test-reports" "The list of Stateful Check CIDER test reports."
+                        "status" "done"}}}})
 
 ;;; CIDER's nREPL Handler
 ;;

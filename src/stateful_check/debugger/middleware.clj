@@ -30,7 +30,8 @@
   (debugger/debugger
    {:analyzer {:render (fn [value]
                          (binding [inspect/*max-atom-length* 50]
-                           (inspect/inspect-value value)))}}))
+                           (inspect/inspect-value value)))}
+    :test {:report current-report}}))
 
 (defn- debugger
   "Return the debugger from `msg` or a new one."
@@ -97,6 +98,14 @@
         (t/send transport (response-for msg :status :done)))
     (t/send transport (response-for msg :status :stateful-check/no-error))))
 
+(defn stateful-check-test-reports-reply
+  "Return the Stateful Check cider.test reports."
+  [{:keys [query transport ::print/print-fn] :as msg}]
+  {:stateful-check/test-reports
+   (->> (debugger/test-report (debugger msg))
+        (map #(dissoc % :stateful-check))
+        (transform-value))})
+
 (defn handle-message
   "Handle a Stateful Check NREPL `msg`."
   [handler msg]
@@ -105,4 +114,5 @@
     "stateful-check/inspect" stateful-check-inspect-reply
     "stateful-check/print" stateful-check-print-reply
     "stateful-check/report" stateful-check-report-reply
-    "stateful-check/stacktrace" stateful-check-stacktrace-reply))
+    "stateful-check/stacktrace" stateful-check-stacktrace-reply
+    "stateful-check/test-reports" stateful-check-test-reports-reply))

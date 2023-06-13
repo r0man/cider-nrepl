@@ -8,9 +8,11 @@
 
 (defn debugger
   "Return a Stateful Check debugger."
-  [& [{:keys [analyzer]}]]
-  {:analyses {}
+  [& [{:keys [analyzer test]}]]
+  {:analyzer analyzer
+   :analyses {}
    :last-analysis-id nil
+   :test test
    :summary {}})
 
 (defn- failed-event?
@@ -19,13 +21,19 @@
   [event]
   (and (:stateful-check event) (= :fail (:type event))))
 
+(defn test-events
+  "Return all Stateful Check test events from the CIDER test `report`."
+  [report]
+  (->> report :results vals
+       (mapcat vals)
+       (apply concat)))
+
 (defn- failed-test-events
   "Return all failed Stateful Check test events from the Cider test `report`."
   [report]
   (->> report :results vals
        (mapcat vals)
-       (apply concat)
-       (filter failed-event?)))
+       (apply concat)))
 
 (defn- criteria?
   [analysis {:keys [id ns var]}]
@@ -163,7 +171,12 @@
   [debugger report & [opts]]
   (reduce analyze-test-event debugger
           (filter #(criteria? {:test %} opts)
-                  (failed-test-events report))))
+                  (filter failed-event? (test-events report)))))
+
+(defn test-report
+  "Analyze the Cider test report."
+  [debugger]
+  (some-> debugger :test :report deref test-events))
 
 (defn render
   "Render the `debugger` in a Bencode compatible format."
