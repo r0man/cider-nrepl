@@ -737,6 +737,12 @@ stack frame of the most recent exception. This op is deprecated, please use the
               :returns {"value" "The printed object."
                         "status" "done"}}
 
+             "stateful-check/specifications"
+             {:doc "List all Stateful Check specifications from loaded namespaces."
+              :requires {"query" "The query for the object to print."}
+              :returns {"stateful-check/specifications" "The list of Stateful Check specifications."
+                        "status" "done"}}
+
              "stateful-check/stacktrace"
              {:doc "Return messages describing each cause and stack frame of the exception at query."
               :requires {"query" "The query for the exception to inspect."}

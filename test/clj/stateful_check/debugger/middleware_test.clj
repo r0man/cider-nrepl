@@ -61,3 +61,8 @@
   (let [result (session/message {:op "stateful-check/test-reports"})]
     (is (= #{"done"} (:status result)))
     (is (= [] (:stateful-check/test-reports result)))))
+
+(deftest test-stateful-check-test-reports
+  (let [result (session/message {:op "stateful-check/specifications"})]
+    (is (= #{"done"} (:status result)))
+    (is (seq (:stateful-check/specifications result)))))
