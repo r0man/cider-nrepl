@@ -51,7 +51,7 @@
   "Handle a Stateful Check test analysis NREPL operation."
   [msg]
   (let [criteria (criteria msg)]
-    {:stateful-check-analyze
+    {:stateful-check/analyze
      (render-debugger
       (swap-debugger! msg #(-> (debugger/analyze-test-report % @current-report criteria)
                                (debugger/filter-analyses criteria))))}))
@@ -69,14 +69,14 @@
       (let [inspector (inspect/start (inspect/fresh) object)]
         (#'middleware.inspect/inspector-response
          msg (middleware.inspect/swap-inspector! msg (constantly inspector))))
-      {:status :stateful-check-object-not-found
+      {:status :stateful-check/object-not-found
        :query (transform-value query)})))
 
 (defn- stateful-check-report-reply
   "Handle a Stateful Check test report NREPL operation."
   [msg]
   (let [debugger (debugger/filter-analyses (debugger msg) msg)]
-    {:stateful-check-report (render-debugger debugger)}))
+    {:stateful-check/report (render-debugger debugger)}))
 
 (defn- stateful-check-print-reply
   "Handle a Stateful Check print NREPL operation."
@@ -84,8 +84,8 @@
   (if-let [object (debugger/get-object (debugger msg) (parse-query query))]
     (let [writer (StringWriter.)]
       (print-fn object writer)
-      {:stateful-check-print (str writer)})
-    {:status :stateful-check-object-not-found
+      {:stateful-check/print (str writer)})
+    {:status :stateful-check/object-not-found
      :query (transform-value query)}))
 
 (defn stateful-check-stacktrace-reply
@@ -95,14 +95,14 @@
     (do (doseq [cause (haystack.analyzer/analyze exception print-fn)]
           (t/send transport (response-for msg cause)))
         (t/send transport (response-for msg :status :done)))
-    (t/send transport (response-for msg :status :stateful-check-no-error))))
+    (t/send transport (response-for msg :status :stateful-check/no-error))))
 
 (defn handle-message
   "Handle a Stateful Check NREPL `msg`."
   [handler msg]
   (with-safe-transport handler msg
-    "stateful-check-analyze" stateful-check-analyze-reply
-    "stateful-check-inspect" stateful-check-inspect-reply
-    "stateful-check-print" stateful-check-print-reply
-    "stateful-check-report" stateful-check-report-reply
-    "stateful-check-stacktrace" stateful-check-stacktrace-reply))
+    "stateful-check/analyze" stateful-check-analyze-reply
+    "stateful-check/inspect" stateful-check-inspect-reply
+    "stateful-check/print" stateful-check-print-reply
+    "stateful-check/report" stateful-check-report-reply
+    "stateful-check/stacktrace" stateful-check-stacktrace-reply))

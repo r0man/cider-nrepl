@@ -13,46 +13,46 @@
 
 (deftest test-stateful-check-analyze
   (run-failing-test)
-  (let [result (session/message {:op "stateful-check-analyze"})]
+  (let [result (session/message {:op "stateful-check/analyze"})]
     (is (= #{"done"} (:status result)))
-    (let [report (:stateful-check-analyze result)]
+    (let [report (:stateful-check/analyze result)]
       ;; TODO: Why is this only working in Cider?
       ;; (is (seq (:results report)))
       )))
 
 (deftest test-stateful-check-analyze-no-events
-  (let [result (session/message {:op "stateful-check-analyze"})]
+  (let [result (session/message {:op "stateful-check/analyze"})]
     (is (= #{"done"} (:status result)))
-    (let [report (:stateful-check-analyze result)]
+    (let [report (:stateful-check/analyze result)]
       (is (empty? (:results report))))))
 
 (deftest test-stateful-check-inspect-object-not-found
-  (let [result (session/message {:op "stateful-check-inspect"})]
-    (is (= #{"done" "stateful-check-object-not-found"} (:status result)))))
+  (let [result (session/message {:op "stateful-check/inspect"})]
+    (is (= #{"done" "stateful-check/object-not-found"} (:status result)))))
 
 (deftest test-stateful-check-print-object-not-found
-  (let [result (session/message {:op "stateful-check-print"})]
-    (is (= #{"done" "stateful-check-object-not-found"} (:status result)))))
+  (let [result (session/message {:op "stateful-check/print"})]
+    (is (= #{"done" "stateful-check/object-not-found"} (:status result)))))
 
 (deftest test-stateful-check-report
   (run-failing-test)
-  (session/message {:op "stateful-check-analyze"})
-  (let [result (session/message {:op "stateful-check-report"})]
+  (session/message {:op "stateful-check/analyze"})
+  (let [result (session/message {:op "stateful-check/report"})]
     (is (= #{"done"} (:status result)))
-    (let [report (:stateful-check-report result)]
+    (let [report (:stateful-check/report result)]
       ;; TODO: Why is this only working in Cider?
       ;; (is (seq (:results report)))
       )))
 
 (deftest test-stateful-check-report-without-events
-  (let [result (session/message {:op "stateful-check-report"})]
+  (let [result (session/message {:op "stateful-check/report"})]
     (is (= #{"done"} (:status result)))
-    (let [report (:stateful-check-report result)]
+    (let [report (:stateful-check/report result)]
       (is (empty? (:results report))))))
 
 (deftest test-stateful-check-report-events-not-analyzed
   (run-failing-test)
-  (let [result (session/message {:op "stateful-check-report"})]
+  (let [result (session/message {:op "stateful-check/report"})]
     (is (= #{"done"} (:status result)))
-    (let [report (:stateful-check-report result)]
+    (let [report (:stateful-check/report result)]
       (is (empty? (:results report))))))
