@@ -709,35 +709,35 @@ stack frame of the most recent exception. This op is deprecated, please use the
                         "status" "\"no-doc\" if there is no document matching to `ns` and `symbol`."}}}})
 
 (def-wrapper wrap-stateful-check cider.nrepl.middleware.stateful-check/handle-stateful-check
-  {:doc "Middleware that provides stateful check functionality."
-   :requires #{#'wrap-print #'session}
-   :handles {"stateful-check-analyze"
+  {:doc "A debugger for the stateful-check library."
+   :requires #{#'session #'wrap-print}
+   :handles {"stateful-check/analyze"
              {:doc "Analyze Stateful Check test reports."
               :optional {"ns" "Analyze test reports matching namespace."
                          "var" "Analyze test reports matching var."}
               :returns {"value" "The rendered report."
                         "status" "done"}}
-             "stateful-check-inspect"
+             "stateful-check/inspect"
              {:doc "Inspect a Stateful Check test report object."
               :requires {"query" "The query for the object to inspect."}
               :returns {"value" "The inspected object."
                         "status" "done"}}
-             "stateful-check-report"
+             "stateful-check/report"
              {:doc "Return Stateful Check test reports."
               :optional {"ns" "Filter test reports matching namespace."
                          "var" "Filter test reports matching var."}
-              :returns {"stateful-check-reports" "The test reports."
+              :returns {"stateful-check/report" "The test reports."
                         "status" "done"}}
-             "stateful-check-print"
+             "stateful-check/print"
              {:doc "Print a Stateful Check test report object."
               :requires {"query" "The query for the object to print."}
               :returns {"value" "The printed object."
                         "status" "done"}}
-             "stateful-check-stacktrace"
+             "stateful-check/stacktrace"
              {:doc "Return messages describing each cause and stack frame of the exception at query."
               :requires {"query" "The query for the exception to inspect."}
               :optional wrap-print-optional-arguments
-              :returns {"status" "\"done\", or \"no-error\" no exception was raised."}}}})
+              :returns {"status" "\"done\", or \"stateful-check/no-error\" no error was found."}}}})
 
 ;;; CIDER's nREPL Handler
 ;;
