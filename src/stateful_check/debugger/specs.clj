@@ -4,7 +4,12 @@
 
 ;; Specification
 
-(s/def :stateful-check.debugger.specification/commands (s/map-of keyword? any?))
+(s/def :stateful-check.debugger.specification/command
+  (s/or :ifn ifn? :var #(instance? clojure.lang.Var %)))
+
+(s/def :stateful-check.debugger.specification/commands
+  (s/map-of keyword? :stateful-check.debugger.specification/command))
+
 (s/def :stateful-check.debugger.specification/setup any?)
 
 (s/def :stateful-check.debugger/specification

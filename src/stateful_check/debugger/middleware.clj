@@ -1,11 +1,10 @@
 (ns stateful-check.debugger.middleware
   (:require [cider.nrepl.middleware.inspect :as middleware.inspect]
-            [cider.nrepl.middleware.stacktrace :as middleware.stacktrace]
             [cider.nrepl.middleware.test :refer [current-report]]
             [cider.nrepl.middleware.util :refer [transform-value]]
             [cider.nrepl.middleware.util.error-handling :refer [with-safe-transport]]
-            [nrepl.middleware.print :as print]
             [haystack.analyzer :as haystack.analyzer]
+            [nrepl.middleware.print :as print]
             [nrepl.misc :refer [response-for]]
             [nrepl.transport :as t]
             [orchard.inspect :as inspect]
@@ -89,6 +88,12 @@
     {:status :stateful-check/object-not-found
      :query (transform-value query)}))
 
+(defn stateful-check-specifications-reply
+  "List all Stateful Check specifications from loaded namespaces."
+  [_]
+  {:stateful-check/specifications
+   (map transform-value (debugger/ns-specifications))})
+
 (defn stateful-check-stacktrace-reply
   "Handle a Stateful Check stacktrace NREPL operation."
   [{:keys [query transport ::print/print-fn] :as msg}]
@@ -99,7 +104,7 @@
     (t/send transport (response-for msg :status :stateful-check/no-error))))
 
 (defn stateful-check-test-reports-reply
-  "Return the Stateful Check cider.test reports."
+  "List all Stateful Check reports captured by the CIDER test middleware."
   [{:keys [query transport ::print/print-fn] :as msg}]
   {:stateful-check/test-reports
    (->> (debugger/test-report (debugger msg))
@@ -114,5 +119,6 @@
     "stateful-check/inspect" stateful-check-inspect-reply
     "stateful-check/print" stateful-check-print-reply
     "stateful-check/report" stateful-check-report-reply
+    "stateful-check/specifications" stateful-check-specifications-reply
     "stateful-check/stacktrace" stateful-check-stacktrace-reply
     "stateful-check/test-reports" stateful-check-test-reports-reply))

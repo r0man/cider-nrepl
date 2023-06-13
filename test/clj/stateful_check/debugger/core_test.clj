@@ -9,6 +9,9 @@
 (def debugger
   (debugger/debugger))
 
+(deftest test-ns-specifications
+  (is (every? map? (debugger/ns-specifications))))
+
 (deftest test-analyze-results
   (let [results (run-specification test-stateful-check/java-map-specification)
         debugger (debugger/analyze-results debugger results)]
@@ -31,3 +34,8 @@
   (let [results (run-specification test-stateful-check/java-map-specification)
         debugger (debugger/analyze-results debugger results)]
     (is (debugger/render debugger))))
+
+(deftest test-run-specfication
+  (let [ns 'cider.nrepl.middleware.test-stateful-check
+        var 'java-map-specification ]
+    (is (debugger/run-specification-ns+var debugger ns var))))

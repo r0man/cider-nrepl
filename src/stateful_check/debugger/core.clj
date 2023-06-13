@@ -1,8 +1,10 @@
 (ns stateful-check.debugger.core
   (:refer-clojure :exclude [print])
-  (:require [stateful-check.core :as stateful-check]
+  (:require [clojure.spec.alpha :as s]
+            [stateful-check.core :as stateful-check]
             [stateful-check.debugger.analyzer :as analyzer]
             [stateful-check.debugger.render :as render]
+            [stateful-check.debugger.specs]
             [stateful-check.symbolic-values :as sv])
   (:import [stateful_check.symbolic_values RootVar]))
 
@@ -21,15 +23,23 @@
   [event]
   (and (:stateful-check event) (= :fail (:type event))))
 
+(defn ns-specifications
+  "Find Stateful Check specifications in `ns` or all namespaces."
+  ([]
+   (mapcat ns-specifications (map str (all-ns))))
+  ([ns]
+   (let [ns (symbol ns)]
+     (try (require ns) (catch Exception _))
+     (->> (ns-publics ns)
+          (map (fn [[name var]]
+                 {:ns ns
+                  :var name
+                  :specification (deref var)}))
+          (filter #(s/valid? :stateful-check.debugger/specification
+                             (:specification %)))))))
+
 (defn test-events
   "Return all Stateful Check test events from the CIDER test `report`."
-  [report]
-  (->> report :results vals
-       (mapcat vals)
-       (apply concat)))
-
-(defn- failed-test-events
-  "Return all failed Stateful Check test events from the Cider test `report`."
   [report]
   (->> report :results vals
        (mapcat vals)
@@ -190,6 +200,14 @@
   (->> (stateful-check/run-specification specification options)
        (analyze-results debugger)))
 
+(defn run-specification-ns+var
+  "Run the Stateful Check specification bound to the `var` in `ns`."
+  [debugger ns var & [options]]
+  (let [var (symbol var)]
+    (when-let [{:keys [specification]}
+               (some #(and (= var (:var %)) %) (ns-specifications ns))]
+      (run-specification debugger specification options))))
+
 (defn print
   "Print the `debugger`.
 
@@ -212,8 +230,6 @@
 
   (def my-debugger
     (analyze-test-report (debugger) @cider.nrepl.middleware.test/current-report))
-
-  (failed-test-events @cider.nrepl.middleware.test/current-report)
 
   (filter-analyses
    my-debugger
