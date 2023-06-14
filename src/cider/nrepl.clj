@@ -731,6 +731,13 @@ stack frame of the most recent exception. This op is deprecated, please use the
               :returns {"stateful-check/report" "The test reports."
                         "status" "done"}}
 
+             "stateful-check/run"
+             {:doc "Run a Stateful Check specification bound to a var."
+              :optional {"ns" "The namespace in which the specification is bound to a symbol."
+                         "var" "The name of the symbol the specification is bound to."}
+              :returns {"stateful-check/run" "The analysis of the test run."
+                        "status" "done"}}
+
              "stateful-check/print"
              {:doc "Print a Stateful Check test report object."
               :requires {"query" "The query for the object to print."}

@@ -62,6 +62,13 @@
     (is (= #{"done"} (:status result)))
     (is (= [] (:stateful-check/test-reports result)))))
 
+(deftest test-stateful-check-run
+  (let [result (session/message {:op "stateful-check/run"
+                                 :ns "cider.nrepl.middleware.test-stateful-check"
+                                 :var "throw-exception-specification"})]
+    (is (= #{"done"} (:status result)))
+    (is (= "false" (:pass? (:stateful-check/run result))))))
+
 (deftest test-stateful-check-test-reports
   (let [result (session/message {:op "stateful-check/specifications"})]
     (is (= #{"done"} (:status result)))

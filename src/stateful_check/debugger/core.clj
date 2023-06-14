@@ -202,13 +202,14 @@
   (->> (stateful-check/run-specification specification options)
        (analyze-results debugger)))
 
-(defn run-specification-ns+var
+(defn- find-specification [specifications ns var]
+  (:specification (some #(and (= ns (:ns %)) (= var (:var %)) %) specifications)))
+
+(defn run-specification-var
   "Run the Stateful Check specification bound to the `var` in `ns`."
   [debugger ns var & [options]]
-  (let [var (symbol var)]
-    (when-let [{:keys [specification]}
-               (some #(and (= var (:var %)) %) (ns-specifications ns))]
-      (run-specification debugger specification options))))
+  (when-let [specification (find-specification (ns-specifications ns) ns var)]
+    (assoc (run-specification debugger specification options) :ns ns :var var)))
 
 (defn print
   "Print the `debugger`.

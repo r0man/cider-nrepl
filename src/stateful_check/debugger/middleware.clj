@@ -8,7 +8,8 @@
             [nrepl.misc :refer [response-for]]
             [nrepl.transport :as t]
             [orchard.inspect :as inspect]
-            [stateful-check.debugger.core :as debugger])
+            [stateful-check.debugger.core :as debugger]
+            [stateful-check.debugger.render :as render])
   (:import [java.io StringWriter]
            [java.util UUID]))
 
@@ -72,6 +73,19 @@
       {:status :stateful-check/object-not-found
        :query (transform-value query)})))
 
+(defn- stateful-check-run-reply
+  "Handle the Stateful Check specification run NREPL operation."
+  [{:keys [ns var] :as msg}]
+  (if (and (string? ns) (string? var))
+    (let [ns (symbol ns)
+          var (symbol var)
+          options {}
+          debugger (swap-debugger! msg debugger/run-specification-var ns var options)]
+      {:stateful-check/run (-> (debugger/last-analysis debugger)
+                               (render/render-analysis)
+                               (transform-value))})
+    {:status :stateful-check/specification-not-found}))
+
 (defn- stateful-check-report-reply
   "Handle a Stateful Check test report NREPL operation."
   [msg]
@@ -119,6 +133,7 @@
     "stateful-check/inspect" stateful-check-inspect-reply
     "stateful-check/print" stateful-check-print-reply
     "stateful-check/report" stateful-check-report-reply
+    "stateful-check/run" stateful-check-run-reply
     "stateful-check/specifications" stateful-check-specifications-reply
     "stateful-check/stacktrace" stateful-check-stacktrace-reply
     "stateful-check/test-reports" stateful-check-test-reports-reply))
