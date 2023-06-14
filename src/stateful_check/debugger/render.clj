@@ -87,7 +87,7 @@
       (update :executions render-executions)))
 
 (defn- render-quickcheck-results [results]
-  (-> (select-keys results [:id :failing-size :frequencies :num-tests :seed :shrunk :result-data])
+  (-> (select-keys results [:id :failing-size :frequencies :num-tests :seed :shrunk :result-data :pass?])
       (update :shrunk select-keys [:depth :total-nodes-visited :result-data])))
 
 (defn render-analysis [analysis]
