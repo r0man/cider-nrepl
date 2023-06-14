@@ -38,4 +38,4 @@
 (deftest test-run-specfication
   (let [ns 'cider.nrepl.middleware.test-stateful-check
         var 'java-map-specification ]
-    (is (debugger/run-specification-ns+var debugger ns var))))
+    (is (debugger/run-specification-var debugger ns var))))
