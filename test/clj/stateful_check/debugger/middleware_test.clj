@@ -11,20 +11,27 @@
                     :ns "cider.nrepl.middleware.test-stateful-check"
                     :var "java-map-passes-sequentially"}))
 
-(deftest test-stateful-check-analyze
+(deftest test-stateful-check-analysis
+  (let [result (session/message {:op "stateful-check/analysis"
+                                 :analysis "11111111-1111-1111-1111-111111111111"})]
+    (is (= #{"done" "stateful-check/analysis-not-found"} (:status result)))))
+
+(deftest test-stateful-check-analyze-test
   (run-failing-test)
-  (let [result (session/message {:op "stateful-check/analyze"})]
+  (let [result (session/message {:op "stateful-check/analyze-test"
+                                 :ns "cider.nrepl.middleware.test-stateful-check"
+                                 :var "java-map-passes-sequentially"})]
     (is (= #{"done"} (:status result)))
-    (let [report (:stateful-check/analyze result)]
+    (let [analysis (:stateful-check/analyze-test result)]
       ;; TODO: Why is this only working in Cider?
       ;; (is (seq (:results report)))
       )))
 
 (deftest test-stateful-check-analyze-no-events
-  (let [result (session/message {:op "stateful-check/analyze"})]
-    (is (= #{"done"} (:status result)))
-    (let [report (:stateful-check/analyze result)]
-      (is (empty? (:results report))))))
+  (let [result (session/message {:op "stateful-check/analyze-test"
+                                 :ns "user" :var "unkown"})]
+    (is (= #{"done" "stateful-check/test-not-found"}
+           (:status result)))))
 
 (deftest test-stateful-check-inspect-object-not-found
   (let [result (session/message {:op "stateful-check/inspect"})]

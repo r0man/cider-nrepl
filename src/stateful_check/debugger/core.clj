@@ -177,12 +177,22 @@
         (add-analysis analysis)
         (assoc :last-analysis-id (:id analysis)))))
 
+(defn find-test-report
+  "Find the test report for `ns` and `var` in the `debugger`."
+  [debugger ns var]
+  (->> (filter (fn [report]
+                   (and (failed-event? report)
+                        (= ns (:ns report))
+                        (= var (:var report))))
+                 (some-> debugger :test :report deref
+                         (get-in [:results (symbol ns) (symbol var)])))
+       first))
+
 (defn analyze-test-report
   "Analyze the Cider test report."
-  [debugger report & [opts]]
-  (reduce analyze-test-event debugger
-          (filter #(criteria? {:test %} opts)
-                  (filter failed-event? (test-events report)))))
+  [debugger ns var & [opts]]
+  (if-let [report (find-test-report debugger ns var)]
+    (analyze-test-event debugger report)))
 
 (defn test-report
   "Analyze the Cider test report."
