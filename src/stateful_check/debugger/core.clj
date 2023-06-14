@@ -31,9 +31,10 @@
    (let [ns (symbol ns)]
      (try (require ns) (catch Exception _))
      (->> (ns-publics ns)
-          (map (fn [[name var]]
+          (map (fn [[sym var]]
                  {:ns ns
-                  :var name
+                  :var sym
+                  :name (str ns "/" sym)
                   :specification (deref var)}))
           (filter #(s/valid? :stateful-check.debugger/specification
                              (:specification %)))))))
