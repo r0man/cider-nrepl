@@ -45,17 +45,19 @@
       (alter-meta! update ::debugger #(apply f (or % (make-debugger)) args))
       (get ::debugger)))
 
-(defn render-debugger [debugger]
-  (transform-value (debugger/render debugger)))
-
-(defn- stateful-check-analyze-reply
+(defn- stateful-check-analyze-test-reply
   "Handle a Stateful Check test analysis NREPL operation."
-  [msg]
-  (let [criteria (criteria msg)]
-    {:stateful-check/analyze
-     (render-debugger
-      (swap-debugger! msg #(-> (debugger/analyze-test-report % @current-report criteria)
-                               (debugger/filter-analyses criteria))))}))
+  [{:keys [ns var] :as msg}]
+  (if (and (string? ns) (string? var))
+    (let [ns (symbol ns), var (symbol var)]
+      (if-let [report (debugger/find-test-report (debugger msg) ns var)]
+        {:stateful-check/analyze-test
+         (-> (swap-debugger! msg debugger/analyze-test-event report)
+             (debugger/last-analysis)
+             (render/render-analysis)
+             (transform-value))}
+        {:status :stateful-check/test-not-found}))
+    {:status :stateful-check/invalid-params}))
 
 (defn- parse-query [query]
   (cond-> query
@@ -79,18 +81,21 @@
   (if (and (string? ns) (string? var))
     (let [ns (symbol ns)
           var (symbol var)
-          options {}
-          debugger (swap-debugger! msg debugger/run-specification-var ns var options)]
-      {:stateful-check/run (-> (debugger/last-analysis debugger)
-                               (render/render-analysis)
-                               (transform-value))})
+          options {}]
+      {:stateful-check/run
+       (-> (swap-debugger! msg debugger/run-specification-var ns var options)
+           (debugger/last-analysis)
+           (render/render-analysis)
+           (transform-value))})
     {:status :stateful-check/specification-not-found}))
 
-(defn- stateful-check-report-reply
-  "Handle a Stateful Check test report NREPL operation."
-  [msg]
-  (let [debugger (debugger/filter-analyses (debugger msg) msg)]
-    {:stateful-check/report (render-debugger debugger)}))
+(defn- stateful-check-analysis-reply
+  "Handle a Stateful Check analysis NREPL operation."
+  [{:keys [analysis] :as msg}]
+  (let [id (UUID/fromString analysis)]
+    (if-let [analysis (debugger/get-analysis (debugger msg) id)]
+      {:stateful-check/analysis (render/render-analysis analysis)}
+      {:status :stateful-check/analysis-not-found})))
 
 (defn- stateful-check-print-reply
   "Handle a Stateful Check print NREPL operation."
@@ -129,10 +134,10 @@
   "Handle a Stateful Check NREPL `msg`."
   [handler msg]
   (with-safe-transport handler msg
-    "stateful-check/analyze" stateful-check-analyze-reply
+    "stateful-check/analysis" stateful-check-analysis-reply
+    "stateful-check/analyze-test" stateful-check-analyze-test-reply
     "stateful-check/inspect" stateful-check-inspect-reply
     "stateful-check/print" stateful-check-print-reply
-    "stateful-check/report" stateful-check-report-reply
     "stateful-check/run" stateful-check-run-reply
     "stateful-check/specifications" stateful-check-specifications-reply
     "stateful-check/stacktrace" stateful-check-stacktrace-reply

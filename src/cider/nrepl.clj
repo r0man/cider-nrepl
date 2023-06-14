@@ -581,11 +581,17 @@ stack frame of the most recent exception. This op is deprecated, please use the
 (def-wrapper wrap-stateful-check cider.nrepl.middleware.stateful-check/handle-stateful-check
   {:doc "A debugger for the stateful-check library."
    :requires #{#'session #'wrap-print}
-   :handles {"stateful-check/analyze"
-             {:doc "Analyze Stateful Check test reports."
+   :handles {"stateful-check/analysis"
+             {:doc "Return a Stateful Check analysis by id."
+              :requires {"id" "The id of the analysis."}
+              :returns {"stateful-check/analysis" "The Stateful Check analysis."
+                        "status" "done"}}
+
+             "stateful-check/analyze-test"
+             {:doc "Analyze a Stateful Check test."
               :optional {"ns" "Analyze test reports matching namespace."
                          "var" "Analyze test reports matching var."}
-              :returns {"value" "The rendered report."
+              :returns {"stateful-check/analyze-test" "The analysis of the test results."
                         "status" "done"}}
 
              "stateful-check/inspect"
