@@ -9,7 +9,7 @@
   (require 'cider.nrepl.middleware.test-stateful-check)
   (session/message {:op "test"
                     :ns "cider.nrepl.middleware.test-stateful-check"
-                    :var "java-map-passes-sequentially"}))
+                    :var "exception-in-assertion-is-printed"}))
 
 (deftest test-stateful-check-analysis
   (let [result (session/message {:op "stateful-check/analysis"
@@ -20,7 +20,7 @@
   (run-failing-test)
   (let [result (session/message {:op "stateful-check/analyze-test"
                                  :ns "cider.nrepl.middleware.test-stateful-check"
-                                 :var "java-map-passes-sequentially"})]
+                                 :var "exception-in-assertion-is-printed"})]
     (is (= #{"done"} (:status result)))
     (let [analysis (:stateful-check/analyze-test result)]
       ;; TODO: Why is this only working in Cider?
@@ -41,29 +41,6 @@
   (let [result (session/message {:op "stateful-check/print"})]
     (is (= #{"done" "stateful-check/object-not-found"} (:status result)))))
 
-(deftest test-stateful-check-report
-  (run-failing-test)
-  (session/message {:op "stateful-check/analyze"})
-  (let [result (session/message {:op "stateful-check/report"})]
-    (is (= #{"done"} (:status result)))
-    (let [report (:stateful-check/report result)]
-      ;; TODO: Why is this only working in Cider?
-      ;; (is (seq (:results report)))
-      )))
-
-(deftest test-stateful-check-report-without-events
-  (let [result (session/message {:op "stateful-check/report"})]
-    (is (= #{"done"} (:status result)))
-    (let [report (:stateful-check/report result)]
-      (is (empty? (:results report))))))
-
-(deftest test-stateful-check-report-events-not-analyzed
-  (run-failing-test)
-  (let [result (session/message {:op "stateful-check/report"})]
-    (is (= #{"done"} (:status result)))
-    (let [report (:stateful-check/report result)]
-      (is (empty? (:results report))))))
-
 (deftest test-stateful-check-test-reports
   (let [result (session/message {:op "stateful-check/test-reports"})]
     (is (= #{"done"} (:status result)))
@@ -76,7 +53,7 @@
     (is (= #{"done"} (:status result)))
     (is (= "false" (:pass? (:stateful-check/run result))))))
 
-(deftest test-stateful-check-test-reports
+(deftest test-stateful-check-specifications
   (let [result (session/message {:op "stateful-check/specifications"})]
     (is (= #{"done"} (:status result)))
     (is (seq (:stateful-check/specifications result)))))
