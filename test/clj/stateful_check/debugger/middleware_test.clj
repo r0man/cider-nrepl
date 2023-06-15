@@ -1,9 +1,17 @@
 (ns stateful-check.debugger.middleware-test
-  (:require [cider.nrepl.test-session :as session]
-            [clojure.test :refer [deftest is use-fixtures]])
+  (:require [cider.nrepl.middleware.test-stateful-check]
+            [cider.nrepl.test-session :as session]
+            [clojure.set :as set]
+            [clojure.test :refer [deftest is use-fixtures testing]])
   (:import [java.util UUID]))
 
 (use-fixtures :each session/session-fixture)
+
+(def example-id
+  "cider.nrepl.middleware.test-stateful-check/throw-exception-specification")
+
+(def example-test-id
+  "cider.nrepl.middleware.test-stateful-check/exception-in-assertion-is-printed")
 
 (defn- run-failing-test []
   (require 'cider.nrepl.middleware.test-stateful-check)
@@ -17,19 +25,20 @@
     (is (= #{"done" "stateful-check/analysis-not-found"} (:status result)))))
 
 (deftest test-stateful-check-analyze-test
-  (run-failing-test)
-  (let [result (session/message {:op "stateful-check/analyze-test"
-                                 :ns "cider.nrepl.middleware.test-stateful-check"
-                                 :var "exception-in-assertion-is-printed"})]
-    (is (= #{"done"} (:status result)))
-    (let [analysis (:stateful-check/analyze-test result)]
-      ;; TODO: Why is this only working in Cider?
-      ;; (is (seq (:results report)))
-      )))
+  (testing "without a test run"
+    (let [result (session/message {:op "stateful-check/analyze-test"
+                                   :test example-test-id})]
+      (is (= #{"done" "stateful-check/test-not-found"} (:status result)))))
+  (testing "with failing a test run"
+    (run-failing-test)
+    (let [result (session/message {:op "stateful-check/analyze-test"
+                                   :test example-test-id})]
+      (is (= #{"done"} (:status result)))
+      (is (= "false" (:pass? (:stateful-check/analyze-test result)))))))
 
 (deftest test-stateful-check-analyze-no-events
   (let [result (session/message {:op "stateful-check/analyze-test"
-                                 :ns "user" :var "unkown"})]
+                                 :test "unkown/test"})]
     (is (= #{"done" "stateful-check/test-not-found"}
            (:status result)))))
 
@@ -41,20 +50,45 @@
   (let [result (session/message {:op "stateful-check/print"})]
     (is (= #{"done" "stateful-check/object-not-found"} (:status result)))))
 
-(deftest test-stateful-check-test-reports
-  (run-failing-test)
-  (let [result (session/message {:op "stateful-check/test-reports"})]
-    (is (= #{"done"} (:status result)))
-    (is (seq (:stateful-check/test-reports result)))))
-
 (deftest test-stateful-check-run
-  (let [result (session/message {:op "stateful-check/run"
-                                 :ns "cider.nrepl.middleware.test-stateful-check"
-                                 :var "throw-exception-specification"})]
+  (testing "without specifications"
+    (let [result (session/message {:op "stateful-check/run"
+                                   :specification example-id})]
+      (is (= #{"done" "stateful-check/specification-not-found"} (:status result)))
+      (is (nil? (:stateful-check/run result)))))
+  (testing "with specifications"
+    (session/message {:op "stateful-check/scan"})
+    (let [result (session/message {:op "stateful-check/run"
+                                   :specification example-id})]
+      (is (= #{"done"} (:status result)))
+      (let [results (:stateful-check/run result)]
+        (is (= "false" (:pass? results)))))))
+
+(deftest test-stateful-check-scan
+  (let [result (session/message {:op "stateful-check/scan"})]
     (is (= #{"done"} (:status result)))
-    (is (= "false" (:pass? (:stateful-check/run result))))))
+    (let [specifications (:stateful-check/scan result)]
+      (is (seq specifications))
+      (is (set/subset?
+           #{"cider.nrepl.middleware.test-stateful-check/java-map-specification"
+             "cider.nrepl.middleware.test-stateful-check/records-spec"
+             "cider.nrepl.middleware.test-stateful-check/returning-atom-as-result-spec"
+             "cider.nrepl.middleware.test-stateful-check/throw-exception-specification"}
+           (set (map :id specifications)))))))
 
 (deftest test-stateful-check-specifications
-  (let [result (session/message {:op "stateful-check/specifications"})]
-    (is (= #{"done"} (:status result)))
-    (is (seq (:stateful-check/specifications result)))))
+  (testing "without specifications"
+    (let [result (session/message {:op "stateful-check/specifications"})]
+      (is (= #{"done"} (:status result)))
+      (is (empty? (:stateful-check/specifications result)))))
+  (testing "with specifications"
+    (session/message {:op "stateful-check/scan"})
+    (let [result (session/message {:op "stateful-check/specifications"})]
+      (let [specifications (:stateful-check/specifications result)]
+        (is (seq specifications))
+        (is (set/subset?
+             #{"cider.nrepl.middleware.test-stateful-check/java-map-specification"
+               "cider.nrepl.middleware.test-stateful-check/records-spec"
+               "cider.nrepl.middleware.test-stateful-check/returning-atom-as-result-spec"
+               "cider.nrepl.middleware.test-stateful-check/throw-exception-specification"}
+             (set (map :id specifications))))))))

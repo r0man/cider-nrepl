@@ -176,7 +176,7 @@
   [{:keys [id result-data pass?] :as results}]
   (let [{:keys [specification]} result-data]
     (when (and (not pass?) specification)
-      (-> (assoc results :id (or id (UUID/randomUUID)))
+      (-> (assoc results :id (str (or id (UUID/randomUUID))))
           (update-in [:result-data] analyze-result-data)
           (update-in [:shrunk :result-data] analyze-result-data)))))
 
@@ -185,4 +185,9 @@
   [{:keys [ns var] :as event}]
   (when-let [results (:stateful-check event)]
     (some-> (analyze-results results)
-            (assoc :ns ns :var var :test event))))
+            (update-in [:specification] assoc
+                       :ns ns
+                       :var var
+                       :id (str ns "/" var)
+                       :type :test
+                       :test event))))

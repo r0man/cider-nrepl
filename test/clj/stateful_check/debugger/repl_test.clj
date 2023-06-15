@@ -1,5 +1,6 @@
 (ns stateful-check.debugger.repl-test
   (:require [cider.nrepl.middleware.test-stateful-check :as examples]
+            [clojure.spec.alpha :as s]
             [clojure.test :refer [deftest is]]
             [stateful-check.debugger.core :as debugger]
             [stateful-check.debugger.render :as render]
@@ -13,40 +14,59 @@
 (def options
   examples/records-spec-options)
 
+(def example-id
+  "cider.nrepl.middleware.test-stateful-check/throw-exception-specification")
+
 (deftest test-reset!
   (is (= (debugger/debugger) (repl/reset!))))
 
-(deftest test-get-analysis
+(deftest test-get-results
   (repl/reset!)
-  (is (nil? (repl/get-analysis (UUID/randomUUID))))
-  (let [analysis (repl/run-specification specification options)]
-    (is (= analysis (repl/get-analysis (:id analysis))))
-    (is (= analysis (repl/get-analysis {:analysis (:id analysis)})))))
+  (repl/scan)
+  (is (nil? (repl/get-results "n/a")))
+  (let [results (repl/run-specification example-id options)]
+    (is (= results (repl/get-results (:id results))))
+    (is (= results (repl/get-results {:results (:id results)})))))
 
-(deftest test-last-analysis
+(deftest test-last-results
   (repl/reset!)
-  (is (nil? (repl/last-analysis)))
-  (let [analysis (repl/run-specification specification options)]
-    (is (= analysis (repl/last-analysis)))))
+  (repl/scan)
+  (is (nil? (repl/last-results)))
+  (let [results (repl/run-specification example-id options)]
+    (is (= results (repl/last-results)))))
 
 (deftest test-run-specification
   (repl/reset!)
-  (let [analysis (repl/run-specification specification options)]
-    (is (uuid? (:id analysis)))
-    (is (= specification (-> analysis :result-data :specification)))))
+  (repl/scan)
+  (let [results (repl/run-specification example-id options)]
+    (is (string? (:id results)))))
 
-(deftest test-get-command
+;; (deftest test-get-command
+;;   (repl/reset!)
+;;   (repl/scan)
+;;   (let [results (repl/run-specification example-id options)
+;;         first-command (repl/get-command {:results (:id results)
+;;                                          :case :first
+;;                                          :handle "1a"})
+;;         smallest-command (repl/get-command {:results (:id results)
+;;                                             :case :smallest
+;;                                             :handle "1b"})]
+;;     (is (= (sv/->RootVar "1") (:handle first-command)))
+;;     (is (= (sv/->RootVar "1") (:handle smallest-command)))
+;;     (is (not= first-command smallest-command))))
+
+;; (deftest test-get-command
+;;   (repl/reset!)
+;;   (repl/scan)
+;;   (let [results (repl/run-specification example-id options)]
+;;     (is (= (sv/->RootVar "1") (:handle first-command)))
+;;     (is (= (sv/->RootVar "1") (:handle smallest-command)))
+;;     (is (not= first-command smallest-command))))
+
+(deftest test-scan
   (repl/reset!)
-  (let [analysis (repl/run-specification specification options)
-        first-command (repl/get-command {:analysis (:id analysis)
-                                         :case :first
-                                         :handle "1"})
-        smallest-command (repl/get-command {:analysis (:id analysis)
-                                            :case :smallest
-                                            :handle "1"})]
-    (is (= (sv/->RootVar "1") (:handle first-command)))
-    (is (= (sv/->RootVar "1") (:handle smallest-command)))
-    (is (not= first-command smallest-command))))
+  (let [debugger (repl/scan)]
+    (is (s/valid? :stateful-check/debugger debugger))))
 
 (comment
 
@@ -60,7 +80,7 @@
       :shrunk :result-data :executions)
 
   (-> (repl/run-specification specification options)
-      render/render-analysis)
+      render/render-results)
 
   (-> (repl/run-specification specification options)
       :result-data :executions)

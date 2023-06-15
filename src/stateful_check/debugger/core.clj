@@ -5,23 +5,20 @@
             [stateful-check.debugger.analyzer :as analyzer]
             [stateful-check.debugger.render :as render]
             [stateful-check.debugger.specs]
+            [stateful-check.debugger.test-report :as test-report]
             [stateful-check.symbolic-values :as sv])
-  (:import [stateful_check.symbolic_values RootVar]))
+  (:import [java.util UUID]
+           [stateful_check.symbolic_values RootVar]))
 
 (defn debugger
   "Return a Stateful Check debugger."
-  [& [{:keys [analyzer test]}]]
-  {:analyzer analyzer
-   :analyses {}
-   :last-analysis-id nil
-   :test test
-   :summary {}})
-
-(defn- failed-event?
-  "Return true if `event` is a failed Stateful Check test event,
-  otherwise false."
-  [event]
-  (and (:stateful-check event) (= :fail (:type event))))
+  [& [{:keys [test]}]]
+  {:last-results []
+   :results {}
+   :specifications {}
+   :test (cond-> {}
+           (instance? clojure.lang.Atom (:report test))
+           (assoc :report (:report test)))})
 
 (defn ns-specifications
   "Find Stateful Check specifications in `ns` or all namespaces."
@@ -30,29 +27,19 @@
   ([ns]
    (let [ns (symbol ns)]
      (try (require ns) (catch Exception _))
-     (->> (ns-publics ns)
-          (map (fn [[sym var]]
-                 {:ns ns
-                  :var sym
-                  :name (str ns "/" sym)
-                  :specification (deref var)}))
-          (filter #(s/valid? :stateful-check.debugger/specification
-                             (:specification %)))))))
-
-(defn test-events
-  "Return all Stateful Check test events from the CIDER test `report`."
-  [report]
-  (->> report :results vals
-       (mapcat vals)
-       (apply concat)))
+     (keep (fn [[sym var]]
+             (let [spec (try (deref var) (catch Exception _))]
+               (when (s/valid? :stateful-check/specification spec)
+                 (assoc spec :ns ns :var sym :id (str ns "/" sym) :type :var))))
+           (ns-publics ns)))))
 
 (defn- criteria?
-  [analysis {:keys [id ns var]}]
+  [results {:keys [id ns var]}]
   (let [ns (some-> ns symbol)
         var (some-> var symbol)]
-    (and (or (nil? id) (= id (:id analysis)))
-         (or (nil? ns) (= ns (some-> analysis :test :ns)))
-         (or (nil? var) (= var (some-> analysis :test :var))))))
+    (and (or (nil? id) (= id (:id results)))
+         (or (nil? ns) (= ns (some-> results :test :ns)))
+         (or (nil? var) (= var (some-> results :test :var))))))
 
 (defn- parse-handle [s]
   (some-> (re-matches #"#<(.+)>" s) second sv/->RootVar))
@@ -71,21 +58,21 @@
 (defn analyses
   "Return all analyses of the `debugger`."
   [debugger]
-  (-> debugger :analyses vals))
+  (-> debugger :results vals))
 
-(defn get-analysis
-  "Find the :analysis of `debugger`."
+(defn get-results
+  "Find the :results of `debugger`."
   [debugger query]
-  (cond (uuid? query)
-        (get-in debugger [:analyses query])
-        (uuid? (:analysis query))
-        (get-in debugger [:analyses (:analysis query)])))
+  (cond (string? query)
+        (get-in debugger [:results query])
+        (string? (:results query))
+        (get-in debugger [:results (:results query)])))
 
 (defn get-command
   "Find the command execution for `query` in `debugger`."
   [debugger {:keys [case handle] :as query}]
   (let [prefix (if (= "first" (some-> case name)) [] [:shrunk])]
-    (some-> (get-analysis debugger query)
+    (some-> (get-results debugger query)
             (get-in (concat prefix [:result-data :environments (to-handle handle)])))))
 
 (defn get-argument
@@ -106,15 +93,15 @@
 
 (defn get-object
   "Find the object for `query` in `debugger`."
-  [debugger {:keys [analysis argument handle] :as query}]
+  [debugger {:keys [results argument handle] :as query}]
   (cond (contains? query :result)
         (get-result debugger query)
-        (and analysis argument handle)
+        (and results argument handle)
         (get-argument debugger query)
-        (and analysis handle)
+        (and results handle)
         (get-command debugger query)
-        analysis
-        (get-analysis debugger query)))
+        results
+        (get-results debugger query)))
 
 (defn- get-failure-error
   "Find the failure error for `query` in `debugger`."
@@ -140,65 +127,67 @@
         result
         (get-result-error debugger query)))
 
-(defn last-analysis
-  "Return the last analysis from the `debugger`."
+(defn specifications
+  "Return the Stateful Check specifications of the `debugger`."
   [debugger]
-  (get-analysis debugger (:last-analysis-id debugger)))
+  (vals (:specifications debugger)))
 
-(defn- add-analysis [debugger analysis]
-  (assoc-in debugger [:analyses (:id analysis)] analysis))
+(defn specification
+  "Get the Stateful Check specification of `debugger` by `id`."
+  [debugger id]
+  (get-in debugger [:specifications id]))
 
-(defn- remove-analysis [debugger analysis]
-  (update debugger :analyses dissoc (:id analysis)))
+(defn last-results
+  "Return the last results from the `debugger`."
+  [debugger]
+  (get-in debugger [:results (last (:last-results debugger))]))
 
-(defn- remove-test-analysis [debugger ns var]
+(defn- add-specification
+  "Add the Stateful Check `specification` to the debugger."
+  [debugger {:keys [id] :as specification}]
+  (assoc-in debugger [:specifications id] specification))
+
+(defn- add-results
+  "Add the Stateful Check `results` to the debugger."
+  [debugger results]
+  (assoc-in debugger [:results (:id results)] results))
+
+(defn- remove-results
+  "Remove the Stateful Check `results` from the debugger."
+  [debugger results]
+  (update debugger :results dissoc (:id results)))
+
+(defn- remove-test-results [debugger ns var]
   (let [test-analyses (filter #(criteria? % {:ns ns :var var}) (analyses debugger))]
-    (reduce remove-analysis debugger test-analyses)))
-
-(defn filter-analyses
-  "Return a new debugger with :analyses filtered by `criteria`"
-  [debugger criteria]
-  (reduce add-analysis
-          (assoc debugger :analyses {})
-          (filter #(criteria? % criteria) (analyses debugger))))
+    (reduce remove-results debugger test-analyses)))
 
 (defn analyze-results
   "Analyze the Stateful Check results."
   [debugger results]
-  (let [analysis (analyzer/analyze-results results)]
-    (-> (add-analysis debugger analysis)
-        (assoc :last-analysis-id (:id analysis)))))
+  (let [results (analyzer/analyze-results results)]
+    (-> (add-results debugger results)
+        (update :last-results conj (:id results)))))
 
 (defn analyze-test-event
   "Analyze the Clojure Test `event`."
   [debugger {:keys [ns var] :as event}]
-  (let [analysis (analyzer/analyze-test-event event)]
-    (-> (remove-test-analysis debugger ns var)
-        (add-analysis analysis)
-        (assoc :last-analysis-id (:id analysis)))))
-
-(defn find-test-report
-  "Find the test report for `ns` and `var` in the `debugger`."
-  [debugger ns var]
-  (->> (filter (fn [report]
-                   (and (failed-event? report)
-                        (= ns (:ns report))
-                        (= var (:var report))))
-                 (some-> debugger :test :report deref
-                         (get-in [:results (symbol ns) (symbol var)])))
-       first))
-
-(defn analyze-test-report
-  "Analyze the Cider test report."
-  [debugger ns var & [opts]]
-  (if-let [report (find-test-report debugger ns var)]
-    (analyze-test-event debugger report)))
+  (let [{:keys [specification] :as results} (analyzer/analyze-test-event event)]
+    (-> (remove-test-results debugger ns var)
+        (add-specification specification)
+        (add-results results)
+        (update :last-results conj (:id results)))))
 
 (defn test-report
-  "Analyze the Cider test report."
+  "Return the test report of the `debugger`."
   [debugger]
-  (some->> debugger :test :report deref test-events
-           (filter :stateful-check)))
+  (some->> debugger :test :report deref))
+
+(defn find-test-event
+  "Find the Stateful Check test report by `id`."
+  [debugger id]
+  (let [ns (some-> id symbol namespace symbol)
+        var (some-> id symbol name symbol)]
+    (last (test-report/find-events (test-report debugger) ns var))))
 
 (defn render
   "Render the `debugger` in a Bencode compatible format."
@@ -208,12 +197,17 @@
 (defn run-specification
   "Run the Stateful Check `specification` and add the analyzed results
   to the `debugger`."
-  [debugger specification & [options]]
-  (->> (stateful-check/run-specification specification options)
-       (analyze-results debugger)))
+  [debugger id & [options]]
+  (if-let [specification (specification debugger id)]
+    (->> (assoc (stateful-check/run-specification specification options)
+                :specification specification :options options)
+         (analyze-results debugger))
+    (throw (ex-info "Stateful Check specification not found"
+                    {:type :stateful-check/specification-not-found
+                     :id id}))))
 
 (defn- find-specification [specifications ns var]
-  (:specification (some #(and (= ns (:ns %)) (= var (:var %)) %) specifications)))
+  (some #(and (= ns (:ns %)) (= var (:var %)) %) specifications))
 
 (defn run-specification-var
   "Run the Stateful Check specification bound to the `var` in `ns`."
@@ -221,33 +215,32 @@
   (when-let [specification (find-specification (ns-specifications ns) ns var)]
     (run-specification debugger (assoc specification :ns ns :var var) options)))
 
+(defn- scan-vars
+  "Scan all public vars for Stateful Check specifications."
+  [debugger]
+  (reduce add-specification debugger (ns-specifications)))
+
+(defn- scan-tests
+  "Scan all public vars for Stateful Check specifications."
+  [debugger]
+  (let [specifications (some-> debugger :test :report deref test-report/specifications)]
+    (reduce add-specification debugger specifications)))
+
+(defn scan
+  "Scan public vars and test reports for Stateful Check specifications."
+  [debugger]
+  (-> debugger scan-vars scan-tests))
+
 (defn print
   "Print the `debugger`.
 
   Prints the analyzed execution traces of the debugger with
   `stateful-check.report/print-results`."
   [debugger]
-  (doseq [{:keys [ns var] :as analysis} (analyses debugger)]
-    (printf "Id: %s" (:id analysis))
+  (doseq [{:keys [ns var] :as results} (analyses debugger)]
+    (printf "Id: %s" (:id results))
     (when (and ns var)
       (printf ", Namespace: %s, Var: %s" ns var))
     (println)
-    (#'stateful-check/print-execution (:result-data (:shrunk analysis)) false)
+    (#'stateful-check/print-execution (:result-data (:shrunk results)) false)
     (println)))
-
-(comment
-
-  (require 'cider.nrepl.middleware.test)
-
-  (render my-debugger)
-
-  (def my-debugger
-    (analyze-test-report (debugger) @cider.nrepl.middleware.test/current-report))
-
-  (filter-analyses
-   my-debugger
-   {:ns 'cider.nrepl.middleware.test-stateful-check
-    :var 'test-store-record-spec
-    })
-
-  )
