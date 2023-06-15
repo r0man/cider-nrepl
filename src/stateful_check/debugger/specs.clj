@@ -1,6 +1,5 @@
 (ns stateful-check.debugger.specs
-  (:require [clojure.spec.alpha :as s]
-            [clojure.spec.gen.alpha :as gen]))
+  (:require [clojure.spec.alpha :as s]))
 
 ;; Specification
 
@@ -25,21 +24,12 @@
 (s/def :stateful-check.debugger.specification/var simple-symbol?)
 
 (s/def :stateful-check.debugger/specification
-  (s/keys :req-un [:stateful-check.specification/commands]
-          :opt-un [:stateful-check.specification/setup
-                   :stateful-check.debugger.specification/id
-                   :stateful-check.debugger.specification/ns
+  (s/keys :req-un [:stateful-check.debugger.specification/id
+                   :stateful-check.debugger.specification/type
+                   :stateful-check.specification/commands]
+          :opt-un [:stateful-check.debugger.specification/ns
                    :stateful-check.debugger.specification/var
-                   :stateful-check.debugger.specification/type]))
-
-;; Analyzer
-
-(s/def :stateful-check.debugger.analyzer/path vector?)
-(s/def :stateful-check.debugger.analyzer/render (s/with-gen ifn? #(gen/return str)))
-
-(s/def :stateful-check.debugger/analyzer
-  (s/keys :req-un [:stateful-check.debugger.analyzer/path
-                   :stateful-check.debugger.analyzer/render]))
+                   :stateful-check.specification/setup]))
 
 ;; Analysis
 
@@ -64,9 +54,17 @@
 
 ;; Debugger
 
+(s/def :stateful-check.debugger/last-results
+  (s/coll-of string? :kind vector?))
+
 (s/def :stateful-check.debugger/results
   (s/map-of string? :stateful-check.debugger/analysis))
 
+(s/def :stateful-check.debugger/specifications
+  (s/map-of string? :stateful-check.debugger/specification))
+
 (s/def :stateful-check/debugger
-  (s/keys :req-un [:stateful-check.debugger/analyzer
-                   :stateful-check.debugger/results]))
+  (s/keys :req-un [:stateful-check.debugger/last-results
+                   :stateful-check.debugger/specifications
+                   ;; :stateful-check.debugger/results
+                   ]))

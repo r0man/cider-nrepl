@@ -30,9 +30,9 @@
   "Make a new debugger."
   []
   (debugger/debugger
-   {:analyzer {:render (fn [value]
-                         (binding [inspect/*max-atom-length* 50]
-                           (inspect/inspect-value value)))}
+   {:render (fn [value]
+              (binding [inspect/*max-atom-length* 50]
+                (inspect/inspect-value value)))
     :test {:report current-report}}))
 
 (defn- debugger
@@ -49,17 +49,14 @@
 
 (defn- stateful-check-analyze-test-reply
   "Handle a Stateful Check test analysis NREPL operation."
-  [{:keys [ns var] :as msg}]
-  (if (and (string? ns) (string? var))
-    (let [ns (symbol ns), var (symbol var)]
-      (if-let [report (debugger/find-test-report (debugger msg) ns var)]
-        {:stateful-check/analyze-test
-         (-> (swap-debugger! msg debugger/analyze-test-event report)
-             (debugger/last-analysis)
-             (render/render-analysis)
-             (transform-value))}
-        {:status :stateful-check/test-not-found}))
-    {:status :stateful-check/invalid-params}))
+  [{:keys [test] :as msg}]
+  (if-let [event (debugger/find-test-event (debugger msg) test)]
+    {:stateful-check/analyze-test
+     (-> (swap-debugger! msg debugger/analyze-test-event event)
+         (debugger/last-results)
+         (render/render-analysis)
+         (transform-value))}
+    {:status :stateful-check/test-not-found}))
 
 (defn- parse-query [query]
   (cond-> query
@@ -110,23 +107,28 @@
 
 (defn- stateful-check-run-reply
   "Handle the Stateful Check specification run NREPL operation."
-  [{:keys [ns var options] :as msg}]
-  (if (and (string? ns) (string? var))
-    (let [ns (symbol ns)
-          var (symbol var)
-          options (parse-options options)]
-      {:stateful-check/run
-       (-> (swap-debugger! msg debugger/run-specification-var ns var options)
-           (debugger/last-analysis)
-           (render/render-analysis)
-           (transform-value))})
+  [{:keys [specification options] :as msg}]
+  (if-let [specification (debugger/specification (debugger msg) specification)]
+    {:stateful-check/run
+     (-> (swap-debugger! msg debugger/run-specification (:id specification) (parse-options options))
+         (debugger/last-results)
+         (render/render-analysis)
+         (transform-value))}
     {:status :stateful-check/specification-not-found}))
+
+(defn stateful-check-scan-reply
+  "Scan public vars and test reports for Stateful Check specifications."
+  [msg]
+  {:stateful-check/scan
+   (->> (swap-debugger! msg debugger/scan)
+        (debugger/specifications)
+        (transform-value))})
 
 (defn- stateful-check-analysis-reply
   "Handle a Stateful Check analysis NREPL operation."
   [{:keys [analysis] :as msg}]
   (let [id (UUID/fromString analysis)]
-    (if-let [analysis (debugger/get-analysis (debugger msg) id)]
+    (if-let [analysis (debugger/get-results (debugger msg) id)]
       {:stateful-check/analysis (render/render-analysis analysis)}
       {:status :stateful-check/analysis-not-found})))
 
@@ -142,9 +144,11 @@
 
 (defn stateful-check-specifications-reply
   "List all Stateful Check specifications from loaded namespaces."
-  [_]
+  [msg]
   {:stateful-check/specifications
-   (map transform-value (debugger/ns-specifications))})
+   (-> (debugger msg)
+       (debugger/specifications)
+       (transform-value))})
 
 (defn stateful-check-stacktrace-reply
   "Handle a Stateful Check stacktrace NREPL operation."
@@ -155,14 +159,6 @@
         (t/send transport (response-for msg :status :done)))
     (t/send transport (response-for msg :status :stateful-check/no-error))))
 
-(defn stateful-check-test-reports-reply
-  "List all Stateful Check reports captured by the CIDER test middleware."
-  [{:keys [query transport ::print/print-fn] :as msg}]
-  {:stateful-check/test-reports
-   (->> (debugger/test-report (debugger msg))
-        (map #(dissoc % :stateful-check))
-        (transform-value))})
-
 (defn handle-message
   "Handle a Stateful Check NREPL `msg`."
   [handler msg]
@@ -172,6 +168,6 @@
     "stateful-check/inspect" stateful-check-inspect-reply
     "stateful-check/print" stateful-check-print-reply
     "stateful-check/run" stateful-check-run-reply
+    "stateful-check/scan" stateful-check-scan-reply
     "stateful-check/specifications" stateful-check-specifications-reply
-    "stateful-check/stacktrace" stateful-check-stacktrace-reply
-    "stateful-check/test-reports" stateful-check-test-reports-reply))
+    "stateful-check/stacktrace" stateful-check-stacktrace-reply))

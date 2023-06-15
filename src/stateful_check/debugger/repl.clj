@@ -11,15 +11,15 @@
   [f & args]
   (alter-var-root #'*debugger* #(apply f % args)))
 
-(defn last-analysis
+(defn last-results
   "Return the last analysis from the `*debugger*`."
   []
-  (debugger/last-analysis *debugger*))
+  (debugger/last-results *debugger*))
 
-(defn get-analysis
+(defn get-results
   "Lookup an analysis in `*debugger*` according to `query`."
   [query]
-  (debugger/get-analysis *debugger* query))
+  (debugger/get-results *debugger* query))
 
 (defn get-command
   "Find the command execution for `query` in `*debugger*`."
@@ -35,9 +35,14 @@
   "Run the `specification` using `options` and return the analyzed results."
   [specification & [options]]
   (swap-debugger! debugger/run-specification specification options)
-  (debugger/last-analysis *debugger*))
+  (debugger/last-results *debugger*))
 
 (defn analyze-results
   [results]
   (swap-debugger! debugger/analyze-results results)
-  (debugger/last-analysis *debugger*))
+  (debugger/last-results *debugger*))
+
+(defn scan
+  "Scan for Stateful Check specifications."
+  []
+  (swap-debugger! debugger/scan))

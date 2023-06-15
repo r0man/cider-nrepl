@@ -712,15 +712,14 @@ stack frame of the most recent exception. This op is deprecated, please use the
   {:doc "A debugger for the stateful-check library."
    :requires #{#'session #'wrap-print}
    :handles {"stateful-check/analysis"
-             {:doc "Return a Stateful Check analysis by id."
-              :requires {"id" "The id of the analysis."}
+             {:doc "Return a Stateful Check analysis for a test."
+              :requires {"test" "The identifier of the test."}
               :returns {"stateful-check/analysis" "The Stateful Check analysis."
                         "status" "done"}}
 
              "stateful-check/analyze-test"
-             {:doc "Analyze a Stateful Check test."
-              :optional {"ns" "Analyze test reports matching namespace."
-                         "var" "Analyze test reports matching var."}
+             {:doc "Return the Stateful Check report of a test."
+              :requires {"test" "The identifier of the Stateful Check test."}
               :returns {"stateful-check/analyze-test" "The analysis of the test results."
                         "status" "done"}}
 
@@ -730,30 +729,26 @@ stack frame of the most recent exception. This op is deprecated, please use the
               :returns {"value" "The inspected object."
                         "status" "done"}}
 
-             "stateful-check/report"
-             {:doc "Return Stateful Check test reports."
-              :optional {"ns" "Filter test reports matching namespace."
-                         "var" "Filter test reports matching var."}
-              :returns {"stateful-check/report" "The test reports."
-                        "status" "done"}}
-
-             "stateful-check/run"
-             {:doc "Run a Stateful Check specification bound to a var."
-              :requires {"ns" "The namespace in which the specification is bound to a symbol."
-                         "var" "The name of the symbol the specification is bound to."}
-              :optional {"options" "The Stateful Check options used to run the specification."}
-              :returns {"stateful-check/run" "The analysis of the test run."
-                        "status" "done"}}
-
              "stateful-check/print"
              {:doc "Print a Stateful Check test report object."
               :requires {"query" "The query for the object to print."}
               :returns {"value" "The printed object."
                         "status" "done"}}
 
+             "stateful-check/run"
+             {:doc "Run a Stateful Check specification."
+              :requires {"specification" "The id of the Stateful Check specification."}
+              :optional {"options" "The Stateful Check options used to run the specification."}
+              :returns {"stateful-check/run" "The analysis of the test run."
+                        "status" "done"}}
+
+             "stateful-check/scan"
+             {:doc "Scan public vars and test reports for Stateful Check specifications."
+              :returns {"stateful-check/scan" "The list of Stateful Check specifications."
+                        "status" "done"}}
+
              "stateful-check/specifications"
              {:doc "List all Stateful Check specifications from loaded namespaces."
-              :requires {"query" "The query for the object to print."}
               :returns {"stateful-check/specifications" "The list of Stateful Check specifications."
                         "status" "done"}}
 
@@ -761,13 +756,7 @@ stack frame of the most recent exception. This op is deprecated, please use the
              {:doc "Return messages describing each cause and stack frame of the exception at query."
               :requires {"query" "The query for the exception to inspect."}
               :optional wrap-print-optional-arguments
-              :returns {"status" "\"done\", or \"stateful-check/no-error\" no error was found."}}
-
-             "stateful-check/test-reports"
-             {:doc "List all Stateful Check CIDER test reports."
-              :requires {"query" "The query for the object to print."}
-              :returns {"stateful-check/test-reports" "The list of Stateful Check CIDER test reports."
-                        "status" "done"}}}})
+              :returns {"status" "\"done\", or \"stateful-check/no-error\" no error was found."}}}})
 
 ;;; CIDER's nREPL Handler
 ;;
