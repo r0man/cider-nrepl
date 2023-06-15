@@ -185,4 +185,4 @@
   [{:keys [ns var] :as event}]
   (when-let [results (:stateful-check event)]
     (some-> (analyze-results results)
-            (assoc :test {:ns ns :var var :event event}))))
+            (assoc :ns ns :var var :test event))))

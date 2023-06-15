@@ -219,7 +219,7 @@
   "Run the Stateful Check specification bound to the `var` in `ns`."
   [debugger ns var & [options]]
   (when-let [specification (find-specification (ns-specifications ns) ns var)]
-    (assoc (run-specification debugger specification options) :ns ns :var var)))
+    (run-specification debugger (assoc specification :ns ns :var var) options)))
 
 (defn print
   "Print the `debugger`.

@@ -8,8 +8,10 @@
             [nrepl.misc :refer [response-for]]
             [nrepl.transport :as t]
             [orchard.inspect :as inspect]
+            [stateful-check.core :as stateful-check]
             [stateful-check.debugger.core :as debugger]
-            [stateful-check.debugger.render :as render])
+            [stateful-check.debugger.render :as render]
+            [stateful-check.generator :as g])
   (:import [java.io StringWriter]
            [java.util UUID]))
 
@@ -64,6 +66,37 @@
     (string? (:analysis query))
     (update :analysis #(UUID/fromString %))))
 
+(defn- parse-gen-options
+  "Parse the Stateful Check generation options."
+  [{:keys [threads max-length max-size]}]
+  {:max-length (if (nat-int? max-length) max-length g/default-max-length)
+   :max-size (if (nat-int? max-size) max-size g/default-max-size)
+   :shrink-strategies g/default-shrink-strategies
+   :threads (if (nat-int? threads) threads g/default-threads)})
+
+(defn- parse-run-options
+  "Parse the Stateful Check run options."
+  [{:keys [assume-immutable-results max-tries num-tests seed timeout-ms]}]
+  {:assume-immutable-results (= "true" (str assume-immutable-results))
+   :max-tries (if (nat-int? max-tries) max-tries stateful-check/default-max-tries)
+   :num-tests (if (nat-int? num-tests) num-tests stateful-check/default-num-tests)
+   :seed (if (int? seed) seed (System/currentTimeMillis))
+   :timeout-ms (if (nat-int? timeout-ms) timeout-ms stateful-check/default-timeout-ms)})
+
+(defn- parse-report-options
+  "Parse the Stateful Check report options."
+  [{:keys [command-frequency? first-case? stacktrace?]}]
+  {:command-frequency? (= "true" (str command-frequency?))
+   :first-case? (= "true" (str first-case?))
+   :stacktrace? (= "true" (str stacktrace?))})
+
+(defn- parse-options
+  "Parse the Stateful Check options."
+  [{:keys [gen run report]}]
+  {:gen (parse-gen-options gen)
+   :run (parse-run-options run)
+   :report (parse-report-options report)})
+
 (defn- stateful-check-inspect-reply
   "Handle a Stateful Check inspect NREPL operation."
   [msg]
@@ -77,11 +110,11 @@
 
 (defn- stateful-check-run-reply
   "Handle the Stateful Check specification run NREPL operation."
-  [{:keys [ns var] :as msg}]
+  [{:keys [ns var options] :as msg}]
   (if (and (string? ns) (string? var))
     (let [ns (symbol ns)
           var (symbol var)
-          options {}]
+          options (parse-options options)]
       {:stateful-check/run
        (-> (swap-debugger! msg debugger/run-specification-var ns var options)
            (debugger/last-analysis)

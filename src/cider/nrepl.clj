@@ -609,8 +609,9 @@ stack frame of the most recent exception. This op is deprecated, please use the
 
              "stateful-check/run"
              {:doc "Run a Stateful Check specification bound to a var."
-              :optional {"ns" "The namespace in which the specification is bound to a symbol."
+              :requires {"ns" "The namespace in which the specification is bound to a symbol."
                          "var" "The name of the symbol the specification is bound to."}
+              :optional {"options" "The Stateful Check options used to run the specification."}
               :returns {"stateful-check/run" "The analysis of the test run."
                         "status" "done"}}
 
