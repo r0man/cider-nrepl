@@ -4,17 +4,33 @@
 
 ;; Specification
 
-(s/def :stateful-check.debugger.specification/command
+(s/def :stateful-check.specification/command
   (s/or :ifn ifn? :var #(instance? clojure.lang.Var %)))
 
-(s/def :stateful-check.debugger.specification/commands
-  (s/map-of keyword? :stateful-check.debugger.specification/command))
+(s/def :stateful-check.specification/commands
+  (s/map-of keyword? :stateful-check.specification/command))
 
-(s/def :stateful-check.debugger.specification/setup any?)
+(s/def :stateful-check.specification/setup
+  (s/or :ifn ifn? :var #(instance? clojure.lang.Var %)))
+
+(s/def :stateful-check/specification
+  (s/keys :req-un [:stateful-check.specification/commands]
+          :opt-un [:stateful-check.specification/setup]))
+
+;; Debugger Specification
+
+(s/def :stateful-check.debugger.specification/id string?)
+(s/def :stateful-check.debugger.specification/ns simple-symbol?)
+(s/def :stateful-check.debugger.specification/type #{:test :var})
+(s/def :stateful-check.debugger.specification/var simple-symbol?)
 
 (s/def :stateful-check.debugger/specification
-  (s/keys :req-un [:stateful-check.debugger.specification/commands]
-          :opt-un [:stateful-check.debugger.specification/setup]))
+  (s/keys :req-un [:stateful-check.specification/commands]
+          :opt-un [:stateful-check.specification/setup
+                   :stateful-check.debugger.specification/id
+                   :stateful-check.debugger.specification/ns
+                   :stateful-check.debugger.specification/var
+                   :stateful-check.debugger.specification/type]))
 
 ;; Analyzer
 

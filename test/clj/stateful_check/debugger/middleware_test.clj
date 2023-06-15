@@ -42,9 +42,10 @@
     (is (= #{"done" "stateful-check/object-not-found"} (:status result)))))
 
 (deftest test-stateful-check-test-reports
+  (run-failing-test)
   (let [result (session/message {:op "stateful-check/test-reports"})]
     (is (= #{"done"} (:status result)))
-    (is (= [] (:stateful-check/test-reports result)))))
+    (is (seq (:stateful-check/test-reports result)))))
 
 (deftest test-stateful-check-run
   (let [result (session/message {:op "stateful-check/run"
