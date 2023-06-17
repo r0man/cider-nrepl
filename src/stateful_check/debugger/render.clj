@@ -87,12 +87,12 @@
       (update :executions render-executions)))
 
 (defn- render-quickcheck-results [results]
-  (-> (select-keys results [:id :failing-size :frequencies :num-tests :seed :shrunk :result-data :pass?
-                            :specification :options])
-      (update :shrunk select-keys [:depth :total-nodes-visited :result-data])))
+  (-> (select-keys results [:failed-after-ms :failing-size :num-tests :seed :shrunk :result-data :pass? :time-elapsed-ms])
+      (update :shrunk select-keys [:depth :result-data :time-shrinking-ms :total-nodes-visited])))
 
 (defn render-analysis [analysis]
   (-> (render-quickcheck-results analysis)
+      (merge (select-keys analysis [:id :frequencies :specification :options]))
       (update-in [:result-data] render-result-data)
       (update-in [:shrunk :result-data] render-result-data)))
 

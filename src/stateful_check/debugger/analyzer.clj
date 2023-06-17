@@ -175,10 +175,11 @@
   "Analyze the Stateful Check `results`."
   [{:keys [id result-data pass?] :as results}]
   (let [{:keys [specification]} result-data]
-    (when (and (not pass?) specification)
-      (-> (assoc results :id (str (or id (UUID/randomUUID))))
-          (update-in [:result-data] analyze-result-data)
-          (update-in [:shrunk :result-data] analyze-result-data)))))
+    (cond-> (assoc results :id (str (or id (UUID/randomUUID))))
+      (and specification (not pass?))
+      (update-in [:result-data] analyze-result-data)
+      (and specification (not pass?))
+      (update-in [:shrunk :result-data] analyze-result-data))))
 
 (defn analyze-test-event
   "Analyze the Clojure Test report `event`."
