@@ -1,21 +1,20 @@
 (ns stateful-check.debugger.repl-test
-  (:require [cider.nrepl.middleware.test-stateful-check :as examples]
-            [clojure.spec.alpha :as s]
+  (:require [clojure.spec.alpha :as s]
             [clojure.test :refer [deftest is]]
             [stateful-check.debugger.core :as debugger]
             [stateful-check.debugger.render :as render]
             [stateful-check.debugger.repl :as repl]
-            [stateful-check.symbolic-values :as sv])
+            [stateful-check.debugger.test :as test])
   (:import [java.util UUID]))
 
 (def specification
-  examples/records-spec)
+  test/records-spec)
 
 (def options
-  examples/records-spec-options)
+  test/records-spec-options)
 
 (def example-id
-  "cider.nrepl.middleware.test-stateful-check/throw-exception-specification")
+  "stateful-check.debugger.test/records-spec")
 
 (deftest test-reset!
   (is (= (debugger/debugger) (repl/reset!))))

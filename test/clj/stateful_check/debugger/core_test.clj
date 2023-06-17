@@ -1,21 +1,21 @@
 (ns stateful-check.debugger.core-test
-  (:require [cider.nrepl.middleware.test-stateful-check :as test-stateful-check]
+  (:require [clojure.set :as set]
             [clojure.spec.alpha :as s]
             [clojure.spec.test.alpha :as stest]
             [clojure.string :as str]
             [clojure.test :refer [deftest is]]
             [stateful-check.core :as stateful-check]
             [stateful-check.debugger.core :as debugger]
-            [clojure.set :as set])
+            [stateful-check.debugger.test :as test])
   (:import [java.util UUID]))
 
 (stest/instrument)
 
 (def example-id
-  "cider.nrepl.middleware.test-stateful-check/throw-exception-specification")
+  "stateful-check.debugger.test/records-spec")
 
 (def example-specification
-  test-stateful-check/throw-exception-specification)
+  test/records-spec)
 
 (defn- run-specification [specification & [options]]
   (assoc (stateful-check/run-specification specification)
@@ -24,21 +24,19 @@
 (def test-report
   {:summary {:ns 1 :var 1 :test 1 :pass 0 :fail 1 :error 0}
    :results
-   {'cider.nrepl.middleware.test-stateful-check
-    {'exception-in-assertion-is-printed
+   {'stateful-check.debugger.test
+    {'test-records
      [{:index 0
-       :ns 'cider.nrepl.middleware.test-stateful-check
+       :ns 'stateful-check.debugger.test
        :file "core.clj"
        :type :fail
        :line 275
-       :var 'exception-in-assertion-is-printed
+       :var 'test-records
        :expected "all executions to match specification\n"
        :stateful-check (run-specification example-specification)
        :context nil
        :actual "the above execution did not match the specification\n"
-       :message "Sequential prefix: ..."}]}}
-   :testing-ns 'cider.nrepl.middleware.test-stateful-check
-   :gen-input nil})
+       :message "Sequential prefix: ..."}]}}})
 
 (def debugger
   (debugger/debugger {:test {:report (atom test-report)}}))
@@ -49,7 +47,7 @@
 (deftest test-find-test-event
   (is (nil? (debugger/find-test-event debugger 'a/b)))
   (is (nil? (debugger/find-test-event debugger "a/b")))
-  (let [id 'cider.nrepl.middleware.test-stateful-check/exception-in-assertion-is-printed]
+  (let [id 'stateful-check.debugger.test/test-records]
     (is (debugger/find-test-event debugger id))
     (is (debugger/find-test-event debugger (str id)))))
 
@@ -93,33 +91,13 @@
 (deftest test-scan
   (let [debugger (debugger/scan debugger)]
     (is (set/subset?
-         #{{:id
-            "cider.nrepl.middleware.test-stateful-check/returning-atom-as-result-spec",
-            :ns 'cider.nrepl.middleware.test-stateful-check,
-            :var 'returning-atom-as-result-spec,
-            :type :var}
-           {:id "stateful-check.debugger.core-test/example-specification",
-            :ns 'stateful-check.debugger.core-test,
-            :var 'example-specification,
-            :type :var}
-           {:id
-            "cider.nrepl.middleware.test-stateful-check/java-map-specification",
-            :ns 'cider.nrepl.middleware.test-stateful-check,
-            :var 'java-map-specification,
-            :type :var}
-           {:id "cider.nrepl.middleware.test-stateful-check/records-spec",
-            :ns 'cider.nrepl.middleware.test-stateful-check,
-            :var 'records-spec,
-            :type :var}
-           {:id
-            "cider.nrepl.middleware.test-stateful-check/throw-exception-specification",
-            :ns 'cider.nrepl.middleware.test-stateful-check,
-            :var 'throw-exception-specification,
-            :type :var}
-           {:id
-            "cider.nrepl.middleware.test-stateful-check/exception-in-assertion-is-printed",
-            :ns 'cider.nrepl.middleware.test-stateful-check,
-            :var 'exception-in-assertion-is-printed,
+         #{{:id "stateful-check.debugger.test/records-spec"
+            :ns 'stateful-check.debugger.test
+            :type :var
+            :var 'records-spec}
+           {:ns 'stateful-check.debugger.test
+            :var 'test-records
+            :id "stateful-check.debugger.test/test-records"
             :type :test}}
          (set (map #(select-keys % [:id :ns :var :type])
                    (debugger/specifications debugger)))))))
@@ -130,10 +108,10 @@
         specification (debugger/specification debugger example-id)]
     (is (s/valid? :stateful-check.debugger/specification specification))
     (is (= (:commands example-specification) (:commands specification)))
-    (is (= 'cider.nrepl.middleware.test-stateful-check (:ns specification)))
-    (is (= 'throw-exception-specification (:var specification)))
+    (is (= 'stateful-check.debugger.test (:ns specification)))
+    (is (= 'records-spec (:var specification)))
     (is (= :var (:type specification)))
-    (is (= "cider.nrepl.middleware.test-stateful-check/throw-exception-specification"
+    (is (= "stateful-check.debugger.test/records-spec"
            (:id specification)))))
 
 (deftest test-specifications
