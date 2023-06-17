@@ -40,7 +40,9 @@
 (def records-spec
   {:commands {:store #'store-record-spec
               :retrieve #'retrieve-record-spec}
-   :setup #(reset! records {})})
+   :setup #(reset! records {})
+   :initial-state (constantly {})
+   :cleanup (fn [_] (reset! records {}))})
 
 (def records-spec-options
   {:gen {:threads 2}
