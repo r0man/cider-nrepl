@@ -75,7 +75,7 @@
   [{:keys [result-data]}]
   {:state init-state
    :definition
-   (-> {}
+   (-> {final-state {:reset "init"}}
        (add-start result-data)
        (add-sequential-executions result-data)
        (add-parallel-executions result-data)
