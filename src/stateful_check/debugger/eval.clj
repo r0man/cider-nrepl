@@ -1,12 +1,20 @@
 (ns stateful-check.debugger.eval
-  (:require [clojure.string :as str]
-            [stateful-check.command-utils :as u]
+  (:require [stateful-check.command-utils :as u]
             [stateful-check.debugger.state-machine :as state-machine]
             [stateful-check.generator :as g]
-            [stateful-check.symbolic-values :as sv]))
+            [stateful-check.runner :as r]
+            [stateful-check.symbolic-values :as sv]
+            [clojure.pprint :as pp])
+  (:import [stateful_check.runner CaughtException]))
 
 (defn- get-environment [result-data handle & keys]
   (get-in result-data (concat [:environments (sv/->RootVar handle)] keys)))
+
+(defn- get-evaluation [result-data handle & keys]
+  (get-in result-data (concat [:evaluations (sv/->RootVar handle)] keys)))
+
+(defn- update-evaluation [result-data state f & args]
+  (update-in result-data [:evaluations (sv/->RootVar state)] #(apply f % args)))
 
 (defn- next-state-set
   [state-machine transition]
@@ -28,9 +36,6 @@
                         (get-in environments [(sv/->RootVar next-handle) :thread])))
                    next-states)))))
 
-(defn- update-environment [result-data state f & args]
-  (update-in result-data [:environments (sv/->RootVar state)] #(apply f % args)))
-
 (defn- start
   [{:keys [specification state-machine] :as result-data}]
   (let [{:keys [setup initial-state]} specification
@@ -42,44 +47,54 @@
                           (initial-state)))]
     (-> (reduce (fn [result-data next-handle]
                   (-> result-data
-                      (update-environment next-handle assoc-in [:bindings :eval] bindings)
-                      (update-environment next-handle assoc-in [:state :eval] initial-state)))
-                result-data (next-state-set state-machine :start))
+                      (update-evaluation next-handle assoc :bindings {:before bindings})
+                      (update-evaluation next-handle assoc :state {:before initial-state})))
+                (assoc result-data :evaluations {})
+                (next-state-set state-machine :start))
         (update :state-machine state-machine/update-next-state :start))))
 
 (defn- reset [result-data]
-  (update result-data :state-machine state-machine/update-next-state :reset))
+  (-> (dissoc result-data :evaluations)
+      (update :state-machine state-machine/update-next-state :reset)))
 
 (defn- execute-command [result-data handle]
   (let [cmd-obj (get-environment result-data handle :command)
         arguments (sort-by :index (get-environment result-data handle :arguments))
-        bindings (get-environment result-data handle :bindings :eval)
+        bindings (get-evaluation result-data handle :bindings :before)
         real-args (sv/get-real-value (map (comp :symbolic :value) arguments) bindings)
-        state (get-environment result-data handle :state :eval)]
-    (try (let [value (apply (:command cmd-obj) real-args)
-               next-state (u/make-next-state cmd-obj state real-args value)
-               failure (u/check-postcondition cmd-obj state next-state real-args value)]
-           (prn real-args value)
-           (cond-> {:handle handle
-                    :bindings (assoc bindings (sv/->RootVar handle) value)
-                    :next-state next-state
-                    :value value}
-             failure (assoc :failure failure)))
-         (catch Throwable error
-           {:handle handle
-            :bindings bindings
-            :error error
-            :state state}))))
+        state (get-evaluation result-data handle :state :before)
+        result (try (apply (:command cmd-obj) real-args)
+                    (catch Exception exception
+                      (r/->CaughtException exception)))
+        next-state (u/make-next-state cmd-obj state real-args result)
+        failure (u/check-postcondition cmd-obj state next-state real-args result)]
+    (cond-> {:arguments arguments
+             :bindings {:before bindings :after (assoc bindings (sv/->RootVar handle) result)}
+             :command cmd-obj
+             :handle handle
+             :state {:before state :after next-state}
+             :result {:value result}}
+      failure
+      (assoc :failure failure)
+      (instance? CaughtException result)
+      (assoc :error (:exception result))
+      (instance? CaughtException result)
+      (dissoc :value))))
 
 (defn- add-result
-  [result-data {:keys [bindings handle next-state] :as result}]
+  [result-data {:keys [arguments bindings command handle state result]}]
   (let [next-handles (next-handles result-data handle)]
-    (-> (reduce (fn [result-data next-handle]
-                  (-> result-data
-                      (update-environment next-handle assoc-in [:bindings :eval] bindings)
-                      (update-environment next-handle assoc-in [:state :eval] next-state)))
-                result-data next-handles)
-        (update-environment handle assoc-in [:result :eval] (select-keys result [:error :value])))))
+    (reduce (fn [result-data next-handle]
+              (-> result-data
+                  (update-evaluation next-handle assoc-in [:bindings :before] (:after bindings))
+                  (update-evaluation next-handle assoc-in [:state :before] (:after state))))
+            (-> result-data
+                (update-evaluation handle assoc :arguments arguments :command command :result result)
+                (update-evaluation handle assoc-in [:bindings :before] (:before bindings))
+                (update-evaluation handle assoc-in [:bindings :after] (:after bindings))
+                (update-evaluation handle assoc-in [:state :before] (:before state))
+                (update-evaluation handle assoc-in [:state :after] (:after state)))
+            next-handles)))
 
 (defn- execute-sequential-command
   [{:keys [state-machine] :as result-data}]
@@ -106,7 +121,9 @@
                                (execute-sequential-command result-data)
                                (set? current-state)
                                (execute-parallel-commands result-data))]
-    (clojure.pprint/pprint (:state-machine next-result-data))
+    ;; (def my-data next-result-data)
+    ;; (clojure.pprint/pprint (:state-machine next-result-data))
+    ;; (clojure.pprint/pprint (:evaluations next-result-data))
     next-result-data))
 
 (defn evaluate [run case]

@@ -11,7 +11,13 @@
 
 (def records (atom {}))
 
-(defn store-record [value]
+(defn store-record-failure [value]
+  (let [id (str "id-" value)
+        value (if (>= (count @records) 3) "boom" value)]
+    (swap! records assoc id {:id id :value value})
+    {:id id :value value}))
+
+(defn store-record-error [value]
   (let [id (str "id-" value)]
     (if (>= (count @records) 3)
       (throw (ex-info "BOOM" {:id id :value value})))
@@ -23,7 +29,7 @@
 
 (def store-record-spec
   {:args (fn [_] [gen/int])
-   :command #'store-record
+   :command store-record-error
    :next-state (fn [state [value] record]
                  (assoc state (:id record)
                         {:id (:id record)
