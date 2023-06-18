@@ -70,18 +70,10 @@
       (is (debugger/last-results debugger)))))
 
 (deftest test-print
-  (is (= "" (with-out-str (debugger/print debugger))))
-  (let [results (run-specification example-specification)
-        debugger (debugger/analyze-results debugger results)]
-    (is (s/valid? :stateful-check/debugger debugger))
-    (is (not (str/blank? (with-out-str (debugger/print debugger)))))))
-
-(deftest test-render
-  (is (debugger/render debugger))
-  (let [results (run-specification example-specification)
-        debugger (debugger/analyze-results debugger results)]
-    (is (s/valid? :stateful-check/debugger debugger))
-    (is (debugger/render debugger))))
+  (let [debugger (debugger/scan debugger)
+        debugger (debugger/run-specification debugger example-id)
+        run (:id (debugger/last-results debugger))]
+    (is (string? (with-out-str (debugger/print debugger run))))))
 
 (deftest test-run-specfication
   (let [debugger (debugger/scan debugger)

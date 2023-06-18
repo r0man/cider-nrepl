@@ -2,7 +2,8 @@
   (:require [stateful-check.command-utils :as u]
             [stateful-check.generator :as g]
             [stateful-check.symbolic-values :as sv]
-            [haystack.analyzer :as analyzer])
+            [haystack.analyzer :as analyzer]
+            [stateful-check.debugger.state-machine :as state-machine])
   (:import [java.util Base64 UUID]
            [stateful_check.runner CaughtException]))
 
@@ -168,8 +169,12 @@
 (defn- analyze-result-data
   [result-data]
   (let [environments (analyze-environments result-data)
-        executions (analyze-executions environments result-data)]
-    (assoc result-data :environments environments :executions executions)))
+        executions (analyze-executions environments result-data)
+        state-machine (state-machine/make-state-machine {:result-data result-data})]
+    (assoc result-data
+           :environments environments
+           :executions executions
+           :state-machine state-machine)))
 
 (defn analyze-results
   "Analyze the Stateful Check `results`."

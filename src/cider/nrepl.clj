@@ -593,6 +593,13 @@ stack frame of the most recent exception. This op is deprecated, please use the
               :returns {"stateful-check/analyze-test" "The analysis of the test results."
                         "status" "done"}}
 
+             "stateful-check/evaluate-step"
+             {:doc "Evaluate a Stateful Check command execution step."
+              :requires {"run" "The identifier of the run."}
+              :optional {"case" "The \"first\" or \"smallest\" failing case."}
+              :returns {"stateful-check/evaluate-step" "The Stateful Check analysis."
+                        "status" "done"}}
+
              "stateful-check/inspect"
              {:doc "Inspect a Stateful Check test report object."
               :requires {"query" "The query for the object to inspect."}

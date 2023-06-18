@@ -2,7 +2,8 @@
   (:require [cider.nrepl.test-session :as session]
             [clojure.set :as set]
             [clojure.test :refer [deftest is use-fixtures testing]]
-            [stateful-check.debugger.test :as test])
+            [stateful-check.debugger.test :as test]
+            [stateful-check.debugger.eval :as eval])
   (:import [java.util UUID]))
 
 (use-fixtures :each session/session-fixture)
@@ -90,3 +91,31 @@
       (let [specifications (:stateful-check/specifications result)]
         (is (set/subset? #{test/records-spec-id test/records-test-id}
                          (set (map :id specifications))))))))
+
+(deftest test-stateful-evaluate-step
+  (session/message {:op "stateful-check/scan"})
+  (let [run (-> {:op "stateful-check/run"
+                 :specification test/records-spec-id}
+                session/message :stateful-check/run :id)
+        {:keys [stateful-check/evaluate-step status]}
+        (session/message {:op "stateful-check/evaluate-step"
+                          :run run
+                          :case "smallest"})]
+    (is (= #{"done"} status))
+    (is (= run (:id evaluate-step)))
+
+    (session/message {:op "stateful-check/evaluate-step"
+                      :run run
+                      :case "smallest"})
+
+    (session/message {:op "stateful-check/evaluate-step"
+                      :run run
+                      :case "smallest"})
+
+    (session/message {:op "stateful-check/evaluate-step"
+                      :run run
+                      :case "smallest"})
+
+    (session/message {:op "stateful-check/evaluate-step"
+                      :run run
+                      :case "smallest"})))
