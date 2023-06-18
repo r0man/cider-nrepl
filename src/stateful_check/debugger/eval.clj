@@ -5,6 +5,9 @@
             [stateful-check.generator :as g]
             [stateful-check.symbolic-values :as sv]))
 
+(defn- get-environment [result-data handle & keys]
+  (get-in result-data (concat [:environments (sv/->RootVar handle)] keys)))
+
 (defn- next-state-set
   [state-machine transition]
   (let [next-states (state-machine/get-next-state state-machine transition)]
@@ -47,12 +50,11 @@
 (defn- reset [result-data]
   (update result-data :state-machine state-machine/update-next-state :reset))
 
-(defn- execute-command
-  [{:keys [environments]} handle]
-  (let [bindings (get-in environments [(sv/->RootVar handle) :bindings :eval])
-        state (get-in environments [(sv/->RootVar handle) :state :eval])
-        cmd-obj (get-in environments [(sv/->RootVar handle) :command])
-        arguments (sort-by :index (get-in environments [(sv/->RootVar handle) :arguments]))
+(defn- execute-command [result-data handle]
+  (let [bindings (get-environment result-data handle :bindings :eval)
+        state (get-environment result-data handle :state :eval)
+        cmd-obj (get-environment result-data handle :command)
+        arguments (sort-by :index (get-environment result-data handle :arguments))
         real-args (sv/get-real-value (map (comp :symbolic :value) arguments) bindings)]
     (try (let [value (apply (:command cmd-obj) real-args)]
            {:handle handle
