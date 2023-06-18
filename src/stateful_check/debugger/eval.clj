@@ -51,16 +51,20 @@
   (update result-data :state-machine state-machine/update-next-state :reset))
 
 (defn- execute-command [result-data handle]
-  (let [bindings (get-environment result-data handle :bindings :eval)
-        state (get-environment result-data handle :state :eval)
-        cmd-obj (get-environment result-data handle :command)
+  (let [cmd-obj (get-environment result-data handle :command)
         arguments (sort-by :index (get-environment result-data handle :arguments))
-        real-args (sv/get-real-value (map (comp :symbolic :value) arguments) bindings)]
-    (try (let [value (apply (:command cmd-obj) real-args)]
-           {:handle handle
-            :bindings (assoc bindings (sv/->RootVar handle) value)
-            :next-state (u/make-next-state cmd-obj state real-args value)
-            :value value})
+        bindings (get-environment result-data handle :bindings :eval)
+        real-args (sv/get-real-value (map (comp :symbolic :value) arguments) bindings)
+        state (get-environment result-data handle :state :eval)]
+    (try (let [value (apply (:command cmd-obj) real-args)
+               next-state (u/make-next-state cmd-obj state real-args value)
+               failure (u/check-postcondition cmd-obj state next-state real-args value)]
+           (prn real-args value)
+           (cond-> {:handle handle
+                    :bindings (assoc bindings (sv/->RootVar handle) value)
+                    :next-state next-state
+                    :value value}
+             failure (assoc :failure failure)))
          (catch Throwable error
            {:handle handle
             :bindings bindings
@@ -93,15 +97,17 @@
         (update :state-machine state-machine/update-next-state :pass))))
 
 (defn- evaluate-failed-case [result-data]
-  (let [current-state (-> result-data :state-machine :state)]
-    (cond (= "init" current-state)
-          (start result-data)
-          (= "final" current-state)
-          (reset result-data)
-          (string? current-state)
-          (execute-sequential-command result-data)
-          (set? current-state)
-          (execute-parallel-commands result-data))))
+  (let [current-state (-> result-data :state-machine :state)
+        next-result-data (cond (= "init" current-state)
+                               (start result-data)
+                               (= "final" current-state)
+                               (reset result-data)
+                               (string? current-state)
+                               (execute-sequential-command result-data)
+                               (set? current-state)
+                               (execute-parallel-commands result-data))]
+    (clojure.pprint/pprint (:state-machine next-result-data))
+    next-result-data))
 
 (defn evaluate [run case]
   (if (= "first" (some-> case name))
