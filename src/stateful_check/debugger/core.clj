@@ -235,18 +235,8 @@
 (defn evaluate-step
   "Evaluate a command execution step."
   [debugger run case]
-  (def my-debugger debugger)
   (if-let [run (get-results debugger run)]
-    (let [results (eval/evaluate run case)]
-      ;; (clojure.pprint/pprint
-      ;;  (if (= "first" (some-> case name))
-      ;;    (-> results :result-data :state-machine)
-      ;;    (-> results :shrunk :result-data :state-machine)))
-      ;; (clojure.pprint/pprint
-      ;;  (if (= "first" (some-> case name))
-      ;;    (-> results :result-data :evaluations)
-      ;;    (-> results :shrunk  :result-data :evaluations)))
-      (add-results debugger results))
+    (add-results debugger (eval/evaluate run case))
     (throw (ex-info "Stateful Check run not found"
                     {:type :stateful-check/run-not-found
                      :run run}))))

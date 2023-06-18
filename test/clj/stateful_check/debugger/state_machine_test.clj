@@ -14,7 +14,6 @@
   (let [debugger (debugger/scan debugger)
         debugger (debugger/run-specification debugger test/records-spec-id test/records-spec-options)
         results (debugger/last-results debugger)]
-    (debugger/print debugger (:id results))
     (is (= {:state "init",
             :definition
             {"init" {:start "1"},
