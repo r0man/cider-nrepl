@@ -238,10 +238,14 @@
   (def my-debugger debugger)
   (if-let [run (get-results debugger run)]
     (let [results (eval/evaluate run case)]
-      (clojure.pprint/pprint
-       (if (= "first" (some-> case name))
-         (-> results :result-data :state-machine)
-         (-> results :shrunk :result-data :state-machine)))
+      ;; (clojure.pprint/pprint
+      ;;  (if (= "first" (some-> case name))
+      ;;    (-> results :result-data :state-machine)
+      ;;    (-> results :shrunk :result-data :state-machine)))
+      ;; (clojure.pprint/pprint
+      ;;  (if (= "first" (some-> case name))
+      ;;    (-> results :result-data :evaluations)
+      ;;    (-> results :shrunk  :result-data :evaluations)))
       (add-results debugger results))
     (throw (ex-info "Stateful Check run not found"
                     {:type :stateful-check/run-not-found
