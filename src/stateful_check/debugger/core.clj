@@ -6,7 +6,8 @@
             [stateful-check.debugger.render :as render]
             [stateful-check.debugger.specs]
             [stateful-check.debugger.test-report :as test-report]
-            [stateful-check.symbolic-values :as sv])
+            [stateful-check.symbolic-values :as sv]
+            [stateful-check.debugger.eval :as eval])
   (:import [java.util UUID]
            [stateful_check.symbolic_values RootVar]))
 
@@ -231,16 +232,31 @@
   [debugger]
   (-> debugger scan-vars scan-tests))
 
+(defn evaluate-step
+  "Evaluate a command execution step."
+  [debugger run case]
+  (def my-debugger debugger)
+  (if-let [run (get-results debugger run)]
+    (let [results (eval/evaluate run case)]
+      (clojure.pprint/pprint
+       (if (= "first" (some-> case name))
+         (-> results :result-data :state-machine)
+         (-> results :shrunk :result-data :state-machine)))
+      (add-results debugger results))
+    (throw (ex-info "Stateful Check run not found"
+                    {:type :stateful-check/run-not-found
+                     :run run}))))
+
 (defn print
   "Print the `debugger`.
 
   Prints the analyzed execution traces of the debugger with
   `stateful-check.report/print-results`."
-  [debugger]
-  (doseq [{:keys [ns var] :as results} (analyses debugger)]
-    (printf "Id: %s" (:id results))
-    (when (and ns var)
-      (printf ", Namespace: %s, Var: %s" ns var))
-    (println)
-    (#'stateful-check/print-execution (:result-data (:shrunk results)) false)
-    (println)))
+  [debugger id & [case]]
+  (when-let [results (get-results debugger id)]
+    (println "  First failing test case")
+    (println "  -----------------------------")
+    (#'stateful-check/print-execution (:result-data results) false)
+    (println "  Smallest case after shrinking")
+    (println "  -----------------------------")
+    (#'stateful-check/print-execution (:result-data (:shrunk results)) false)))

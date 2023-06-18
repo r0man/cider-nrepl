@@ -9,11 +9,16 @@
 (stest/instrument)
 
 (def debugger
-  (debugger/debugger))
+  (debugger/scan (debugger/debugger)))
 
-(deftest test-run-specfication
-  (let [debugger (debugger/scan debugger)
-        debugger (debugger/run-specification debugger test/records-spec-id test/records-spec-options)
-        results (debugger/last-results debugger)]
-    (def my-results results)
-    (clojure.pprint/pprint (eval/make-state-machine (:specification results) results))))
+;; (defn- step [state-machine transition]
+;;   (let [state-machine' (eval/update-next-state state-machine transition)]
+;;     (clojure.pprint/pprint state-machine')
+;;     (println)
+;;     state-machine'))
+
+;; (deftest test-run-specfication
+;;   (let [debugger (debugger/scan debugger)
+;;         debugger (debugger/run-specification debugger test/records-spec-id test/records-spec-options)
+;;         results (debugger/last-results debugger)
+;;         state-machine (eval/make-state-machine (:specification results) results)]))

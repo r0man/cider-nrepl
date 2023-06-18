@@ -83,7 +83,7 @@
 
 (defn render-result-data
   [result-data]
-  (-> (select-keys result-data [:executions :specification :options])
+  (-> (select-keys result-data [:executions :specification :options :state-machine])
       (update :executions render-executions)))
 
 (defn- render-quickcheck-results [results]

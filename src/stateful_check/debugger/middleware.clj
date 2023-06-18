@@ -132,6 +132,15 @@
       {:stateful-check/analysis (render/render-analysis analysis)}
       {:status :stateful-check/analysis-not-found})))
 
+(defn- stateful-check-evaluate-step-reply
+  "Evaluate a command execution step."
+  [{:keys [case run] :as msg}]
+  {:stateful-check/evaluate-step
+   (-> (swap-debugger! msg debugger/evaluate-step run case)
+       (debugger/get-results run)
+       (render/render-analysis)
+       (transform-value))})
+
 (defn- stateful-check-print-reply
   "Handle a Stateful Check print NREPL operation."
   [{:keys [query ::print/print-fn] :as msg}]
@@ -165,6 +174,7 @@
   (with-safe-transport handler msg
     "stateful-check/analysis" stateful-check-analysis-reply
     "stateful-check/analyze-test" stateful-check-analyze-test-reply
+    "stateful-check/evaluate-step" stateful-check-evaluate-step-reply
     "stateful-check/inspect" stateful-check-inspect-reply
     "stateful-check/print" stateful-check-print-reply
     "stateful-check/run" stateful-check-run-reply
