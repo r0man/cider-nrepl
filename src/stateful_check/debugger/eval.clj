@@ -44,8 +44,7 @@
                 result-data (next-state-set state-machine :start))
         (update :state-machine state-machine/update-next-state :start))))
 
-(defn- reset
-  [{:keys [state-machine] :as result-data}]
+(defn- reset [result-data]
   (update result-data :state-machine state-machine/update-next-state :reset))
 
 (defn- execute-command
@@ -56,19 +55,11 @@
         arguments (sort-by :index (get-in environments [(sv/->RootVar handle) :arguments]))
         real-args (sv/get-real-value (map (comp :symbolic :value) arguments) bindings)]
     (try (let [value (apply (:command cmd-obj) real-args)]
-           (println (format "<#%s> (%s %s) => %s"
-                            handle (:name cmd-obj)
-                            (str/join ", " (map pr-str real-args))
-                            (pr-str value)))
            {:handle handle
             :bindings (assoc bindings (sv/->RootVar handle) value)
             :next-state (u/make-next-state cmd-obj state real-args value)
             :value value})
-         (catch Exception error
-           (println (format "<#%s> (%s %s) => %s"
-                            handle (:name cmd-obj)
-                            (str/join ", " (map pr-str real-args))
-                            (.toString error)))
+         (catch Throwable error
            {:handle handle
             :bindings bindings
             :error error
@@ -77,7 +68,6 @@
 (defn- add-result
   [result-data {:keys [bindings handle next-state] :as result}]
   (let [next-handles (next-handles result-data handle)]
-    (println (format "NEXT HANDLES [%s]: %s" handle next-handles))
     (-> (reduce (fn [result-data next-handle]
                   (-> result-data
                       (update-environment next-handle assoc-in [:bindings :eval] bindings)
@@ -86,15 +76,13 @@
         (update-environment handle assoc-in [:result :eval] (select-keys result [:error :value])))))
 
 (defn- execute-sequential-command
-  [{:keys [environments state-machine] :as result-data}]
-  (println "SEQUENTIAL COMMAND")
+  [{:keys [state-machine] :as result-data}]
   (let [{:keys [error] :as eval-result} (execute-command result-data (:state state-machine))]
     (-> (add-result result-data eval-result)
         (update :state-machine state-machine/update-next-state :pass))))
 
 (defn- execute-parallel-commands
-  [{:keys [environments state-machine] :as result-data}]
-  (println "PARALLEL COMMAND")
+  [{:keys [state-machine] :as result-data}]
   (let [;; eval-results (map deref (mapv #(future (execute-command result-data %))
         ;;                               (:state state-machine)))
         eval-results (mapv #(execute-command result-data %)
@@ -102,41 +90,16 @@
     (-> (reduce add-result result-data eval-results)
         (update :state-machine state-machine/update-next-state :pass))))
 
-;; (defn- evaluate-failed-case [result-data]
-;;   (let [current-state (-> result-data :state-machine :state)
-;;         result-data (cond (= "init" current-state)
-;;                           (init result-data)
-;;                           (= "initial-state" current-state)
-;;                           (init-state result-data)
-;;                           (= "setup" current-state)
-;;                           (setup result-data)
-;;                           (= "cleanup" current-state)
-;;                           (cleanup result-data)
-;;                           (= "final" current-state)
-;;                           (final result-data)
-;;                           (string? current-state)
-;;                           (execute-sequential-command result-data)
-;;                           (set? current-state)
-;;                           (execute-parallel-commands result-data))]
-;;     (def my-data result-data)
-;;     ;; (clojure.pprint/pprint (-> result-data :environments))
-;;     (clojure.pprint/pprint (-> result-data :state-machine))
-;;     result-data))
-
 (defn- evaluate-failed-case [result-data]
-  (let [current-state (-> result-data :state-machine :state)
-        result-data (cond (= "init" current-state)
-                          (start result-data)
-                          (= "final" current-state)
-                          (reset result-data)
-                          (string? current-state)
-                          (execute-sequential-command result-data)
-                          (set? current-state)
-                          (execute-parallel-commands result-data))]
-    (def my-data result-data)
-    ;; (clojure.pprint/pprint (-> result-data :environments))
-    (clojure.pprint/pprint (-> result-data :state-machine))
-    result-data))
+  (let [current-state (-> result-data :state-machine :state)]
+    (cond (= "init" current-state)
+          (start result-data)
+          (= "final" current-state)
+          (reset result-data)
+          (string? current-state)
+          (execute-sequential-command result-data)
+          (set? current-state)
+          (execute-parallel-commands result-data))))
 
 (defn evaluate [run case]
   (if (= "first" (some-> case name))
