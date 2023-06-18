@@ -118,4 +118,12 @@
 
     (session/message {:op "stateful-check/evaluate-step"
                       :run run
+                      :case "smallest"})
+
+    (session/message {:op "stateful-check/evaluate-step"
+                      :run run
+                      :case "smallest"})
+
+    (session/message {:op "stateful-check/evaluate-step"
+                      :run run
                       :case "smallest"})))
