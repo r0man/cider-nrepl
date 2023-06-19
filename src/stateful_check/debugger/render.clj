@@ -77,10 +77,6 @@
       (update-in [:state :before :real] render-value)
       (update-in [:state :before :symbolic] render-value)))
 
-(defn- render-executions [{:keys [sequential parallel]}]
-  {:sequential (mapv render-frame sequential)
-   :parallel (mapv #(mapv render-frame %) parallel)})
-
 (defn- analyze-sequential-executions
   "Analyze the sequential executions."
   [environments executions]
