@@ -149,31 +149,12 @@
         (cleanup)))
     environments))
 
-(defn- analyze-sequential-executions
-  "Analyze the sequential executions."
-  [environments executions]
-  (vec (for [[[handle cmd-obj & symbolic-args] result-str] executions]
-         (get environments handle))))
-
-(defn- analyze-parallel-executions
-  "Analyze the parallel executions."
-  [environments executions]
-  (mapv #(analyze-sequential-executions environments %) executions))
-
-(defn- analyze-executions
-  "Analyze the sequential and parallel executions."
-  [environments {:keys [sequential parallel]}]
-  {:sequential (analyze-sequential-executions environments sequential)
-   :parallel (analyze-parallel-executions environments parallel)})
-
 (defn- analyze-result-data
   [result-data]
   (let [environments (analyze-environments result-data)
-        executions (analyze-executions environments result-data)
         state-machine (state-machine/make-state-machine {:result-data result-data})]
     (assoc result-data
            :environments environments
-           :executions executions
            :state-machine state-machine)))
 
 (defn analyze-results
