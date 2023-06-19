@@ -63,35 +63,38 @@
   (into {} (for [[handle value] bindings]
              [(pr-str handle) (render-value value)])))
 
-(defn- render-frame [frame]
-  (-> (select-keys frame [:arguments :bindings :command :failures :handle :index :result :state :thread])
-      (update :arguments #(mapv render-argument %))
-      (update :command select-keys [:name])
-      (update :failures #(mapv render-failure %))
-      (update :handle pr-str)
-      (update :result render-result)
-      (update-in [:bindings :after] render-bindings)
-      (update-in [:bindings :before] render-bindings)
-      (update-in [:state :after :real] render-value)
-      (update-in [:state :after :symbolic] render-value)
-      (update-in [:state :before :real] render-value)
-      (update-in [:state :before :symbolic] render-value)))
+(defn- render-execution-frame
+  "Render the debugger execution frame for `handle`."
+  [{:keys [environments]} handle]
+  (let [frame (get environments handle)]
+    (-> (select-keys frame [:arguments :bindings :command :failures :handle :index :result :state :thread])
+        (update :arguments #(mapv render-argument %))
+        (update :command select-keys [:name])
+        (update :failures #(mapv render-failure %))
+        (update :handle pr-str)
+        (update :result render-result)
+        (update-in [:bindings :after] render-bindings)
+        (update-in [:bindings :before] render-bindings)
+        (update-in [:state :after :real] render-value)
+        (update-in [:state :after :symbolic] render-value)
+        (update-in [:state :before :real] render-value)
+        (update-in [:state :before :symbolic] render-value))))
 
-(defn- render-frames
+(defn- render-execution-frames
   "Render the execution frames for `executions`."
-  [{:keys [environments]} executions]
+  [result-data executions]
   (vec (for [[[handle cmd-obj & symbolic-args] result-str] executions]
-         (render-frame (get environments handle)))))
+         (render-execution-frame result-data handle))))
 
 (defn- render-sequential-executions
   "Render the sequential execution frames."
   [{:keys [sequential] :as result-data}]
-  (render-frames result-data sequential))
+  (render-execution-frames result-data sequential))
 
 (defn- render-parallel-executions
   "Render the parallel execution frames."
   [{:keys [parallel] :as result-data}]
-  (mapv #(render-frames result-data %) parallel))
+  (mapv #(render-execution-frames result-data %) parallel))
 
 (defn- render-executions
   "Render the sequential and parallel execution frames."
