@@ -77,27 +77,27 @@
       (update-in [:state :before :real] render-value)
       (update-in [:state :before :symbolic] render-value)))
 
-(defn- analyze-sequential-executions
+(defn- render-sequential-executions
   "Analyze the sequential executions."
   [environments executions]
   (vec (for [[[handle cmd-obj & symbolic-args] result-str] executions]
          (render-frame (get environments handle)))))
 
-(defn- analyze-parallel-executions
+(defn- render-parallel-executions
   "Analyze the parallel executions."
   [environments executions]
-  (mapv #(analyze-sequential-executions environments %) executions))
+  (mapv #(render-sequential-executions environments %) executions))
 
-(defn- analyze-executions
+(defn- render-executions
   "Analyze the sequential and parallel executions."
   [{:keys [environments sequential parallel]}]
-  {:sequential (analyze-sequential-executions environments sequential)
-   :parallel (analyze-parallel-executions environments parallel)})
+  {:sequential (render-sequential-executions environments sequential)
+   :parallel (render-parallel-executions environments parallel)})
 
 (defn render-result-data
   [result-data]
   (-> (select-keys result-data [:specification :options :state-machine])
-      (assoc :executions (analyze-executions result-data))))
+      (assoc :executions (render-executions result-data))))
 
 (defn- render-quickcheck-results [results]
   (-> (select-keys results [:failed-after-ms :failing-size :num-tests :seed :shrunk :result-data :pass? :time-elapsed-ms])
