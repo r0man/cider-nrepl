@@ -22,7 +22,8 @@
   (cond-> result
     (:error result)
     (update :error str)
-    (not (:mutated result))
+    (and (contains? result :value)
+         (not (:mutated result)))
     (update :value render-value)))
 
 (defn- render-argument
@@ -65,14 +66,20 @@
 
 (defn- render-execution-frame
   "Render the debugger execution frame for `handle`."
-  [{:keys [environments]} handle]
-  (let [frame (get environments handle)]
-    (-> (select-keys frame [:arguments :bindings :command :failures :handle :index :result :state :thread])
+  [{:keys [environments evaluations]} handle]
+  (let [evaluation (get evaluations handle)
+        environment (get environments handle)]
+    (-> (select-keys environment [:arguments :bindings :command :failures :handle :index :result :state :thread])
         (update :arguments #(mapv render-argument %))
         (update :command select-keys [:name])
         (update :failures #(mapv render-failure %))
         (update :handle pr-str)
         (update :result render-result)
+        (assoc-in [:result :evaluation] (render-result (:result evaluation)))
+        (assoc-in [:bindings :after :evaluation] (render-bindings (:after (:bindings evaluation))))
+        (assoc-in [:bindings :before :evaluation] (render-bindings (:before (:bindings evaluation))))
+        (assoc-in [:state :after :evaluation] (render-value (:after (:state evaluation))))
+        (assoc-in [:state :before :evaluation] (render-value (:before (:state evaluation))))
         (update-in [:bindings :after] render-bindings)
         (update-in [:bindings :before] render-bindings)
         (update-in [:state :after :real] render-value)
