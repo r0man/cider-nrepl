@@ -111,8 +111,9 @@
 
 (defn render-result-data
   "Render a failing test case."
-  [result-data]
+  [{:keys [evaluations] :as result-data}]
   (-> (select-keys result-data [:specification :options :state-machine])
+      (assoc :eval? (some? (seq evaluations)))
       (assoc :executions (render-executions result-data))))
 
 (defn- render-quickcheck-results
