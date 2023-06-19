@@ -77,29 +77,37 @@
       (update-in [:state :before :real] render-value)
       (update-in [:state :before :symbolic] render-value)))
 
-(defn- render-sequential-executions
-  "Analyze the sequential executions."
-  [environments executions]
+(defn- render-frames
+  "Render the execution frames for `executions`."
+  [{:keys [environments]} executions]
   (vec (for [[[handle cmd-obj & symbolic-args] result-str] executions]
          (render-frame (get environments handle)))))
 
+(defn- render-sequential-executions
+  "Render the sequential execution frames."
+  [{:keys [sequential] :as result-data}]
+  (render-frames result-data sequential))
+
 (defn- render-parallel-executions
-  "Analyze the parallel executions."
-  [environments executions]
-  (mapv #(render-sequential-executions environments %) executions))
+  "Render the parallel execution frames."
+  [{:keys [parallel] :as result-data}]
+  (mapv #(render-frames result-data %) parallel))
 
 (defn- render-executions
-  "Analyze the sequential and parallel executions."
-  [{:keys [environments sequential parallel]}]
-  {:sequential (render-sequential-executions environments sequential)
-   :parallel (render-parallel-executions environments parallel)})
+  "Render the sequential and parallel execution frames."
+  [result-data]
+  {:sequential (render-sequential-executions result-data)
+   :parallel (render-parallel-executions result-data)})
 
 (defn render-result-data
+  "Render a failing test case."
   [result-data]
   (-> (select-keys result-data [:specification :options :state-machine])
       (assoc :executions (render-executions result-data))))
 
-(defn- render-quickcheck-results [results]
+(defn- render-quickcheck-results
+  "Render the test.check result/report data structure."
+  [results]
   (-> (select-keys results [:failed-after-ms :failing-size :num-tests :seed :shrunk :result-data :pass? :time-elapsed-ms])
       (update :shrunk select-keys [:depth :result-data :time-shrinking-ms :total-nodes-visited])))
 
