@@ -1,6 +1,9 @@
 (ns stateful-check.debugger.specs
-  (:require [clojure.spec.alpha :as s])
+  (:require [clojure.spec.alpha :as s]
+            [stateful-check.symbolic-values])
   (:import [stateful_check.symbolic_values RootVar LookupVar]))
+
+;; Symbolic Values
 
 (s/def :stateful-check.symbolic-values/lookup
   #(instance? LookupVar %))
@@ -11,6 +14,11 @@
 (s/def :stateful-check/symbolic-value
   (s/or :lookup :stateful-check.symbolic-values/lookup
         :root :stateful-check.symbolic-values/root))
+
+;; Bindings
+
+(s/def :stateful-check/bindings
+  (s/map-of :stateful-check.symbolic-values/root any?))
 
 ;; Specification
 
@@ -79,3 +87,8 @@
                    :stateful-check.debugger/specifications
                    ;; :stateful-check.debugger/results
                    ]))
+
+;; Frame
+
+(s/def :stateful-check.debugger/frame
+  (s/keys :req-un [:stateful-check/bindings]))
