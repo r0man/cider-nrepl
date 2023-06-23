@@ -64,34 +64,48 @@
   (into {} (for [[handle value] bindings]
              [(pr-str handle) (render-value value)])))
 
-(defn- render-execution-frame
-  "Render the debugger execution frame for `handle`."
+(defn- make-execution-frame
+  "Make a execution frame for `handle`."
   [{:keys [environments evaluations]} handle]
   (let [evaluation (get evaluations handle)
-        environment (get environments handle)]
-    (-> (select-keys environment [:arguments :bindings :command :failures :handle :index :result :state :thread])
-        (update :arguments #(mapv render-argument %))
-        (update :command select-keys [:name])
-        (update :failures #(mapv render-failure %))
-        (update :handle pr-str)
-        (update :result render-result)
-        (assoc-in [:result :evaluation] (render-result (:result evaluation)))
-        (assoc-in [:bindings :after :evaluation] (render-bindings (:after (:bindings evaluation))))
-        (assoc-in [:bindings :before :evaluation] (render-bindings (:before (:bindings evaluation))))
-        (assoc-in [:state :after :evaluation] (render-value (:after (:state evaluation))))
-        (assoc-in [:state :before :evaluation] (render-value (:before (:state evaluation))))
-        (update-in [:bindings :after] render-bindings)
-        (update-in [:bindings :before] render-bindings)
-        (update-in [:state :after :real] render-value)
-        (update-in [:state :after :symbolic] render-value)
-        (update-in [:state :before :real] render-value)
-        (update-in [:state :before :symbolic] render-value))))
+        environment (get environments handle)
+        frame (select-keys environment [:arguments :bindings :command :failures :handle :index :result :state :thread])]
+    (if evaluation
+      (-> frame
+          (assoc-in [:result :evaluation] (:result evaluation))
+          (assoc-in [:bindings :after :evaluation] (:after (:bindings evaluation)))
+          (assoc-in [:bindings :before :evaluation] (:before (:bindings evaluation)))
+          (assoc-in [:state :after :evaluation] (:after (:state evaluation)))
+          (assoc-in [:state :before :evaluation] (:before (:state evaluation))))
+      frame)))
+
+(defn- render-execution-frame
+  "Render the execution `frame`."
+  [frame]
+  (-> frame
+      (update :arguments #(mapv render-argument %))
+      (update :command select-keys [:name])
+      (update :failures #(mapv render-failure %))
+      (update :handle pr-str)
+      (update :result render-result)
+      (update-in [:bindings :after :evaluation] render-bindings)
+      (update-in [:bindings :after] render-bindings)
+      (update-in [:bindings :before :evaluation] render-bindings)
+      (update-in [:bindings :before] render-bindings)
+      (update-in [:result :evaluation] render-result)
+      (update-in [:state :after :evaluation] render-value)
+      (update-in [:state :after :real] render-value)
+      (update-in [:state :after :symbolic] render-value)
+      (update-in [:state :before :evaluation] render-value)
+      (update-in [:state :before :real] render-value)
+      (update-in [:state :before :symbolic] render-value)))
 
 (defn- render-execution-frames
   "Render the execution frames for `executions`."
   [result-data executions]
-  (vec (for [[[handle cmd-obj & symbolic-args] result-str] executions]
-         (render-execution-frame result-data handle))))
+  (vec (for [[[handle _cmd-obj & _symbolic-args] _result-str] executions]
+         (-> (make-execution-frame result-data handle)
+             (render-execution-frame)))))
 
 (defn- render-sequential-executions
   "Render the sequential execution frames."
