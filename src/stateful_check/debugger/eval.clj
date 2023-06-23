@@ -79,7 +79,7 @@
       (instance? CaughtException result)
       (assoc-in [:result :error] (:exception result)))))
 
-(defn- add-result
+(defn- add-evaluation
   [result-data {:keys [arguments bindings command handle state result]}]
   (let [next-handles (next-handles result-data handle)]
     (reduce (fn [result-data next-handle]
@@ -97,16 +97,14 @@
 (defn- execute-sequential-command
   [{:keys [state-machine] :as result-data}]
   (let [evaluation (execute-command result-data (:state state-machine))]
-    (-> (add-result result-data evaluation)
+    (-> (add-evaluation result-data evaluation)
         (update :state-machine state-machine/update-next-state :pass))))
 
 (defn- execute-parallel-commands
   [{:keys [state-machine] :as result-data}]
-  (let [;; eval-results (map deref (mapv #(future (execute-command result-data %))
-        ;;                               (:state state-machine)))
-        eval-results (mapv #(execute-command result-data %)
-                           (:state state-machine))]
-    (-> (reduce add-result result-data eval-results)
+  (let [evaluations (map deref (mapv #(future (execute-command result-data %))
+                                     (:state state-machine)))]
+    (-> (reduce add-evaluation result-data evaluations)
         (update :state-machine state-machine/update-next-state :pass))))
 
 (defn- evaluate-failed-case [result-data]
