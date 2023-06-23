@@ -2,7 +2,6 @@
   (:require [clojure.spec.alpha :as s]
             [clojure.test :refer [deftest is]]
             [stateful-check.debugger.core :as debugger]
-            [stateful-check.debugger.render :as render]
             [stateful-check.debugger.repl :as repl]
             [stateful-check.debugger.test :as test])
   (:import [java.util UUID]))
@@ -66,22 +65,3 @@
   (repl/reset!)
   (let [debugger (repl/scan)]
     (is (s/valid? :stateful-check/debugger debugger))))
-
-(comment
-
-  (repl/run-specification specification options)
-
-  (-> (repl/run-specification examples/returning-atom-as-result-spec
-                              examples/returning-atom-as-result-options)
-      :shrunk :result-data)
-
-  (-> (repl/run-specification specification options)
-      :shrunk :result-data :executions)
-
-  (-> (repl/run-specification specification options)
-      render/render-results)
-
-  (-> (repl/run-specification specification options)
-      :result-data :executions)
-
-  )
