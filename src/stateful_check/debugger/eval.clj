@@ -72,12 +72,13 @@
              :bindings {:before bindings :after (assoc bindings (sv/->RootVar handle) result)}
              :command cmd-obj
              :handle handle
-             :state {:before state :after next-state}
-             :result {:value result}}
+             :state {:before state :after next-state}}
       failure
       (assoc :failure failure)
       (instance? CaughtException result)
-      (assoc-in [:result :error] (:exception result)))))
+      (assoc-in [:result :error] (:exception result))
+      (not (instance? CaughtException result))
+      (assoc-in [:result :value] result))))
 
 (defn- add-evaluation
   [result-data {:keys [arguments bindings command handle state result]}]
