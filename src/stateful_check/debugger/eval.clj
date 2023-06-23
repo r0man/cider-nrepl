@@ -64,7 +64,7 @@
         real-args (sv/get-real-value (map (comp :symbolic :value) arguments) bindings)
         state (get-evaluation result-data handle :state :before)
         result (try (apply (:command cmd-obj) real-args)
-                    (catch Exception exception
+                    (catch Throwable exception
                       (r/->CaughtException exception)))
         next-state (u/make-next-state cmd-obj state real-args result)
         failure (u/check-postcondition cmd-obj state next-state real-args result)]
@@ -77,9 +77,7 @@
       failure
       (assoc :failure failure)
       (instance? CaughtException result)
-      (assoc :error (:exception result))
-      (instance? CaughtException result)
-      (dissoc :value))))
+      (assoc-in [:result :error] (:exception result)))))
 
 (defn- add-result
   [result-data {:keys [arguments bindings command handle state result]}]
@@ -98,8 +96,8 @@
 
 (defn- execute-sequential-command
   [{:keys [state-machine] :as result-data}]
-  (let [{:keys [error] :as eval-result} (execute-command result-data (:state state-machine))]
-    (-> (add-result result-data eval-result)
+  (let [evaluation (execute-command result-data (:state state-machine))]
+    (-> (add-result result-data evaluation)
         (update :state-machine state-machine/update-next-state :pass))))
 
 (defn- execute-parallel-commands
