@@ -52,24 +52,26 @@
 
 ;; Analysis
 
-(s/def :stateful-check.debugger.analysis/executions (s/map-of keyword? map?))
-(s/def :stateful-check.debugger.analysis/id string?)
-(s/def :stateful-check.debugger.analysis/ns simple-symbol?)
-(s/def :stateful-check.debugger.analysis/options map?)
-(s/def :stateful-check.debugger.analysis/results map?)
-(s/def :stateful-check.debugger.analysis/specification :stateful-check.debugger/specification)
-(s/def :stateful-check.debugger.analysis/test-report map?)
-(s/def :stateful-check.debugger.analysis/var simple-symbol?)
+(s/def :stateful-check.debugger.run/executions (s/map-of keyword? map?))
+(s/def :stateful-check.debugger.run/id string?)
+(s/def :stateful-check.debugger.run/ns simple-symbol?)
+(s/def :stateful-check.debugger.run/options map?)
+(s/def :stateful-check.debugger.run/results map?)
+(s/def :stateful-check.debugger.run/specification :stateful-check.debugger/specification)
+(s/def :stateful-check.debugger.run/test-report map?)
+(s/def :stateful-check.debugger.run/var simple-symbol?)
 
-(s/def :stateful-check.debugger/analysis
-  (s/keys :req-un [:stateful-check.debugger.analysis/executions
-                   :stateful-check.debugger.analysis/id
-                   :stateful-check.debugger.analysis/options
-                   :stateful-check.debugger.analysis/results
-                   :stateful-check.debugger.analysis/specification]
-          :opt-un [:stateful-check.debugger.analysis/ns
-                   :stateful-check.debugger.analysis/var
-                   :stateful-check.debugger.analysis/test-report]))
+(s/def :stateful-check.debugger/run
+  (s/keys :req-un [;; :stateful-check.debugger.run/executions
+                   :stateful-check.debugger.run/id
+                   ;; :stateful-check.debugger.run/options
+                   ;; :stateful-check.debugger.run/results
+                   ;; :stateful-check.debugger.run/specification
+                   ]
+          :opt-un [:stateful-check.debugger.run/ns
+                   :stateful-check.debugger.run/var
+                   ;; :stateful-check.debugger.run/test-report
+                   ]))
 
 ;; Debugger
 
@@ -77,7 +79,7 @@
   (s/coll-of string? :kind vector?))
 
 (s/def :stateful-check.debugger/results
-  (s/map-of string? :stateful-check.debugger/analysis))
+  (s/map-of string? :stateful-check.debugger/run))
 
 (s/def :stateful-check.debugger/specifications
   (s/map-of string? :stateful-check.debugger/specification))
@@ -85,8 +87,7 @@
 (s/def :stateful-check/debugger
   (s/keys :req-un [:stateful-check.debugger/last-results
                    :stateful-check.debugger/specifications
-                   ;; :stateful-check.debugger/results
-                   ]))
+                   :stateful-check.debugger/results]))
 
 ;; Frame
 
