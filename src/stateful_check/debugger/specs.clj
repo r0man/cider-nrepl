@@ -3,7 +3,7 @@
             [stateful-check.symbolic-values])
   (:import [stateful_check.symbolic_values RootVar LookupVar]))
 
-;; Symbolic Values
+;; Stateful Check Symbolic Values
 
 (s/def :stateful-check.symbolic-values/lookup
   #(instance? LookupVar %))
@@ -15,12 +15,12 @@
   (s/or :lookup :stateful-check.symbolic-values/lookup
         :root :stateful-check.symbolic-values/root))
 
-;; Bindings
+;; Stateful Check Bindings
 
 (s/def :stateful-check/bindings
   (s/map-of :stateful-check.symbolic-values/root any?))
 
-;; Command
+;; Stateful Check Command
 
 (s/def :stateful-check.command/args
   (s/or :ifn ifn? :var #(instance? clojure.lang.Var %)))
@@ -39,7 +39,7 @@
                    :stateful-check.command/name
                    :stateful-check.command/next-state]))
 
-;; Specification
+;; Stateful Check Specification
 
 (s/def :stateful-check.specification/command
   (s/or :map :stateful-check/command :ifn ifn? :var #(instance? clojure.lang.Var %)))
@@ -54,42 +54,42 @@
   (s/keys :req-un [:stateful-check.specification/commands]
           :opt-un [:stateful-check.specification/setup]))
 
-;; Report
+;; Stateful Check Run
 
-(s/def :stateful-check.report/depth int?)
-(s/def :stateful-check.report/fail (s/coll-of any? :kind vector?))
-(s/def :stateful-check.report/failed-after-ms nat-int?)
-(s/def :stateful-check.report/failing-size int?)
-(s/def :stateful-check.report/num-tests nat-int?)
-(s/def :stateful-check.report/pass? boolean?)
-(s/def :stateful-check.report/result boolean?)
-(s/def :stateful-check.report/result-data any?)
-(s/def :stateful-check.report/seed int?)
-(s/def :stateful-check.report/smallest (s/coll-of any? :kind vector?))
-(s/def :stateful-check.report/time-elapsed-ms nat-int?)
-(s/def :stateful-check.report/time-shrinking-ms nat-int?)
-(s/def :stateful-check.report/total-nodes-visited nat-int?)
+(s/def :stateful-check.run/depth int?)
+(s/def :stateful-check.run/fail (s/coll-of any? :kind vector?))
+(s/def :stateful-check.run/failed-after-ms nat-int?)
+(s/def :stateful-check.run/failing-size int?)
+(s/def :stateful-check.run/num-tests nat-int?)
+(s/def :stateful-check.run/pass? boolean?)
+(s/def :stateful-check.run/result boolean?)
+(s/def :stateful-check.run/result-data any?)
+(s/def :stateful-check.run/seed int?)
+(s/def :stateful-check.run/smallest (s/coll-of any? :kind vector?))
+(s/def :stateful-check.run/time-elapsed-ms nat-int?)
+(s/def :stateful-check.run/time-shrinking-ms nat-int?)
+(s/def :stateful-check.run/total-nodes-visited nat-int?)
 
-(s/def :stateful-check.report/shrunk
-  (s/keys :req-un [:stateful-check.report/depth
-                   :stateful-check.report/pass?
-                   :stateful-check.report/result
-                   :stateful-check.report/result-data
-                   :stateful-check.report/smallest
-                   :stateful-check.report/time-shrinking-ms
-                   :stateful-check.report/total-nodes-visited]))
+(s/def :stateful-check.run/shrunk
+  (s/keys :req-un [:stateful-check.run/depth
+                   :stateful-check.run/pass?
+                   :stateful-check.run/result
+                   :stateful-check.run/result-data
+                   :stateful-check.run/smallest
+                   :stateful-check.run/time-shrinking-ms
+                   :stateful-check.run/total-nodes-visited]))
 
-(s/def :stateful-check/report
-  (s/keys :req-un [:stateful-check.report/num-tests
-                   :stateful-check.report/pass?
-                   :stateful-check.report/seed]
-          :opt-un [:stateful-check.report/shrunk
-                   :stateful-check.report/fail
-                   :stateful-check.report/failed-after-ms
-                   :stateful-check.report/failing-size
-                   :stateful-check.report/result
-                   :stateful-check.report/result-data
-                   :stateful-check.report/time-elapsed-ms]))
+(s/def :stateful-check/run
+  (s/keys :req-un [:stateful-check.run/num-tests
+                   :stateful-check.run/pass?
+                   :stateful-check.run/seed]
+          :opt-un [:stateful-check.run/shrunk
+                   :stateful-check.run/fail
+                   :stateful-check.run/failed-after-ms
+                   :stateful-check.run/failing-size
+                   :stateful-check.run/result
+                   :stateful-check.run/result-data
+                   :stateful-check.run/time-elapsed-ms]))
 
 ;; Debugger Specification
 
@@ -99,12 +99,11 @@
 (s/def :stateful-check.debugger.specification/var simple-symbol?)
 
 (s/def :stateful-check.debugger/specification
-  (s/keys :req-un [:stateful-check.debugger.specification/id
-                   :stateful-check.debugger.specification/type
-                   :stateful-check.specification/commands]
-          :opt-un [:stateful-check.debugger.specification/ns
-                   :stateful-check.debugger.specification/var
-                   :stateful-check.specification/setup]))
+  (s/merge :stateful-check/specification
+           (s/keys :req-un [:stateful-check.debugger.specification/id
+                            :stateful-check.debugger.specification/type]
+                   :opt-un [:stateful-check.debugger.specification/ns
+                            :stateful-check.debugger.specification/var])))
 
 ;; Debugger Argument
 
@@ -174,7 +173,7 @@
 (s/def :stateful-check.debugger.run/var simple-symbol?)
 
 (s/def :stateful-check.debugger/run
-  (s/merge :stateful-check/report
+  (s/merge :stateful-check/run
            (s/keys :req-un [;; :stateful-check.debugger.run/executions
                             :stateful-check.debugger.run/id
                             ;; :stateful-check.debugger.run/options
