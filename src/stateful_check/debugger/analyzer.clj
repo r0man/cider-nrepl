@@ -123,7 +123,7 @@
                                         :handle handle
                                         :index index
                                         :result {:real (analyze-result options result result-str)
-                                                 :symbolic handle}
+                                                 :symbolic {:value handle :value-str (pr-str handle)}}
                                         :state next-state}
                                  (seq failures)
                                  (assoc :failures (analyze-failures failures))

@@ -95,9 +95,7 @@
   [debugger query]
   (when (contains? query :result)
     (when-let [{:keys [result]} (get-env debugger query)]
-      (if (:mutated result)
-        (:printed-value result)
-        (:value result)))))
+      result)))
 
 (defn get-object
   "Find the object for `query` in `debugger`."
@@ -170,7 +168,7 @@
     (reduce remove-run debugger test-analyses)))
 
 (defn analyze-run
-  "Analyze the Stateful Check results."
+  "Analyze the Stateful Check `run`."
   [debugger run]
   (let [results (analyzer/analyze-run run)]
     (-> (add-run debugger results)

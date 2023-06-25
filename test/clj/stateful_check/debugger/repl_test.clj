@@ -171,9 +171,10 @@
 (deftest test-scan
   (repl/clear)
   (is (nil? (repl/specifications)))
-  (let [debugger (repl/scan)]
-    (is (s/valid? :stateful-check/debugger debugger))
-    (is (seq (repl/specifications)))))
+  (let [specifications (repl/scan)]
+    (is (seq specifications))
+    (is (every? #(s/valid? :stateful-check.debugger/specification %) specifications))
+    (is (= specifications (repl/specifications)))))
 
 (deftest test-specification
   (repl/reset)

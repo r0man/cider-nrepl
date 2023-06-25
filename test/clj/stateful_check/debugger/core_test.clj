@@ -111,7 +111,7 @@
                 :value-str "{:id \"id--3\", :value -3}"
                 :mutated? false}
                (-> env :result :real)))
-        (is (= (sv/->RootVar "1")
+        (is (= {:value (sv/->RootVar "1") :value-str "#<1>"}
                (-> env :result :symbolic)))
         (is (= {:real {"id--3" {:id "id--3" :value -3}}
                 :symbolic {(get (sv/->RootVar "1") :id)

@@ -54,7 +54,7 @@
     {:stateful-check/analyze-test
      (-> (swap-debugger! msg debugger/analyze-test-run event)
          (debugger/last-run)
-         (render/render-analysis)
+         (render/render-run)
          (transform-value))}
     {:status :stateful-check/test-not-found}))
 
@@ -112,7 +112,7 @@
     {:stateful-check/run
      (-> (swap-debugger! msg debugger/run-specification (:id specification) (parse-options options))
          (debugger/last-run)
-         (render/render-analysis)
+         (render/render-run)
          (transform-value))}
     {:status :stateful-check/specification-not-found}))
 
@@ -129,7 +129,7 @@
   [{:keys [analysis] :as msg}]
   (let [id (UUID/fromString analysis)]
     (if-let [analysis (debugger/get-run (debugger msg) id)]
-      {:stateful-check/analysis (render/render-analysis analysis)}
+      {:stateful-check/analysis (render/render-run analysis)}
       {:status :stateful-check/analysis-not-found})))
 
 (defn- stateful-check-evaluate-step-reply
@@ -138,7 +138,7 @@
   {:stateful-check/evaluate-step
    (-> (swap-debugger! msg debugger/evaluate-step run case)
        (debugger/get-run run)
-       (render/render-analysis)
+       (render/render-run)
        (transform-value))})
 
 (defn- stateful-check-print-reply

@@ -106,9 +106,10 @@
     (is (= #{"done"} status))
     (is (= run (:id evaluate-step)))
 
-    (session/message {:op "stateful-check/evaluate-step"
-                      :run run
-                      :case "smallest"})
+    ;; (clojure.pprint/pprint
+    ;;  (session/message {:op "stateful-check/evaluate-step"
+    ;;                    :run run
+    ;;                    :case "smallest"}))
 
     (session/message {:op "stateful-check/evaluate-step"
                       :run run

@@ -19,19 +19,23 @@
 (defn- render-result
   "Render the command execution `result`."
   [result]
-  (cond-> result
-    (:error result)
-    (update :error str)
-    (and (contains? result :value)
-         (not (:mutated result)))
-    (update :value render-value)))
+  (into {} (for [[key result] result]
+             [key (cond-> result
+                    (:error result)
+                    (update :error str)
+                    (contains? result :value)
+                    (update :value render-value))])))
 
 (defn- render-argument
   "Render the command execution `argument`."
   [argument]
-  (-> (select-keys argument [:index :value])
-      (update-in [:value :real] render-value)
-      (update-in [:value :symbolic] pr-str)))
+  (cond-> (select-keys argument [:index :name :real :symbolic :evaluation])
+    (contains? argument :evaluation)
+    (update :evaluation render-value)
+    (contains? argument :real)
+    (update :real render-value)
+    (contains? argument :symbolic)
+    (update :symbolic pr-str)))
 
 (defn- print-object
   "Print `object` using println for matcher-combinators results and pprint
@@ -60,45 +64,46 @@
     (seq (:events failure))
     (update :events #(mapv render-event %))))
 
-(defn- render-bindings [bindings]
+(defn- render-binding [bindings]
   (into {} (for [[handle value] bindings]
-             [(pr-str handle) (render-value value)])))
+             [(pr-str handle)
+              (render-value value)])))
+
+(defn- render-bindings [bindings]
+  (cond-> bindings
+    (contains? bindings :evaluation)
+    (update :evaluation render-binding)
+    (contains? bindings :real)
+    (update :real render-binding)
+    (contains? bindings :symbolic)
+    (update :symbolic render-binding)))
 
 (defn- make-execution-frame
   "Make a execution frame for `handle`."
-  [{:keys [environments evaluations]} handle]
-  (let [evaluation (get evaluations handle)
-        environment (get environments handle)
-        frame (select-keys environment [:arguments :bindings :command :failures :handle :index :result :state :thread])]
-    (if evaluation
-      (-> frame
-          (assoc-in [:result :evaluation] (:result evaluation))
-          (assoc-in [:bindings :after :evaluation] (:after (:bindings evaluation)))
-          (assoc-in [:bindings :before :evaluation] (:before (:bindings evaluation)))
-          (assoc-in [:state :after :evaluation] (:after (:state evaluation)))
-          (assoc-in [:state :before :evaluation] (:before (:state evaluation))))
-      frame)))
+  [{:keys [environments]} handle]
+  (get environments handle))
 
 (defn- render-execution-frame
   "Render the execution `frame`."
   [frame]
   (-> frame
       (update :arguments #(mapv render-argument %))
+      (update :bindings render-bindings)
       (update :command select-keys [:name])
       (update :failures #(mapv render-failure %))
       (update :handle pr-str)
       (update :result render-result)
-      (update-in [:bindings :after :evaluation] render-bindings)
-      (update-in [:bindings :after] render-bindings)
-      (update-in [:bindings :before :evaluation] render-bindings)
-      (update-in [:bindings :before] render-bindings)
-      (update-in [:result :evaluation] render-result)
-      (update-in [:state :after :evaluation] render-value)
-      (update-in [:state :after :real] render-value)
-      (update-in [:state :after :symbolic] render-value)
-      (update-in [:state :before :evaluation] render-value)
-      (update-in [:state :before :real] render-value)
-      (update-in [:state :before :symbolic] render-value)))
+      ;; (update-in [:bindings :after] render-bindings)
+      ;; (update-in [:bindings :before :evaluation] render-bindings)
+      ;; (update-in [:bindings :before] render-bindings)
+      ;; (update-in [:result :evaluation] render-result)
+      ;; (update-in [:state :after :evaluation] render-value)
+      ;; (update-in [:state :after :real] render-value)
+      ;; (update-in [:state :after :symbolic] render-value)
+      ;; (update-in [:state :before :evaluation] render-value)
+      ;; (update-in [:state :before :real] render-value)
+      ;; (update-in [:state :before :symbolic] render-value)
+      ))
 
 (defn- render-execution-frames
   "Render the execution frames for `executions`."
@@ -136,18 +141,8 @@
   (-> (select-keys results [:failed-after-ms :failing-size :num-tests :seed :shrunk :result-data :pass? :time-elapsed-ms])
       (update :shrunk select-keys [:depth :result-data :time-shrinking-ms :total-nodes-visited])))
 
-(defn render-analysis [analysis]
+(defn render-run [analysis]
   (-> (render-quickcheck-results analysis)
       (merge (select-keys analysis [:id :frequencies :specification :options]))
       (update-in [:result-data] render-result-data)
       (update-in [:shrunk :result-data] render-result-data)))
-
-(defn- render-analyses
-  [analyses]
-  (into {} (for [[id analysis] analyses]
-             [id (render-analysis analysis)])))
-
-(defn render-debugger
-  "Render the `debugger` in a Bencode compatible format."
-  [debugger]
-  (update debugger :analyses render-analyses))

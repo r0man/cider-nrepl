@@ -68,15 +68,17 @@
   (swap-debugger! debugger/run-specification specification options)
   (debugger/last-run *debugger*))
 
-(defn analyze-results
-  [results]
-  (swap-debugger! debugger/analyze-run results)
-  (debugger/last-run *debugger*))
+(defn analyze-run
+  "Analyze the Stateful Check `run`."
+  [run]
+  (-> (swap-debugger! debugger/analyze-run run)
+      (debugger/last-run)))
 
 (defn scan
   "Scan for Stateful Check specifications."
   []
-  (swap-debugger! debugger/scan))
+  (-> (swap-debugger! debugger/scan)
+      (debugger/specifications)))
 
 (defn specification
   "Get the Stateful Check specification of `*debugger*` by `id`."
@@ -91,4 +93,4 @@
 (defn reset
   "Reset the `*debugger*`."
   []
-  (clear) (scan))
+  (and (clear) (scan) *debugger*))
