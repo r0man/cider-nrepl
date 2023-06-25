@@ -5,20 +5,20 @@
 
 ;; Stateful Check Symbolic Values
 
-(s/def :stateful-check.symbolic-values/lookup
+(s/def :stateful-check.symbolic-value/lookup
   #(instance? LookupVar %))
 
-(s/def :stateful-check.symbolic-values/root
+(s/def :stateful-check.symbolic-value/root
   #(instance? RootVar %))
 
 (s/def :stateful-check/symbolic-value
-  (s/or :lookup :stateful-check.symbolic-values/lookup
-        :root :stateful-check.symbolic-values/root))
+  (s/or :lookup :stateful-check.symbolic-value/lookup
+        :root :stateful-check.symbolic-value/root))
 
 ;; Stateful Check Bindings
 
 (s/def :stateful-check/bindings
-  (s/map-of :stateful-check.symbolic-values/root any?))
+  (s/map-of :stateful-check.symbolic-value/root any?))
 
 ;; Stateful Check Command
 
@@ -36,23 +36,58 @@
 (s/def :stateful-check/command
   (s/keys :req-un [:stateful-check.command/args
                    :stateful-check.command/command
-                   :stateful-check.command/name
-                   :stateful-check.command/next-state]))
+                   :stateful-check.command/name]
+          :opt-un [:stateful-check.command/next-state]))
 
 ;; Stateful Check Specification
 
 (s/def :stateful-check.specification/command
-  (s/or :map :stateful-check/command :ifn ifn? :var #(instance? clojure.lang.Var %)))
+  (s/or :map :stateful-check/command :var #(instance? clojure.lang.Var %)))
 
 (s/def :stateful-check.specification/commands
   (s/map-of keyword? :stateful-check.specification/command))
+
+(s/def :stateful-check.specification/cleanup
+  (s/or :ifn ifn? :var #(instance? clojure.lang.Var %)))
+
+(s/def :stateful-check.specification/generate-command
+  (s/or :ifn ifn? :var #(instance? clojure.lang.Var %)))
+
+(s/def :stateful-check.specification/initial-state
+  (s/or :ifn ifn? :var #(instance? clojure.lang.Var %)))
 
 (s/def :stateful-check.specification/setup
   (s/or :ifn ifn? :var #(instance? clojure.lang.Var %)))
 
 (s/def :stateful-check/specification
   (s/keys :req-un [:stateful-check.specification/commands]
-          :opt-un [:stateful-check.specification/setup]))
+          :opt-un [:stateful-check.specification/cleanup
+                   :stateful-check.specification/generate-command
+                   :stateful-check.specification/initial-state
+                   :stateful-check.specification/setup]))
+
+(s/def :stateful-check/options (s/nilable map?))
+
+;; Stateful Check Evaluation
+
+(s/def :stateful-check.evaluation/result any?)
+(s/def :stateful-check.evaluation/result-str string?)
+
+(s/def :stateful-check.evaluation/command
+  (s/cat :handle :stateful-check.symbolic-value/root
+         :command :stateful-check/command
+         :args (s/* any?)))
+
+(s/def :stateful-check/evaluation
+  (s/tuple :stateful-check.evaluation/command
+           :stateful-check.evaluation/result-str
+           :stateful-check.evaluation/result))
+
+(s/def :stateful-check.evaluation/sequential
+  (s/coll-of :stateful-check/evaluation :kind vector?))
+
+(s/def :stateful-check.evaluation/parallel
+  (s/coll-of :stateful-check.evaluation/sequential :kind vector?))
 
 ;; Stateful Check Run
 
@@ -63,12 +98,17 @@
 (s/def :stateful-check.run/num-tests nat-int?)
 (s/def :stateful-check.run/pass? boolean?)
 (s/def :stateful-check.run/result boolean?)
-(s/def :stateful-check.run/result-data any?)
 (s/def :stateful-check.run/seed int?)
 (s/def :stateful-check.run/smallest (s/coll-of any? :kind vector?))
 (s/def :stateful-check.run/time-elapsed-ms nat-int?)
 (s/def :stateful-check.run/time-shrinking-ms nat-int?)
 (s/def :stateful-check.run/total-nodes-visited nat-int?)
+
+(s/def :stateful-check.run/result-data
+  (s/keys :req-un [:stateful-check/specification
+                   :stateful-check/options
+                   :stateful-check.evaluation/sequential
+                   :stateful-check.evaluation/parallel]))
 
 (s/def :stateful-check.run/shrunk
   (s/keys :req-un [:stateful-check.run/depth
@@ -136,54 +176,40 @@
 
 ;; Debugger Environment
 
+(s/def :stateful-check.debugger.environment/arguments :stateful-check.debugger/arguments)
 (s/def :stateful-check.debugger.environment/bindings :stateful-check.debugger/bindings)
 (s/def :stateful-check.debugger.environment/command :stateful-check/command)
-(s/def :stateful-check.debugger.environment/handle :stateful-check.symbolic-values/root)
+(s/def :stateful-check.debugger.environment/handle :stateful-check.symbolic-value/root)
 (s/def :stateful-check.debugger.environment/index nat-int?)
 
 (s/def :stateful-check.debugger/environment
   (s/keys :req-un [:stateful-check.debugger.environment/bindings
+                   :stateful-check.debugger.environment/handle]
+          :opt-un [:stateful-check.debugger.environment/arguments
                    :stateful-check.debugger.environment/command
-                   :stateful-check.debugger.environment/handle
                    :stateful-check.debugger.environment/index]))
 
 (s/def :stateful-check.debugger/environments
-  (s/map-of :stateful-check.symbolic-values/root :stateful-check.debugger/environment))
+  (s/map-of :stateful-check.symbolic-value/root :stateful-check.debugger/environment))
 
 ;; Debugger Result Data
 
-(s/def :stateful-check.debugger.result-data/sequential (s/coll-of any? :kind vector?))
-(s/def :stateful-check.debugger.result-data/parallel (s/coll-of :stateful-check.debugger/sequential :kind vector?))
-
 (s/def :stateful-check.debugger/result-data
-  (s/keys :req-un []
-          :opt-un [:stateful-check.debugger/environments
-                   :stateful-check.debugger.result-data/sequential
-                   :stateful-check.debugger.result-data/parallel]))
+  (s/merge :stateful-check.run/result-data
+           (s/keys :opt-un [:stateful-check.debugger/environments])))
 
-;; Analysis
+;; Debugger Run
 
-(s/def :stateful-check.debugger.run/executions (s/map-of keyword? map?))
 (s/def :stateful-check.debugger.run/id string?)
 (s/def :stateful-check.debugger.run/ns simple-symbol?)
-(s/def :stateful-check.debugger.run/options map?)
-(s/def :stateful-check.debugger.run/results map?)
-(s/def :stateful-check.debugger.run/specification :stateful-check.debugger/specification)
-(s/def :stateful-check.debugger.run/test-report map?)
 (s/def :stateful-check.debugger.run/var simple-symbol?)
 
 (s/def :stateful-check.debugger/run
   (s/merge :stateful-check/run
-           (s/keys :req-un [;; :stateful-check.debugger.run/executions
-                            :stateful-check.debugger.run/id
-                            ;; :stateful-check.debugger.run/options
-                            ;; :stateful-check.debugger.run/results
-                            ;; :stateful-check.debugger.run/specification
-                            ]
+           (s/keys :req-un [:stateful-check.debugger.run/id]
                    :opt-un [:stateful-check.debugger.run/ns
                             :stateful-check.debugger.run/var
-                            ;; :stateful-check.debugger.run/test-report
-                            ])))
+                            :stateful-check.debugger/result-data])))
 
 ;; Debugger
 
@@ -200,8 +226,3 @@
   (s/keys :req-un [:stateful-check.debugger/last-runs
                    :stateful-check.debugger/specifications
                    :stateful-check.debugger/runs]))
-
-;; Frame
-
-(s/def :stateful-check.debugger/frame
-  (s/keys :req-un [:stateful-check/bindings]))

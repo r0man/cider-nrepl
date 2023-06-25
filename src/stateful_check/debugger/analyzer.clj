@@ -146,17 +146,17 @@
         setup-result (when-let [setup setup-fn]
                        (setup))
         bindings (if setup-fn
-                   {g/setup-var setup-result}
-                   {})
+                   {:real {g/setup-var setup-result}
+                    :symbolic {g/setup-var g/setup-var}}
+                   {:real {} :symbolic {}})
         init-state-fn (or (:initial-state specification)
                           (constantly nil))
         init-state (if (:setup specification)
-                     (init-state-fn (get bindings g/setup-var))
-                     (init-state-fn))
-        sequential-env (analyze-sequential-environment
-                        result-data sequential
-                        {:real init-state :symbolic init-state}
-                        {:real bindings :symbolic {g/setup-var g/setup-var}})
+                     {:real (init-state-fn (get bindings g/setup-var))
+                      :symbolic (init-state-fn g/setup-var)}
+                     {:real (init-state-fn)
+                      :symbolic (init-state-fn)})
+        sequential-env (analyze-sequential-environment result-data sequential init-state bindings)
         last-env (get sequential-env (ffirst (last sequential)))
         environments (into sequential-env
                            (mapcat (fn [[thread sequential]]
