@@ -26,7 +26,7 @@
   (testing "with failing a test run"
     (run-failing-test)
     (let [result (session/message {:op "stateful-check/analyze-test"
-                                   :test test/records-test-id})]
+                                   :test test/records-failure-test-id})]
       (is (= #{"done"} (:status result)))
       (is (= "false" (:pass? (:stateful-check/analyze-test result)))))))
 
@@ -47,13 +47,13 @@
 (deftest test-stateful-check-run
   (testing "without specifications"
     (let [result (session/message {:op "stateful-check/run"
-                                   :specification test/records-spec-id})]
+                                   :specification test/records-failure-spec-id})]
       (is (= #{"done" "stateful-check/specification-not-found"} (:status result)))
       (is (nil? (:stateful-check/run result)))))
   (testing "with specifications"
     (session/message {:op "stateful-check/scan"})
     (let [result (session/message {:op "stateful-check/run"
-                                   :specification test/records-spec-id})]
+                                   :specification test/records-failure-spec-id})]
       (is (= #{"done"} (:status result)))
       (let [results (:stateful-check/run result)]
         (is (= "false" (:pass? results)))))))
@@ -63,14 +63,15 @@
     (let [result (session/message {:op "stateful-check/scan"})]
       (is (= #{"done"} (:status result)))
       (let [specifications (:stateful-check/scan result)]
-        (is (set/subset? #{test/records-spec-id}
+        (is (set/subset? #{test/records-failure-spec-id}
                          (set (map :id specifications)))))))
   (testing "with tests run"
     (run-failing-test)
     (let [result (session/message {:op "stateful-check/scan"})]
       (is (= #{"done"} (:status result)))
       (let [specifications (:stateful-check/scan result)]
-        (is (set/subset? #{test/records-spec-id test/records-test-id}
+        (is (set/subset? #{test/records-failure-spec-id
+                           test/records-failure-test-id}
                          (set (map :id specifications))))))))
 
 (deftest test-stateful-check-specifications
@@ -82,20 +83,21 @@
     (session/message {:op "stateful-check/scan"})
     (let [result (session/message {:op "stateful-check/specifications"})]
       (let [specifications (:stateful-check/specifications result)]
-        (is (set/subset? #{test/records-spec-id}
+        (is (set/subset? #{test/records-failure-spec-id}
                          (set (map :id specifications)))))))
   (testing "with specifications loaded and tests run"
     (run-failing-test)
     (session/message {:op "stateful-check/scan"})
     (let [result (session/message {:op "stateful-check/specifications"})]
       (let [specifications (:stateful-check/specifications result)]
-        (is (set/subset? #{test/records-spec-id test/records-test-id}
+        (is (set/subset? #{test/records-failure-spec-id
+                           test/records-failure-test-id}
                          (set (map :id specifications))))))))
 
 (deftest test-stateful-evaluate-step
   (session/message {:op "stateful-check/scan"})
   (let [run (-> {:op "stateful-check/run"
-                 :specification test/records-spec-id}
+                 :specification test/records-failure-spec-id}
                 session/message :stateful-check/run :id)
         {:keys [stateful-check/evaluate-step status]}
         (session/message {:op "stateful-check/evaluate-step"

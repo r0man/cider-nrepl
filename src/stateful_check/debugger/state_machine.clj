@@ -1,10 +1,10 @@
 (ns stateful-check.debugger.state-machine)
 
-(def ^:private init-state "init")
-(def ^:private final-state "final")
+(def ^:private init-state #{"init"})
+(def ^:private final-state #{"final"})
 
 (defn- sequential-state [executions index]
-  (some-> (ffirst (nth executions index nil)) .-name))
+  (some->> (ffirst (nth executions index nil)) .-name vector set))
 
 (defn- parallel-state [executions index]
   (set (map #(.-name %) (keep #(ffirst (nth % index nil)) executions))))
@@ -72,10 +72,10 @@
         (assoc-in state-machine [(last-sequential-state sequential) :pass] final-state)))
 
 (defn make-state-machine
-  [{:keys [result-data]}]
+  [result-data]
   {:state init-state
    :definition
-   (-> {final-state {:reset "init"}}
+   (-> {final-state {:reset init-state}}
        (add-start result-data)
        (add-sequential-executions result-data)
        (add-parallel-executions result-data)

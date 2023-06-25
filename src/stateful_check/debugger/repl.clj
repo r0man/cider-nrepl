@@ -21,6 +21,14 @@
   [query]
   (debugger/get-results *debugger* query))
 
+(defn evaluate-step
+  "Lookup an analysis in `*debugger*` according to `query`."
+  [& {:keys [run case]}]
+  (swap-debugger! debugger/evaluate-step
+                  (or run (:id (debugger/last-results *debugger*)))
+                  case)
+  (debugger/last-results *debugger*))
+
 (defn get-command
   "Find the command execution for `query` in `*debugger*`."
   [query]

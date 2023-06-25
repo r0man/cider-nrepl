@@ -3,19 +3,21 @@
             [clojure.spec.alpha :as s]
             [clojure.spec.test.alpha :as stest]
             [clojure.string :as str]
-            [clojure.test :refer [deftest is]]
+            [clojure.test :refer [deftest is testing]]
             [stateful-check.core :as stateful-check]
             [stateful-check.debugger.core :as debugger]
-            [stateful-check.debugger.test :as test])
+            [stateful-check.debugger.test :as test]
+            [stateful-check.symbolic-values :as sv]
+            [orchard.query :as q])
   (:import [java.util UUID]))
 
 (stest/instrument)
 
 (def example-id
-  "stateful-check.debugger.test/records-spec")
+  "stateful-check.debugger.test/records-failure-spec")
 
 (def example-specification
-  test/records-spec)
+  test/records-failure-spec)
 
 (defn- run-specification [specification & [options]]
   (assoc (stateful-check/run-specification specification)
@@ -25,15 +27,29 @@
   {:summary {:ns 1 :var 1 :test 1 :pass 0 :fail 1 :error 0}
    :results
    {'stateful-check.debugger.test
-    {'test-records
+    {'test-records-error
      [{:index 0
        :ns 'stateful-check.debugger.test
        :file "core.clj"
        :type :fail
-       :line 275
-       :var 'test-records
+       :line 75
+       :var 'test-records-error
        :expected "all executions to match specification\n"
-       :stateful-check (run-specification example-specification)
+       :stateful-check (run-specification test/records-error-spec
+                                          test/records-spec-options)
+       :context nil
+       :actual "the above execution did not match the specification\n"
+       :message "Sequential prefix: ..."}]
+     'test-records-failure
+     [{:index 0
+       :ns 'stateful-check.debugger.test
+       :file "core.clj"
+       :type :fail
+       :line 75
+       :var 'test-records-failure
+       :expected "all executions to match specification\n"
+       :stateful-check (run-specification test/records-failure-spec
+                                          test/records-spec-options)
        :context nil
        :actual "the above execution did not match the specification\n"
        :message "Sequential prefix: ..."}]}}})
@@ -47,7 +63,7 @@
 (deftest test-find-test-event
   (is (nil? (debugger/find-test-event debugger 'a/b)))
   (is (nil? (debugger/find-test-event debugger "a/b")))
-  (let [id 'stateful-check.debugger.test/test-records]
+  (let [id 'stateful-check.debugger.test/test-records-failure]
     (is (debugger/find-test-event debugger id))
     (is (debugger/find-test-event debugger (str id)))))
 
@@ -77,22 +93,52 @@
 
 (deftest test-run-specfication
   (let [debugger (debugger/scan debugger)
-        debugger (debugger/run-specification debugger example-id)]
+        debugger (debugger/run-specification debugger example-id test/records-spec-options)
+        environments (-> debugger debugger/last-results :result-data :environments)]
+    (testing "environment #1"
+      (let [env (get environments (sv/->RootVar "1"))]
+        (is (= [{:index 0 :real -3 :symbolic -3 :name "0"}]
+               (:arguments env)))
+        (is (= {(sv/->RootVar "setup") {}
+                (sv/->RootVar "1") {:id "id--3" :value -3}}
+               (-> env :bindings :real)))
+        (is (= {(sv/->RootVar "setup") (sv/->RootVar "setup")
+                (sv/->RootVar "1") (sv/->RootVar "1")}
+               (-> env :bindings :symbolic)))
+        (is (= (sv/->RootVar "1") (:handle env)))
+        (is (= 0 (:index env)))
+        (is (= {:value {:id "id--3" :value -3}
+                :value-str "{:id \"id--3\", :value -3}"
+                :mutated? false}
+               (-> env :result :real)))
+        (is (= (sv/->RootVar "1")
+               (-> env :result :symbolic)))
+        (is (= {:real {"id--3" {:id "id--3" :value -3}}
+                :symbolic {(get (sv/->RootVar "1") :id)
+                           {:id (get (sv/->RootVar "1") :id) :value -3}}}
+               (:state env)))))
     (is (s/valid? :stateful-check/debugger debugger))))
 
 (deftest test-scan
-  (let [debugger (debugger/scan debugger)]
+  (let [specs (debugger/specifications (debugger/scan debugger))]
     (is (set/subset?
-         #{{:id "stateful-check.debugger.test/records-spec"
+         #{{:id "stateful-check.debugger.test/records-error-spec"
             :ns 'stateful-check.debugger.test
             :type :var
-            :var 'records-spec}
+            :var 'records-error-spec}
+           {:id "stateful-check.debugger.test/records-failure-spec"
+            :ns 'stateful-check.debugger.test
+            :type :var
+            :var 'records-failure-spec}
            {:ns 'stateful-check.debugger.test
-            :var 'test-records
-            :id "stateful-check.debugger.test/test-records"
+            :var 'test-records-error
+            :id "stateful-check.debugger.test/test-records-error"
+            :type :test}
+           {:ns 'stateful-check.debugger.test
+            :var 'test-records-failure
+            :id "stateful-check.debugger.test/test-records-failure"
             :type :test}}
-         (set (map #(select-keys % [:id :ns :var :type])
-                   (debugger/specifications debugger)))))))
+         (set (map #(select-keys % [:id :ns :var :type]) specs))))))
 
 (deftest test-specification
   (is (nil? (debugger/specification debugger example-id)))
@@ -101,9 +147,9 @@
     (is (s/valid? :stateful-check.debugger/specification specification))
     (is (= (:commands example-specification) (:commands specification)))
     (is (= 'stateful-check.debugger.test (:ns specification)))
-    (is (= 'records-spec (:var specification)))
+    (is (= 'records-failure-spec (:var specification)))
     (is (= :var (:type specification)))
-    (is (= "stateful-check.debugger.test/records-spec"
+    (is (= "stateful-check.debugger.test/records-failure-spec"
            (:id specification)))))
 
 (deftest test-specifications

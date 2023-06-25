@@ -7,13 +7,13 @@
   (:import [java.util UUID]))
 
 (def specification
-  test/records-spec)
+  test/records-failure-spec)
 
 (def options
   test/records-spec-options)
 
 (def example-id
-  "stateful-check.debugger.test/records-spec")
+  "stateful-check.debugger.test/records-failure-spec")
 
 (deftest test-reset!
   (is (= (debugger/debugger) (repl/reset!))))
@@ -37,29 +37,50 @@
   (repl/reset!)
   (repl/scan)
   (let [results (repl/run-specification example-id options)]
-    (is (string? (:id results)))))
+    (is (string? (:id results))))
+  (clojure.pprint/pprint
+   (-> (repl/last-results)
+       :result-data
+       ;; (select-keys [:environments])
+       :environments)))
 
-;; (deftest test-get-command
-;;   (repl/reset!)
-;;   (repl/scan)
-;;   (let [results (repl/run-specification example-id options)
-;;         first-command (repl/get-command {:results (:id results)
-;;                                          :case :first
-;;                                          :handle "1a"})
-;;         smallest-command (repl/get-command {:results (:id results)
-;;                                             :case :smallest
-;;                                             :handle "1b"})]
-;;     (is (= (sv/->RootVar "1") (:handle first-command)))
-;;     (is (= (sv/->RootVar "1") (:handle smallest-command)))
-;;     (is (not= first-command smallest-command))))
+(deftest test-evaluate-step
+  (repl/reset!)
+  (repl/scan)
+  (repl/run-specification example-id options)
+  (clojure.pprint/pprint
+   (-> (repl/evaluate-step :case :first)
+       :result-data
+       (select-keys [:evaluations
+                     :state-machine])))
 
-;; (deftest test-get-command
-;;   (repl/reset!)
-;;   (repl/scan)
-;;   (let [results (repl/run-specification example-id options)]
-;;     (is (= (sv/->RootVar "1") (:handle first-command)))
-;;     (is (= (sv/->RootVar "1") (:handle smallest-command)))
-;;     (is (not= first-command smallest-command))))
+  (clojure.pprint/pprint
+   (-> (repl/evaluate-step :case :first)
+       :result-data
+       (select-keys [:evaluations
+                     :state-machine])))
+
+  ;; (clojure.pprint/pprint
+  ;;  (-> (repl/evaluate-step :case :first)
+  ;;      :result-data
+  ;;      (select-keys [:evaluations
+  ;;                    :state-machine])))
+  ;; (clojure.pprint/pprint
+  ;;  (-> (repl/evaluate-step :case :first)
+  ;;      :result-data
+  ;;      (select-keys [:evaluations
+  ;;                    :state-machine])))
+  ;; (clojure.pprint/pprint
+  ;;  (-> (repl/evaluate-step :case :first)
+  ;;      :result-data
+  ;;      (select-keys [:evaluations
+  ;;                    :state-machine])))
+  ;; (clojure.pprint/pprint
+  ;;  (-> (repl/evaluate-step :case :first)
+  ;;      :result-data
+  ;;      (select-keys [:evaluations
+  ;;                    :state-machine])))
+  )
 
 (deftest test-scan
   (repl/reset!)

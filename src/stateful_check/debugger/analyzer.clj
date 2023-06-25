@@ -1,9 +1,8 @@
 (ns stateful-check.debugger.analyzer
   (:require [stateful-check.command-utils :as u]
+            [stateful-check.debugger.state-machine :as state-machine]
             [stateful-check.generator :as g]
-            [stateful-check.symbolic-values :as sv]
-            [haystack.analyzer :as analyzer]
-            [stateful-check.debugger.state-machine :as state-machine])
+            [stateful-check.symbolic-values :as sv])
   (:import [java.util Base64 UUID]
            [stateful_check.runner CaughtException]))
 
@@ -77,13 +76,31 @@
       (and (not assume-immutable-results?) (seq matches))
       (assoc :string-value (nth matches 1) :value (nth matches 3)))))
 
+(defn- analyze-result
+  "Analyze the execution `result` and `result-str`."
+  [options result result-str]
+  (let [assume-immutable-results? (-> options :run :assume-immutable-results true?)
+        matches (when (string? result-str)
+                  (re-matches mutated-rexeg result-str))]
+    (cond-> {}
+      (instance? CaughtException result)
+      (assoc :error (:exception result))
+      (not (instance? CaughtException result))
+      (assoc :value result :value-str result-str)
+      (not assume-immutable-results?)
+      (assoc :mutated? (some? (seq matches)))
+      ;; TODO: Would be nice to get mutation info as data, like :message, :mutated-into object
+      (and (not assume-immutable-results?) (seq matches))
+      (assoc :value-str (nth matches 1) :value (nth matches 3)))))
+
 (defn- analyze-sequential-environment
   "Return a map from a command handle to execution frame."
   [{:keys [failures options]} cmds-and-traces state bindings & [thread]]
   (first (reduce (fn [[env state bindings]
                       [index [[handle cmd-obj & symbolic-args] result-str result]]]
-                   (let [real-args (sv/get-real-value symbolic-args bindings)
-                         next-bindings (assoc bindings handle result)
+                   (let [real-args (sv/get-real-value symbolic-args (:real bindings))
+                         next-bindings {:real (assoc (:real bindings) handle result)
+                                        :symbolic (assoc (:symbolic bindings) handle handle)}
                          next-state {:real (u/make-next-state cmd-obj (:real state) real-args result)
                                      :symbolic (u/make-next-state cmd-obj (:symbolic state) symbolic-args handle)}
                          ;; TODO: Can we do this here? The failures captured by
@@ -98,18 +115,25 @@
                                                            (analyze-argument
                                                             command num-args
                                                             {:index index
-                                                             :value {:real real :symbolic symbolic}}))
+                                                             :real real
+                                                             :symbolic symbolic}))
                                                          (range (count symbolic-args)) real-args symbolic-args)
-                                        :bindings {:after next-bindings :before bindings}
+                                        :bindings next-bindings
                                         :command command
                                         :handle handle
                                         :index index
-                                        :result (analyze-result options result result-str)
-                                        :state {:after next-state :before state}}
+                                        :result {:real (analyze-result options result result-str)
+                                                 :symbolic handle}
+                                        :state next-state}
                                  (seq failures)
                                  (assoc :failures (analyze-failures failures))
-                                 thread
-                                 (assoc :thread thread))]
+                                 (nat-int? thread)
+                                 (assoc :thread thread)
+                                 ;; (nth cmds-and-traces (inc index) nil)
+                                 ;; (assoc-in [:environment :next] (ffirst (nth cmds-and-traces (inc index))))
+                                 ;; (nth cmds-and-traces (dec index) nil)
+                                 ;; (assoc-in [:environment :previous] (ffirst (nth cmds-and-traces (dec index))))
+                                 )]
                      [(assoc env handle frame) next-state next-bindings]))
                  [{} state bindings] (map-indexed vector cmds-and-traces))))
 
@@ -132,14 +156,14 @@
         sequential-env (analyze-sequential-environment
                         result-data sequential
                         {:real init-state :symbolic init-state}
-                        bindings)
+                        {:real bindings :symbolic {g/setup-var g/setup-var}})
         last-env (get sequential-env (ffirst (last sequential)))
         environments (into sequential-env
                            (mapcat (fn [[thread sequential]]
                                      (analyze-sequential-environment
                                       result-data sequential
-                                      (-> last-env :state :after)
-                                      (-> last-env :bindings :after)
+                                      (:state last-env)
+                                      (:bindings last-env)
                                       thread))
                                    (map-indexed vector parallel)))]
     ;; TODO: Don't call setup (see above) and also not cleanup
@@ -147,15 +171,16 @@
       (if (:setup specification)
         (cleanup setup-result)
         (cleanup)))
-    environments))
+    (assoc environments (sv/->RootVar "init")
+           {:bindings bindings
+            :handle (sv/->RootVar "init")
+            :state init-state})))
 
 (defn- analyze-result-data
   [result-data]
   (let [environments (analyze-environments result-data)
-        state-machine (state-machine/make-state-machine {:result-data result-data})]
-    (assoc result-data
-           :environments environments
-           :state-machine state-machine)))
+        state-machine (state-machine/make-state-machine result-data)]
+    (assoc result-data :environments environments :state-machine state-machine)))
 
 (defn analyze-results
   "Analyze the Stateful Check `results`."
