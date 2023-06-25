@@ -69,32 +69,32 @@
 
 (deftest test-analyze-results
   (let [results (run-specification example-specification)
-        debugger (debugger/analyze-results debugger results)]
+        debugger (debugger/analyze-run debugger results)]
     (is (s/valid? :stateful-check/debugger debugger))))
 
 (deftest test-analyze-test-event
   (let [results (run-specification example-specification)
         event {:ns 'user :var 'test :stateful-check results}
-        debugger (debugger/analyze-test-event debugger event)]
+        debugger (debugger/analyze-test-run debugger event)]
     (is (s/valid? :stateful-check/debugger debugger))))
 
 (deftest test-last-results
-  (is (nil? (debugger/last-results debugger)))
+  (is (nil? (debugger/last-run debugger)))
   (let [debugger (debugger/scan debugger)]
-    (is (nil? (debugger/last-results debugger)))
+    (is (nil? (debugger/last-run debugger)))
     (let [debugger (debugger/run-specification debugger example-id)]
-      (is (debugger/last-results debugger)))))
+      (is (debugger/last-run debugger)))))
 
 (deftest test-print
   (let [debugger (debugger/scan debugger)
         debugger (debugger/run-specification debugger example-id)
-        run (:id (debugger/last-results debugger))]
+        run (:id (debugger/last-run debugger))]
     (is (string? (with-out-str (debugger/print debugger run))))))
 
 (deftest test-run-specfication
   (let [debugger (debugger/scan debugger)
         debugger (debugger/run-specification debugger example-id test/records-spec-options)
-        environments (-> debugger debugger/last-results :result-data :environments)]
+        environments (-> debugger debugger/last-run :result-data :environments)]
     (testing "environment #1"
       (let [env (get environments (sv/->RootVar "1"))]
         (is (= [{:index 0 :real -3 :symbolic -3 :name "0"}]

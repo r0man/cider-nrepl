@@ -52,8 +52,8 @@
   [{:keys [test] :as msg}]
   (if-let [event (debugger/find-test-event (debugger msg) test)]
     {:stateful-check/analyze-test
-     (-> (swap-debugger! msg debugger/analyze-test-event event)
-         (debugger/last-results)
+     (-> (swap-debugger! msg debugger/analyze-test-run event)
+         (debugger/last-run)
          (render/render-analysis)
          (transform-value))}
     {:status :stateful-check/test-not-found}))
@@ -111,7 +111,7 @@
   (if-let [specification (debugger/specification (debugger msg) specification)]
     {:stateful-check/run
      (-> (swap-debugger! msg debugger/run-specification (:id specification) (parse-options options))
-         (debugger/last-results)
+         (debugger/last-run)
          (render/render-analysis)
          (transform-value))}
     {:status :stateful-check/specification-not-found}))
@@ -128,7 +128,7 @@
   "Handle a Stateful Check analysis NREPL operation."
   [{:keys [analysis] :as msg}]
   (let [id (UUID/fromString analysis)]
-    (if-let [analysis (debugger/get-results (debugger msg) id)]
+    (if-let [analysis (debugger/get-run (debugger msg) id)]
       {:stateful-check/analysis (render/render-analysis analysis)}
       {:status :stateful-check/analysis-not-found})))
 
@@ -137,7 +137,7 @@
   [{:keys [case run] :as msg}]
   {:stateful-check/evaluate-step
    (-> (swap-debugger! msg debugger/evaluate-step run case)
-       (debugger/get-results run)
+       (debugger/get-run run)
        (render/render-analysis)
        (transform-value))})
 

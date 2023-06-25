@@ -3,19 +3,18 @@
   (:require [clojure.spec.alpha :as s]
             [stateful-check.core :as stateful-check]
             [stateful-check.debugger.analyzer :as analyzer]
-            [stateful-check.debugger.render :as render]
+            [stateful-check.debugger.eval :as eval]
             [stateful-check.debugger.specs]
             [stateful-check.debugger.test-report :as test-report]
-            [stateful-check.symbolic-values :as sv]
-            [stateful-check.debugger.eval :as eval])
+            [stateful-check.symbolic-values :as sv])
   (:import [java.util UUID]
            [stateful_check.symbolic_values RootVar]))
 
 (defn debugger
   "Return a Stateful Check debugger."
   [& [{:keys [test]}]]
-  {:last-results []
-   :results {}
+  {:last-runs []
+   :runs {}
    :specifications {}
    :test (cond-> {}
            (instance? clojure.lang.Atom (:report test))
@@ -35,17 +34,17 @@
            (ns-publics ns)))))
 
 (defn- criteria?
-  [results {:keys [id ns var]}]
+  [run {:keys [id ns var]}]
   (let [ns (some-> ns symbol)
         var (some-> var symbol)]
-    (and (or (nil? id) (= id (:id results)))
-         (or (nil? ns) (= ns (some-> results :test :ns)))
-         (or (nil? var) (= var (some-> results :test :var))))))
+    (and (or (nil? id) (= id (:id run)))
+         (or (nil? ns) (= ns (some-> run :test :ns)))
+         (or (nil? var) (= var (some-> run :test :var))))))
 
 (defn- parse-handle [s]
   (some-> (re-matches #"#<(.+)>" s) second sv/->RootVar))
 
-(defn- to-handle
+(defn- make-handle
   "Convert `handle` into a root var."
   [handle]
   (cond
@@ -56,59 +55,67 @@
         (sv/->RootVar handle))
     :else (throw (ex-info "Invalid command handle" {:handle handle}))))
 
-(defn analyses
-  "Return all analyses of the `debugger`."
+(defn runs
+  "Return all runs of the `debugger`."
   [debugger]
-  (-> debugger :results vals))
+  (-> debugger :runs vals))
 
-(defn get-results
-  "Find the :results of `debugger`."
+(defn get-run
+  "Find the run of `debugger`."
   [debugger query]
   (cond (string? query)
-        (get-in debugger [:results query])
-        (string? (:results query))
-        (get-in debugger [:results (:results query)])))
+        (get-in debugger [:runs query])
+        (string? (:run query))
+        (get-in debugger [:runs (:run query)])
+        (string? (:id query))
+        (get-in debugger [:runs (:id query)])))
 
-(defn get-command
-  "Find the command execution for `query` in `debugger`."
-  [debugger {:keys [case handle] :as query}]
+(defn get-failing-case
+  "Find the failing case for `query` in `debugger`."
+  [debugger {:keys [case] :as query}]
   (let [prefix (if (= "first" (some-> case name)) [] [:shrunk])]
-    (some-> (get-results debugger query)
-            (get-in (concat prefix [:result-data :environments (to-handle handle)])))))
+    (some-> (get-run debugger query) (get-in (concat prefix [:result-data])))))
+
+(defn get-env
+  "Find the command execution for `query` in `debugger`."
+  [debugger {:keys [handle] :as query}]
+  (when-let [environments (:environments (get-failing-case debugger query))]
+    (if handle
+      (get environments (make-handle handle))
+      environments)))
 
 (defn get-argument
-  "Find the command execution argument for `query` in `debugger`."
+  "Find the argument for `query` in `debugger`."
   [debugger {:keys [argument] :as query}]
   (when (nat-int? argument)
-    (some-> (get-command debugger query)
-            :arguments (nth argument nil))))
+    (some-> (get-env debugger query) :arguments (nth argument nil))))
 
 (defn get-result
   "Find the command execution result for `query` in `debugger`."
   [debugger query]
   (when (contains? query :result)
-    (when-let [{:keys [result]} (get-command debugger query)]
+    (when-let [{:keys [result]} (get-env debugger query)]
       (if (:mutated result)
         (:printed-value result)
         (:value result)))))
 
 (defn get-object
   "Find the object for `query` in `debugger`."
-  [debugger {:keys [results argument handle] :as query}]
+  [debugger {:keys [run argument handle] :as query}]
   (cond (contains? query :result)
         (get-result debugger query)
-        (and results argument handle)
+        (and run argument handle)
         (get-argument debugger query)
-        (and results handle)
-        (get-command debugger query)
-        results
-        (get-results debugger query)))
+        (and run handle)
+        (get-env debugger query)
+        run
+        (get-run debugger query)))
 
 (defn- get-failure-error
   "Find the failure error for `query` in `debugger`."
   [debugger {:keys [failure event] :as query}]
   (when (and (nat-int? failure) (nat-int? event))
-    (when-let [command (get-command debugger query)]
+    (when-let [command (get-env debugger query)]
       (let [event (get-in (:failures command) [failure :events event] nil)]
         (when (instance? Throwable (:error event))
           (:error event))))))
@@ -116,7 +123,7 @@
 (defn- get-result-error
   "Find the result error for `query` in `debugger`."
   [debugger query]
-  (when-let [{:keys [result]} (get-command debugger query)]
+  (when-let [{:keys [result]} (get-env debugger query)]
     (when (instance? Throwable (:error result))
       (:error result))))
 
@@ -138,45 +145,45 @@
   [debugger id]
   (get-in debugger [:specifications id]))
 
-(defn last-results
+(defn last-run
   "Return the last results from the `debugger`."
   [debugger]
-  (get-in debugger [:results (last (:last-results debugger))]))
+  (get-in debugger [:runs (last (:last-runs debugger))]))
 
 (defn- add-specification
   "Add the Stateful Check `specification` to the debugger."
   [debugger {:keys [id] :as specification}]
   (assoc-in debugger [:specifications id] specification))
 
-(defn- add-results
+(defn- add-run
   "Add the Stateful Check `results` to the debugger."
-  [debugger results]
-  (assoc-in debugger [:results (:id results)] results))
+  [debugger run]
+  (assoc-in debugger [:runs (:id run)] run))
 
-(defn- remove-results
+(defn- remove-run
   "Remove the Stateful Check `results` from the debugger."
   [debugger results]
-  (update debugger :results dissoc (:id results)))
+  (update debugger :runs dissoc (:id results)))
 
-(defn- remove-test-results [debugger ns var]
-  (let [test-analyses (filter #(criteria? % {:ns ns :var var}) (analyses debugger))]
-    (reduce remove-results debugger test-analyses)))
+(defn- remove-test-run [debugger ns var]
+  (let [test-analyses (filter #(criteria? % {:ns ns :var var}) (runs debugger))]
+    (reduce remove-run debugger test-analyses)))
 
-(defn analyze-results
+(defn analyze-run
   "Analyze the Stateful Check results."
-  [debugger results]
-  (let [results (analyzer/analyze-results results)]
-    (-> (add-results debugger results)
-        (update :last-results conj (:id results)))))
+  [debugger run]
+  (let [results (analyzer/analyze-run run)]
+    (-> (add-run debugger results)
+        (update :last-runs conj (:id results)))))
 
-(defn analyze-test-event
+(defn analyze-test-run
   "Analyze the Clojure Test `event`."
   [debugger {:keys [ns var] :as event}]
-  (let [{:keys [specification] :as results} (analyzer/analyze-test-event event)]
-    (-> (remove-test-results debugger ns var)
+  (let [{:keys [specification] :as results} (analyzer/analyze-test-run event)]
+    (-> (remove-test-run debugger ns var)
         (add-specification specification)
-        (add-results results)
-        (update :last-results conj (:id results)))))
+        (add-run results)
+        (update :last-runs conj (:id results)))))
 
 (defn test-report
   "Return the test report of the `debugger`."
@@ -190,11 +197,6 @@
         var (some-> id symbol name symbol)]
     (last (test-report/find-events (test-report debugger) ns var))))
 
-(defn render
-  "Render the `debugger` in a Bencode compatible format."
-  [debugger]
-  (render/render-debugger debugger))
-
 (defn run-specification
   "Run the Stateful Check `specification` and add the analyzed results
   to the `debugger`."
@@ -202,19 +204,13 @@
   (if-let [specification (specification debugger id)]
     (->> (assoc (stateful-check/run-specification specification options)
                 :specification specification :options options)
-         (analyze-results debugger))
+         (analyze-run debugger))
     (throw (ex-info "Stateful Check specification not found"
                     {:type :stateful-check/specification-not-found
                      :id id}))))
 
 (defn- find-specification [specifications ns var]
   (some #(and (= ns (:ns %)) (= var (:var %)) %) specifications))
-
-(defn run-specification-var
-  "Run the Stateful Check specification bound to the `var` in `ns`."
-  [debugger ns var & [options]]
-  (when-let [specification (find-specification (ns-specifications ns) ns var)]
-    (run-specification debugger (assoc specification :ns ns :var var) options)))
 
 (defn- scan-vars
   "Scan all public vars for Stateful Check specifications."
@@ -235,8 +231,8 @@
 (defn evaluate-step
   "Evaluate a command execution step."
   [debugger run case]
-  (if-let [run (get-results debugger run)]
-    (add-results debugger (eval/evaluate run case))
+  (if-let [run (get-run debugger run)]
+    (add-run debugger (eval/evaluate run case))
     (throw (ex-info "Stateful Check run not found"
                     {:type :stateful-check/run-not-found
                      :run run}))))
@@ -247,7 +243,7 @@
   Prints the analyzed execution traces of the debugger with
   `stateful-check.report/print-results`."
   [debugger id & [case]]
-  (when-let [results (get-results debugger id)]
+  (when-let [results (get-run debugger id)]
     (println "  First failing test case")
     (println "  -----------------------------")
     (#'stateful-check/print-execution (:result-data results) false)

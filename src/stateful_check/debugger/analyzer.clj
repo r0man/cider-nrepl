@@ -182,7 +182,7 @@
         state-machine (state-machine/make-state-machine result-data)]
     (assoc result-data :environments environments :state-machine state-machine)))
 
-(defn analyze-results
+(defn analyze-run
   "Analyze the Stateful Check `results`."
   [{:keys [id result-data pass?] :as results}]
   (let [{:keys [specification]} result-data]
@@ -192,11 +192,11 @@
       (and specification (not pass?))
       (update-in [:shrunk :result-data] analyze-result-data))))
 
-(defn analyze-test-event
+(defn analyze-test-run
   "Analyze the Clojure Test report `event`."
   [{:keys [ns var] :as event}]
   (when-let [results (:stateful-check event)]
-    (some-> (analyze-results results)
+    (some-> (analyze-run results)
             (update-in [:specification] assoc
                        :ns ns
                        :var var

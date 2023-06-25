@@ -11,31 +11,54 @@
   [f & args]
   (alter-var-root #'*debugger* #(apply f % args)))
 
-(defn last-results
-  "Return the last analysis from the `*debugger*`."
-  []
-  (debugger/last-results *debugger*))
-
-(defn get-results
-  "Lookup an analysis in `*debugger*` according to `query`."
+(defn- make-query
+  "Swap the `*debugger*` by applying `f` and `args` to it."
   [query]
-  (debugger/get-results *debugger* query))
+  (let [last-run (debugger/last-run *debugger*)
+        query (or query {})]
+    (cond-> {}
+      (map? query)
+      (merge query)
+      (string? query)
+      (assoc :id query)
+      (and (map? query) (nil? (:run query)))
+      (assoc :id (:id last-run)))))
+
+(defn get-run
+  "Lookup an analysis in `*debugger*` according to `query`."
+  [& {:as query}]
+  (debugger/get-run *debugger* (make-query query)))
 
 (defn evaluate-step
   "Lookup an analysis in `*debugger*` according to `query`."
   [& {:keys [run case]}]
   (swap-debugger! debugger/evaluate-step
-                  (or run (:id (debugger/last-results *debugger*)))
+                  (or run (:id (debugger/last-run *debugger*)))
                   case)
-  (debugger/last-results *debugger*))
+  (debugger/last-run *debugger*))
 
-(defn get-command
-  "Find the command execution for `query` in `*debugger*`."
-  [query]
-  (debugger/get-command *debugger* query))
+(defn get-env
+  "Find the environment for `query` in `*debugger*`."
+  [& {:as query}]
+  (debugger/get-env *debugger* (make-query query)))
 
-(defn reset!
-  "Reset the `*debugger*`."
+(defn get-arguments
+  "Find the bindings for `query` in `*debugger*`."
+  [& {:as query}]
+  (:arguments (debugger/get-env *debugger* (make-query query))))
+
+(defn get-bindings
+  "Find the bindings for `query` in `*debugger*`."
+  [& {:as query}]
+  (:bindings (debugger/get-env *debugger* (make-query query))))
+
+(defn get-state
+  "Find the state for `query` in `*debugger*`."
+  [& {:as query}]
+  (:state (debugger/get-env *debugger* (make-query query))))
+
+(defn clear
+  "Clear the `*debugger*`."
   []
   (swap-debugger! (constantly (debugger/debugger))))
 
@@ -43,14 +66,29 @@
   "Run the `specification` using `options` and return the analyzed results."
   [specification & [options]]
   (swap-debugger! debugger/run-specification specification options)
-  (debugger/last-results *debugger*))
+  (debugger/last-run *debugger*))
 
 (defn analyze-results
   [results]
-  (swap-debugger! debugger/analyze-results results)
-  (debugger/last-results *debugger*))
+  (swap-debugger! debugger/analyze-run results)
+  (debugger/last-run *debugger*))
 
 (defn scan
   "Scan for Stateful Check specifications."
   []
   (swap-debugger! debugger/scan))
+
+(defn specification
+  "Get the Stateful Check specification of `*debugger*` by `id`."
+  [id]
+  (debugger/specification *debugger* id))
+
+(defn specifications
+  "Return the Stateful Check specifications of the `*debugger*`."
+  []
+  (debugger/specifications *debugger*))
+
+(defn reset
+  "Reset the `*debugger*`."
+  []
+  (clear) (scan))

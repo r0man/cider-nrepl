@@ -13,7 +13,7 @@
 (deftest test-make-specification
   (let [debugger (debugger/scan debugger)
         debugger (debugger/run-specification debugger test/records-failure-spec-id test/records-spec-options)
-        {:keys [result-data]} (debugger/last-results debugger)]
+        {:keys [result-data]} (debugger/last-run debugger)]
     (is (= {:state #{"init"}
             :definition
             {#{"final"} {:reset #{"init"}}
@@ -28,7 +28,7 @@
 (deftest test-get-next-state
   (let [debugger (debugger/scan debugger)
         debugger (debugger/run-specification debugger test/records-failure-spec-id test/records-spec-options)
-        {:keys [result-data]} (debugger/last-results debugger)
+        {:keys [result-data]} (debugger/last-run debugger)
         state-machine (state-machine/make-state-machine result-data)]
     (is (= #{"1"} (state-machine/get-next-state state-machine :start)))
     (is (= #{"2"} (-> state-machine
@@ -42,7 +42,7 @@
 (deftest test-update-next-state
   (let [debugger (debugger/scan debugger)
         debugger (debugger/run-specification debugger test/records-failure-spec-id test/records-spec-options)
-        {:keys [result-data]} (debugger/last-results debugger)
+        {:keys [result-data]} (debugger/last-run debugger)
         state-machine (state-machine/make-state-machine result-data)]
     (is (= #{"1"} (-> state-machine
                       (state-machine/update-next-state :start)

@@ -102,7 +102,7 @@
   (:state (previous-env result-data current-handle)))
 
 (defn- execute-command [result-data handle]
-  (prn "HANDLE: " handle (previous-env result-data (sv/->RootVar handle)))
+  ;; (prn "HANDLE: " handle (previous-env result-data (sv/->RootVar handle)))
   (let [handle (sv/->RootVar handle)
         cmd-obj (get-environment result-data handle :command)
         arguments (get-environment result-data handle :arguments)
