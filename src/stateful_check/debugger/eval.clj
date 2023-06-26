@@ -9,6 +9,14 @@
 (defn- get-environment [result-data handle & keys]
   (get-in result-data (concat [:environments handle] keys)))
 
+(defn- clear-environments [environments]
+  (into {} (for [[handle environment] environments]
+             [handle (-> environment
+                         (update :bindings dissoc :evaluation)
+                         (update :error dissoc :evaluation)
+                         (update :result dissoc :evaluation)
+                         (update :state dissoc :evaluation))])))
+
 (defn- start
   [{:keys [specification] :as result-data}]
   (let [{:keys [setup initial-state]} specification
@@ -24,7 +32,7 @@
         (update :state-machine state-machine/update-next-state :start))))
 
 (defn- reset [result-data]
-  (-> (dissoc result-data :evaluations)
+  (-> (update result-data :environments clear-environments)
       (update :state-machine state-machine/update-next-state :reset)))
 
 (defn- previous-handle
