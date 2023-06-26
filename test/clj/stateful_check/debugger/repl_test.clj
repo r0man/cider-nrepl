@@ -8,11 +8,13 @@
             [stateful-check.symbolic-values :as sv])
   (:import [java.util UUID]))
 
-(def spec-id
+(def ^:private spec-id
   "stateful-check.debugger.test/records-failure-spec")
 
-(def spec-options
+(def ^:private spec-options
   test/records-spec-options)
+
+(def ^:private root-var sv/->RootVar)
 
 (deftest test-clear
   (let [debugger (repl/clear)]
@@ -24,9 +26,9 @@
   (is (nil? (repl/get-env)))
   (repl/run-specification spec-id spec-options)
   (let [env (repl/get-env :case :first :handle "1")]
-    (is (= (sv/->RootVar "1") (:handle env))))
+    (is (= (root-var "1") (:handle env))))
   (let [env (repl/get-env :handle "2")]
-    (is (= (sv/->RootVar "2") (:handle env)))))
+    (is (= (root-var "2") (:handle env)))))
 
 (deftest test-get-run
   (repl/reset)
@@ -57,63 +59,63 @@
                (repl/get-arguments :case :first :handle "3")))
         (is (= [{:index 0, :real -4, :symbolic -4, :name "0"}]
                (repl/get-arguments :case :first :handle "4")))
-        (is (= [{:index 0, :real "id--4", :symbolic (get (sv/->RootVar "4") :id), :name "id"}]
+        (is (= [{:index 0, :real "id--4", :symbolic (get (root-var "4") :id), :name "id"}]
                (repl/get-arguments :case :first :handle "5"))))
       (testing "bindings"
         (is (= {:real
-                {(sv/->RootVar "setup") {}
-                 (sv/->RootVar "1") {:id "id--3", :value -3}},
+                {(root-var "setup") {}
+                 (root-var "1") {:id "id--3", :value -3}},
                 :symbolic
-                {(sv/->RootVar "setup") (sv/->RootVar "setup")
-                 (sv/->RootVar "1") (sv/->RootVar "1")}}
+                {(root-var "setup") (root-var "setup")
+                 (root-var "1") (root-var "1")}}
                (repl/get-bindings :case :first :handle "1")))
         (is (= {:real
-                {(sv/->RootVar "setup") {},
-                 (sv/->RootVar "1") {:id "id--3", :value -3},
-                 (sv/->RootVar "2") {:id "id-2", :value 2}},
+                {(root-var "setup") {},
+                 (root-var "1") {:id "id--3", :value -3},
+                 (root-var "2") {:id "id-2", :value 2}},
                 :symbolic
-                {(sv/->RootVar "setup") (sv/->RootVar "setup")
-                 (sv/->RootVar "1") (sv/->RootVar "1")
-                 (sv/->RootVar "2") (sv/->RootVar "2")}}
+                {(root-var "setup") (root-var "setup")
+                 (root-var "1") (root-var "1")
+                 (root-var "2") (root-var "2")}}
                (repl/get-bindings :case :first :handle "2")))
         (is (= {:real
-                {(sv/->RootVar "setup") {},
-                 (sv/->RootVar "1") {:id "id--3", :value -3},
-                 (sv/->RootVar "2") {:id "id-2", :value 2},
-                 (sv/->RootVar "3") {:id "id--2", :value "boom"}},
+                {(root-var "setup") {},
+                 (root-var "1") {:id "id--3", :value -3},
+                 (root-var "2") {:id "id-2", :value 2},
+                 (root-var "3") {:id "id--2", :value "boom"}},
                 :symbolic
-                {(sv/->RootVar "setup") (sv/->RootVar "setup")
-                 (sv/->RootVar "1") (sv/->RootVar "1")
-                 (sv/->RootVar "2") (sv/->RootVar "2")
-                 (sv/->RootVar "3") (sv/->RootVar "3")}}
+                {(root-var "setup") (root-var "setup")
+                 (root-var "1") (root-var "1")
+                 (root-var "2") (root-var "2")
+                 (root-var "3") (root-var "3")}}
                (repl/get-bindings :case :first :handle "3")))
         (is (= {:real
-                {(sv/->RootVar "setup") {},
-                 (sv/->RootVar "1") {:id "id--3", :value -3},
-                 (sv/->RootVar "2") {:id "id-2", :value 2},
-                 (sv/->RootVar "3") {:id "id--2", :value "boom"},
-                 (sv/->RootVar "4") {:id "id--4", :value "boom"}},
+                {(root-var "setup") {},
+                 (root-var "1") {:id "id--3", :value -3},
+                 (root-var "2") {:id "id-2", :value 2},
+                 (root-var "3") {:id "id--2", :value "boom"},
+                 (root-var "4") {:id "id--4", :value "boom"}},
                 :symbolic
-                {(sv/->RootVar "setup") (sv/->RootVar "setup")
-                 (sv/->RootVar "1") (sv/->RootVar "1")
-                 (sv/->RootVar "2") (sv/->RootVar "2")
-                 (sv/->RootVar "3") (sv/->RootVar "3")
-                 (sv/->RootVar "4") (sv/->RootVar "4")}}
+                {(root-var "setup") (root-var "setup")
+                 (root-var "1") (root-var "1")
+                 (root-var "2") (root-var "2")
+                 (root-var "3") (root-var "3")
+                 (root-var "4") (root-var "4")}}
                (repl/get-bindings :case :first :handle "4")))
         (is (= {:real
-                {(sv/->RootVar "setup") {},
-                 (sv/->RootVar "1") {:id "id--3", :value -3},
-                 (sv/->RootVar "2") {:id "id-2", :value 2},
-                 (sv/->RootVar "3") {:id "id--2", :value "boom"},
-                 (sv/->RootVar "4") {:id "id--4", :value "boom"},
-                 (sv/->RootVar "5") {:id "id--4", :value "boom"}},
+                {(root-var "setup") {},
+                 (root-var "1") {:id "id--3", :value -3},
+                 (root-var "2") {:id "id-2", :value 2},
+                 (root-var "3") {:id "id--2", :value "boom"},
+                 (root-var "4") {:id "id--4", :value "boom"},
+                 (root-var "5") {:id "id--4", :value "boom"}},
                 :symbolic
-                {(sv/->RootVar "setup") (sv/->RootVar "setup"),
-                 (sv/->RootVar "1") (sv/->RootVar "1"),
-                 (sv/->RootVar "2") (sv/->RootVar "2"),
-                 (sv/->RootVar "3") (sv/->RootVar "3"),
-                 (sv/->RootVar "4") (sv/->RootVar "4"),
-                 (sv/->RootVar "5") (sv/->RootVar "5")}}
+                {(root-var "setup") (root-var "setup"),
+                 (root-var "1") (root-var "1"),
+                 (root-var "2") (root-var "2"),
+                 (root-var "3") (root-var "3"),
+                 (root-var "4") (root-var "4"),
+                 (root-var "5") (root-var "5")}}
                (repl/get-bindings :case :first :handle "5")))))
     (testing "smallest failing case"
       (testing "arguments"
@@ -123,7 +125,7 @@
                (repl/get-arguments :case :smallest :handle "3")))
         (is (= [{:index 0, :real 0, :symbolic 0, :name "0"}]
                (repl/get-arguments :case :smallest :handle "4")))
-        (is (= [{:index 0, :real "id-0", :symbolic (get (sv/->RootVar "2") :id), :name "id"}]
+        (is (= [{:index 0, :real "id-0", :symbolic (get (root-var "2") :id), :name "id"}]
                (repl/get-arguments :case :smallest :handle "5")))))))
 
 (deftest test-evaluate-step
@@ -133,7 +135,7 @@
   (testing "step to #<1>"
     (repl/evaluate-step :case :first)
     (is (= #{"1"} (repl/get-eval-state :case :first)))
-    (is (= {(sv/->RootVar "setup") {}}
+    (is (= {(root-var "setup") {}}
            (:evaluation (repl/get-bindings :case :first :handle "init"))
            (:real (repl/get-bindings :case :first :handle "init"))))
     (is (= {}
@@ -142,8 +144,8 @@
   (testing "step to #<2>"
     (repl/evaluate-step :case :first)
     (is (= #{"2"} (repl/get-eval-state :case :first)))
-    (is (= {(sv/->RootVar "setup") {}
-            (sv/->RootVar "1") {:id "id--3", :value -3}}
+    (is (= {(root-var "setup") {}
+            (root-var "1") {:id "id--3", :value -3}}
            (:real (repl/get-bindings :case :first :handle "1"))
            (:evaluation (repl/get-bindings :case :first :handle "1"))))
     (is (= {"id--3" {:id "id--3", :value -3}}
@@ -152,9 +154,9 @@
   (testing "step to #<3>"
     (repl/evaluate-step :case :first)
     (is (= #{"3"} (repl/get-eval-state :case :first)))
-    (is (= {(sv/->RootVar "setup") {}
-            (sv/->RootVar "1") {:id "id--3", :value -3}
-            (sv/->RootVar "2") {:id "id-2", :value 2}}
+    (is (= {(root-var "setup") {}
+            (root-var "1") {:id "id--3", :value -3}
+            (root-var "2") {:id "id-2", :value 2}}
            (:evaluation (repl/get-bindings :case :first :handle "2"))
            (:real (repl/get-bindings :case :first :handle "2"))))
     (is (= {"id--3" {:id "id--3", :value -3}
@@ -164,10 +166,10 @@
   (testing "step to #<4>"
     (repl/evaluate-step :case :first)
     (is (= #{"4"} (repl/get-eval-state :case :first)))
-    (is (= {(sv/->RootVar "setup") {}
-            (sv/->RootVar "1") {:id "id--3", :value -3}
-            (sv/->RootVar "2") {:id "id-2", :value 2}
-            (sv/->RootVar "3") {:id "id--2", :value "boom"}}
+    (is (= {(root-var "setup") {}
+            (root-var "1") {:id "id--3", :value -3}
+            (root-var "2") {:id "id-2", :value 2}
+            (root-var "3") {:id "id--2", :value "boom"}}
            (:real (repl/get-bindings :case :first :handle "3"))
            (:evaluation (repl/get-bindings :case :first :handle "3"))))
     (is (= {"id--3" {:id "id--3", :value -3},
@@ -178,11 +180,11 @@
   (testing "step to #<5>"
     (repl/evaluate-step :case :first)
     (is (= #{"5"} (repl/get-eval-state :case :first)))
-    (is (= {(sv/->RootVar "setup") {}
-            (sv/->RootVar "1") {:id "id--3", :value -3}
-            (sv/->RootVar "2") {:id "id-2", :value 2}
-            (sv/->RootVar "3") {:id "id--2", :value "boom"}
-            (sv/->RootVar "4") {:id "id--4", :value "boom"}}
+    (is (= {(root-var "setup") {}
+            (root-var "1") {:id "id--3", :value -3}
+            (root-var "2") {:id "id-2", :value 2}
+            (root-var "3") {:id "id--2", :value "boom"}
+            (root-var "4") {:id "id--4", :value "boom"}}
            (:evaluation (repl/get-bindings :case :first :handle "4"))
            (:real (repl/get-bindings :case :first :handle "4"))))
     (is (= {"id--3" {:id "id--3", :value -3},
