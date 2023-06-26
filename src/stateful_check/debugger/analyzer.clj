@@ -57,41 +57,24 @@
 (def ^:private mutated-rexeg
   #"(?s)(.*)(\n\s+>> object may have been mutated later into (.+) <<\n)")
 
-(defn- analyze-result
-  "Analyze the execution `result` and `result-str`."
-  [options result result-str]
-  (let [assume-immutable-results? (-> options :run :assume-immutable-results true?)
-        matches (when (string? result-str)
-                  (re-matches mutated-rexeg result-str))]
-    (cond-> {:value result :string-value result-str}
-      (instance? CaughtException result)
-      (assoc :error (:exception result))
-      (instance? CaughtException result)
-      (dissoc :value)
-      (not assume-immutable-results?)
-      ;; TODO: Can't detect this ourselves since a message has been appended to
-      ;; result-str by stateful-check.
-      (assoc :mutated (some? (seq matches)))
-      ;; TODO: Would be nice to get mutation info as data, like :message, :mutated-into object
-      (and (not assume-immutable-results?) (seq matches))
-      (assoc :string-value (nth matches 1) :value (nth matches 3)))))
-
-(defn- analyze-result
-  "Analyze the execution `result` and `result-str`."
-  [options result result-str]
-  (let [assume-immutable-results? (-> options :run :assume-immutable-results true?)
-        matches (when (string? result-str)
-                  (re-matches mutated-rexeg result-str))]
-    (cond-> {}
-      (instance? CaughtException result)
-      (assoc :error (:exception result))
-      (not (instance? CaughtException result))
-      (assoc :value result :value-str result-str)
-      (not assume-immutable-results?)
-      (assoc :mutated? (some? (seq matches)))
-      ;; TODO: Would be nice to get mutation info as data, like :message, :mutated-into object
-      (and (not assume-immutable-results?) (seq matches))
-      (assoc :value-str (nth matches 1) :value (nth matches 3)))))
+;; (defn- analyze-result
+;;   "Analyze the execution `result` and `result-str`."
+;;   [options result result-str]
+;;   (let [assume-immutable-results? (-> options :run :assume-immutable-results true?)
+;;         matches (when (string? result-str)
+;;                   (re-matches mutated-rexeg result-str))]
+;;     (cond-> {:value result :string-value result-str}
+;;       (instance? CaughtException result)
+;;       (assoc :error (:exception result))
+;;       (instance? CaughtException result)
+;;       (dissoc :value)
+;;       (not assume-immutable-results?)
+;;       ;; TODO: Can't detect this ourselves since a message has been appended to
+;;       ;; result-str by stateful-check.
+;;       (assoc :mutated (some? (seq matches)))
+;;       ;; TODO: Would be nice to get mutation info as data, like :message, :mutated-into object
+;;       (and (not assume-immutable-results?) (seq matches))
+;;       (assoc :string-value (nth matches 1) :value (nth matches 3)))))
 
 (defn- analyze-sequential-environment
   "Return a map from a command handle to execution frame."
@@ -122,18 +105,22 @@
                                         :command command
                                         :handle handle
                                         :index index
-                                        :result {:real (analyze-result options result result-str)
-                                                 :symbolic {:value handle :value-str (pr-str handle)}}
+                                        :result {:symbolic handle}
+                                        :result-str {:symbolic (pr-str handle)}
                                         :state next-state}
                                  (seq failures)
                                  (assoc :failures (analyze-failures failures))
                                  (nat-int? thread)
                                  (assoc :thread thread)
-                                 ;; (nth cmds-and-traces (inc index) nil)
-                                 ;; (assoc-in [:environment :next] (ffirst (nth cmds-and-traces (inc index))))
-                                 ;; (nth cmds-and-traces (dec index) nil)
-                                 ;; (assoc-in [:environment :previous] (ffirst (nth cmds-and-traces (dec index))))
-                                 )]
+
+                                 (instance? CaughtException result)
+                                 (assoc-in [:error :real] (:exception result))
+
+                                 (not (instance? CaughtException result))
+                                 (assoc-in [:result :real] result)
+
+                                 (not (instance? CaughtException result))
+                                 (assoc-in [:result-str :real] result-str))]
                      [(assoc env handle frame) next-state next-bindings]))
                  [{} state bindings] (map-indexed vector cmds-and-traces))))
 

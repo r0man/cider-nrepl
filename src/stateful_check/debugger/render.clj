@@ -16,15 +16,18 @@
     (binding [inspect/*max-atom-length* 50]
       (inspect/inspect-value value))))
 
+(defn- render-error
+  "Render the given `error` as a string."
+  [error]
+  (into {} (for [[key error] error]
+             [key (when (instance? Throwable error)
+                    (.toString error))])))
+
 (defn- render-result
   "Render the command execution `result`."
   [result]
   (into {} (for [[key result] result]
-             [key (cond-> result
-                    (:error result)
-                    (update :error str)
-                    (contains? result :value)
-                    (update :value render-value))])))
+             [key (render-value result)])))
 
 (defn- render-argument
   "Render the command execution `argument`."
@@ -78,38 +81,23 @@
     (contains? bindings :symbolic)
     (update :symbolic render-binding)))
 
-(defn- make-execution-frame
-  "Make a execution frame for `handle`."
-  [{:keys [environments]} handle]
-  (get environments handle))
-
 (defn- render-execution-frame
   "Render the execution `frame`."
   [frame]
-  (-> frame
+  (-> (select-keys frame [:arguments :bindings :command :error :failures :handle :result])
       (update :arguments #(mapv render-argument %))
       (update :bindings render-bindings)
       (update :command select-keys [:name])
+      (update :error render-error)
       (update :failures #(mapv render-failure %))
       (update :handle pr-str)
-      (update :result render-result)
-      ;; (update-in [:bindings :after] render-bindings)
-      ;; (update-in [:bindings :before :evaluation] render-bindings)
-      ;; (update-in [:bindings :before] render-bindings)
-      ;; (update-in [:result :evaluation] render-result)
-      ;; (update-in [:state :after :evaluation] render-value)
-      ;; (update-in [:state :after :real] render-value)
-      ;; (update-in [:state :after :symbolic] render-value)
-      ;; (update-in [:state :before :evaluation] render-value)
-      ;; (update-in [:state :before :real] render-value)
-      ;; (update-in [:state :before :symbolic] render-value)
-      ))
+      (update :result render-result)))
 
 (defn- render-execution-frames
   "Render the execution frames for `executions`."
-  [result-data executions]
+  [{:keys [environments]} executions]
   (vec (for [[[handle _cmd-obj & _symbolic-args] _result-str] executions]
-         (-> (make-execution-frame result-data handle)
+         (-> (get environments handle)
              (render-execution-frame)))))
 
 (defn- render-sequential-executions

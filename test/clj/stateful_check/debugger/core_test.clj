@@ -107,12 +107,12 @@
                (-> env :bindings :symbolic)))
         (is (= (sv/->RootVar "1") (:handle env)))
         (is (= 0 (:index env)))
-        (is (= {:value {:id "id--3" :value -3}
-                :value-str "{:id \"id--3\", :value -3}"
-                :mutated? false}
-               (-> env :result :real)))
-        (is (= {:value (sv/->RootVar "1") :value-str "#<1>"}
-               (-> env :result :symbolic)))
+        (is (= {:real {:id "id--3" :value -3}
+                :symbolic (sv/->RootVar "1")}
+               (:result env)))
+        (is (= {:real (pr-str {:id "id--3" :value -3})
+                :symbolic (pr-str (sv/->RootVar "1"))}
+               (:result-str env)))
         (is (= {:real {"id--3" {:id "id--3" :value -3}}
                 :symbolic {(get (sv/->RootVar "1") :id)
                            {:id (get (sv/->RootVar "1") :id) :value -3}}}

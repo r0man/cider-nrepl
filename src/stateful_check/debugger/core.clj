@@ -121,16 +121,16 @@
 (defn- get-result-error
   "Find the result error for `query` in `debugger`."
   [debugger query]
-  (when-let [{:keys [result]} (get-env debugger query)]
-    (when (instance? Throwable (:error result))
-      (:error result))))
+  (when-let [error (-> (get-env debugger query) :error :real)]
+    (when (instance? Throwable error)
+      error)))
 
 (defn get-error
   "Find the error for `query` in `debugger`."
-  [debugger {:keys [failure event result] :as query}]
+  [debugger {:keys [failure event handle] :as query}]
   (cond (and (nat-int? failure) (nat-int? event))
         (get-failure-error debugger query)
-        result
+        handle
         (get-result-error debugger query)))
 
 (defn specifications

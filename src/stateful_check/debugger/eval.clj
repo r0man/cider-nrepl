@@ -122,9 +122,9 @@
       failure
       (assoc :failure failure)
       (instance? CaughtException result)
-      (assoc-in [:result :error] (:exception result))
+      (assoc-in [:error :real] (:exception result))
       (not (instance? CaughtException result))
-      (assoc-in [:result :value] result))))
+      (assoc-in [:result :real] result))))
 
 (defn- add-evaluation
   [result-data {:keys [arguments bindings command handle state result] :as frame}]
