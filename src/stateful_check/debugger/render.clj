@@ -116,11 +116,16 @@
   {:sequential (render-sequential-executions result-data)
    :parallel (render-parallel-executions result-data)})
 
+(defn evaluating?
+  "Render a failing test case."
+  [{:keys [environments] :as result-data}]
+  (some? (seq (keep (comp :evaluation :bindings) (vals environments)))))
+
 (defn render-result-data
   "Render a failing test case."
-  [{:keys [evaluations] :as result-data}]
+  [result-data]
   (-> (select-keys result-data [:specification :options :state-machine])
-      (assoc :eval? (some? (seq evaluations)))
+      (assoc :eval? (evaluating? result-data))
       (assoc :executions (render-executions result-data))))
 
 (defn- render-quickcheck-results

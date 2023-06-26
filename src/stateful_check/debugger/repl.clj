@@ -31,16 +31,21 @@
 
 (defn evaluate-step
   "Lookup an analysis in `*debugger*` according to `query`."
-  [& {:keys [run case]}]
-  (swap-debugger! debugger/evaluate-step
-                  (or run (:id (debugger/last-run *debugger*)))
-                  case)
-  (debugger/last-run *debugger*))
+  [& {:as query}]
+  (let [{:keys [case id]} (make-query query)]
+    (swap-debugger! debugger/evaluate-step id case)
+    (debugger/last-run *debugger*)))
 
 (defn get-env
   "Find the environment for `query` in `*debugger*`."
   [& {:as query}]
   (debugger/get-env *debugger* (make-query query)))
+
+(defn get-eval-state
+  "Get the current evaluation state in `*debugger*` for `query`."
+  [& {:as query}]
+  (-> (debugger/get-failing-case *debugger* (make-query query))
+      :state-machine :state))
 
 (defn get-arguments
   "Find the bindings for `query` in `*debugger*`."

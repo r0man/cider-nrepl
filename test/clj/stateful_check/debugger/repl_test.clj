@@ -129,40 +129,74 @@
 (deftest test-evaluate-step
   (repl/reset)
   (repl/run-specification spec-id spec-options)
-
-  ;; (clojure.pprint/pprint
-  ;;  (-> (repl/evaluate-step :case :first)
-  ;;      :result-data
-  ;;      (select-keys [:evaluations
-  ;;                    :state-machine])))
-
-  ;; (clojure.pprint/pprint
-  ;;  (-> (repl/evaluate-step :case :first)
-  ;;      :result-data
-  ;;      (select-keys [:evaluations
-  ;;                    :state-machine])))
-
-  ;; (clojure.pprint/pprint
-  ;;  (-> (repl/evaluate-step :case :first)
-  ;;      :result-data
-  ;;      (select-keys [:evaluations
-  ;;                    :state-machine])))
-  ;; (clojure.pprint/pprint
-  ;;  (-> (repl/evaluate-step :case :first)
-  ;;      :result-data
-  ;;      (select-keys [:evaluations
-  ;;                    :state-machine])))
-  ;; (clojure.pprint/pprint
-  ;;  (-> (repl/evaluate-step :case :first)
-  ;;      :result-data
-  ;;      (select-keys [:evaluations
-  ;;                    :state-machine])))
-  ;; (clojure.pprint/pprint
-  ;;  (-> (repl/evaluate-step :case :first)
-  ;;      :result-data
-  ;;      (select-keys [:evaluations
-  ;;                    :state-machine])))
-  )
+  (is (= #{"init"} (repl/get-eval-state :case :first)))
+  (testing "step to #<1>"
+    (repl/evaluate-step :case :first)
+    (is (= #{"1"} (repl/get-eval-state :case :first)))
+    (is (= {(sv/->RootVar "setup") {}}
+           (:evaluation (repl/get-bindings :case :first :handle "init"))
+           (:real (repl/get-bindings :case :first :handle "init"))))
+    (is (= {}
+           (:evaluation (repl/get-state :case :first :handle "init"))
+           (:real (repl/get-state :case :first :handle "init")))))
+  (testing "step to #<2>"
+    (repl/evaluate-step :case :first)
+    (is (= #{"2"} (repl/get-eval-state :case :first)))
+    (is (= {(sv/->RootVar "setup") {}
+            (sv/->RootVar "1") {:id "id--3", :value -3}}
+           (:real (repl/get-bindings :case :first :handle "1"))
+           (:evaluation (repl/get-bindings :case :first :handle "1"))))
+    (is (= {"id--3" {:id "id--3", :value -3}}
+           (:evaluation (repl/get-state :case :first :handle "1"))
+           (:real (repl/get-state :case :first :handle "1")))))
+  (testing "step to #<3>"
+    (repl/evaluate-step :case :first)
+    (is (= #{"3"} (repl/get-eval-state :case :first)))
+    (is (= {(sv/->RootVar "setup") {}
+            (sv/->RootVar "1") {:id "id--3", :value -3}
+            (sv/->RootVar "2") {:id "id-2", :value 2}}
+           (:evaluation (repl/get-bindings :case :first :handle "2"))
+           (:real (repl/get-bindings :case :first :handle "2"))))
+    (is (= {"id--3" {:id "id--3", :value -3}
+            "id-2" {:id "id-2", :value 2}}
+           (:evaluation (repl/get-state :case :first :handle "2"))
+           (:real (repl/get-state :case :first :handle "2")))))
+  (testing "step to #<4>"
+    (repl/evaluate-step :case :first)
+    (is (= #{"4"} (repl/get-eval-state :case :first)))
+    (is (= {(sv/->RootVar "setup") {}
+            (sv/->RootVar "1") {:id "id--3", :value -3}
+            (sv/->RootVar "2") {:id "id-2", :value 2}
+            (sv/->RootVar "3") {:id "id--2", :value "boom"}}
+           (:real (repl/get-bindings :case :first :handle "3"))
+           (:evaluation (repl/get-bindings :case :first :handle "3"))))
+    (is (= {"id--3" {:id "id--3", :value -3},
+            "id-2" {:id "id-2", :value 2},
+            "id--2" {:id "id--2", :value -2}}
+           (:evaluation (repl/get-state :case :first :handle "3"))
+           (:real (repl/get-state :case :first :handle "3")))))
+  (testing "step to #<5>"
+    (repl/evaluate-step :case :first)
+    (is (= #{"5"} (repl/get-eval-state :case :first)))
+    (is (= {(sv/->RootVar "setup") {}
+            (sv/->RootVar "1") {:id "id--3", :value -3}
+            (sv/->RootVar "2") {:id "id-2", :value 2}
+            (sv/->RootVar "3") {:id "id--2", :value "boom"}
+            (sv/->RootVar "4") {:id "id--4", :value "boom"}}
+           (:evaluation (repl/get-bindings :case :first :handle "4"))
+           (:real (repl/get-bindings :case :first :handle "4"))))
+    (is (= {"id--3" {:id "id--3", :value -3},
+            "id-2" {:id "id-2", :value 2},
+            "id--2" {:id "id--2", :value -2}
+            "id--4" {:id "id--4", :value -4}}
+           (:evaluation (repl/get-state :case :first :handle "4"))
+           (:real (repl/get-state :case :first :handle "4")))))
+  (testing "step to #<final>"
+    (repl/evaluate-step :case :first)
+    (is (= #{"final"} (repl/get-eval-state :case :first))))
+  (testing "step to back to #<init>"
+    (repl/evaluate-step :case :first)
+    (is (= #{"init"} (repl/get-eval-state :case :first)))))
 
 (deftest test-reset
   (let [debugger (repl/reset)]
