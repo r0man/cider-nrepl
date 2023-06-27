@@ -13,7 +13,9 @@
   "Return true if `event` is a Stateful Check test event, otherwise false."
   [{:keys [stateful-check type]}]
   (and (contains? #{:error :pass :fail} type)
-       (s/valid? :stateful-check/specification (:specification stateful-check))))
+       (map? stateful-check)
+       ;; (s/valid? :stateful-check/specification (:specification stateful-check))
+       ))
 
 (defn- enhance-event
   "Enhance the test `event` by adding :ns, :var, :id, and :type to the specification."
