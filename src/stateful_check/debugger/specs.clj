@@ -31,12 +31,9 @@
 (s/def :stateful-check.command/next-state
   (s/or :ifn ifn? :var #(instance? clojure.lang.Var %)))
 
-(s/def :stateful-check.command/name keyword?)
-
 (s/def :stateful-check/command
   (s/keys :req-un [:stateful-check.command/args
-                   :stateful-check.command/command
-                   :stateful-check.command/name]
+                   :stateful-check.command/command]
           :opt-un [:stateful-check.command/next-state]))
 
 ;; Stateful Check Specification

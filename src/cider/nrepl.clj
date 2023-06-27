@@ -745,7 +745,8 @@ stack frame of the most recent exception. This op is deprecated, please use the
              "stateful-check/run"
              {:doc "Run a Stateful Check specification."
               :requires {"specification" "The id of the Stateful Check specification."}
-              :optional {"options" "The Stateful Check options used to run the specification."}
+              :optional (merge wrap-print-optional-arguments
+                               {"options" "The Stateful Check options used to run the specification."})
               :returns {"stateful-check/run" "The analysis of the test run."
                         "status" "done"}}
 
