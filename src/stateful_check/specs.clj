@@ -1,7 +1,8 @@
 (ns stateful-check.specs
   (:require [clojure.spec.alpha :as s]
             [stateful-check.symbolic-values])
-  (:import [stateful_check.symbolic_values RootVar LookupVar]))
+  (:import [clojure.lang Var]
+           [stateful_check.symbolic_values RootVar LookupVar]))
 
 ;; Symbolic Values
 
@@ -23,13 +24,13 @@
 ;; Command
 
 (s/def :stateful-check.command/args
-  (s/or :ifn ifn? :var #(instance? clojure.lang.Var %)))
+  (s/or :ifn ifn? :var #(instance? Var %)))
 
 (s/def :stateful-check.command/command
-  (s/or :ifn ifn? :var #(instance? clojure.lang.Var %)))
+  (s/or :ifn ifn? :var #(instance? Var %)))
 
 (s/def :stateful-check.command/next-state
-  (s/or :ifn ifn? :var #(instance? clojure.lang.Var %)))
+  (s/or :ifn ifn? :var #(instance? Var %)))
 
 (s/def :stateful-check/command
   (s/keys :req-un [:stateful-check.command/args
@@ -39,22 +40,22 @@
 ;; Specification
 
 (s/def :stateful-check.specification/command
-  (s/or :map :stateful-check/command :var #(instance? clojure.lang.Var %)))
+  (s/or :map :stateful-check/command :var #(instance? Var %)))
 
 (s/def :stateful-check.specification/commands
   (s/map-of keyword? :stateful-check.specification/command))
 
 (s/def :stateful-check.specification/cleanup
-  (s/or :ifn ifn? :var #(instance? clojure.lang.Var %)))
+  (s/or :ifn ifn? :var #(instance? Var %)))
 
 (s/def :stateful-check.specification/generate-command
-  (s/or :ifn ifn? :var #(instance? clojure.lang.Var %)))
+  (s/or :ifn ifn? :var #(instance? Var %)))
 
 (s/def :stateful-check.specification/initial-state
-  (s/or :ifn ifn? :var #(instance? clojure.lang.Var %)))
+  (s/or :ifn ifn? :var #(instance? Var %)))
 
 (s/def :stateful-check.specification/setup
-  (s/or :ifn ifn? :var #(instance? clojure.lang.Var %)))
+  (s/or :ifn ifn? :var #(instance? Var %)))
 
 (s/def :stateful-check/specification
   (s/keys :req-un [:stateful-check.specification/commands]
