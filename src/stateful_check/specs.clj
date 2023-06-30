@@ -86,7 +86,7 @@
 (s/def :stateful-check.evaluation/parallel
   (s/coll-of :stateful-check.evaluation/sequential :kind vector?))
 
-;; Run
+;; Run (aka Test Check Report)
 
 (s/def :stateful-check.run/depth int?)
 (s/def :stateful-check.run/fail (s/coll-of any? :kind vector?))
