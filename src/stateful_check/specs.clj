@@ -95,7 +95,7 @@
 (s/def :stateful-check.run/failing-size int?)
 (s/def :stateful-check.run/num-tests nat-int?)
 (s/def :stateful-check.run/pass? boolean?)
-(s/def :stateful-check.run/result boolean?)
+(s/def :stateful-check.run/result (s/or :status boolean? :error #(instance? Throwable %)))
 (s/def :stateful-check.run/seed int?)
 (s/def :stateful-check.run/smallest (s/coll-of any? :kind vector?))
 (s/def :stateful-check.run/time-elapsed-ms nat-int?)
