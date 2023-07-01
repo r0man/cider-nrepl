@@ -824,7 +824,7 @@ You can also request to compute the info directly by requesting the \"cider/get-
 
 (def-wrapper wrap-stateful-check cider.nrepl.middleware.stateful-check/handle-stateful-check
   {:doc "A debugger for the stateful-check library."
-   :requires #{#'session #'wrap-print}
+   :requires #{#'wrap-print #'session}
    :handles {"stateful-check/analysis"
              {:doc "Return a Stateful Check analysis for a test."
               :requires {"test" "The identifier of the test."}
@@ -840,7 +840,9 @@ You can also request to compute the info directly by requesting the \"cider/get-
              "stateful-check/evaluate-step"
              {:doc "Evaluate a Stateful Check command execution step."
               :requires {"run" "The identifier of the run."}
-              :optional {"case" "The \"first\" or \"smallest\" failing case."}
+              :optional (merge wrap-print-optional-arguments
+                               {"case" "The \"first\" or \"smallest\" failing case."
+                                "run" "The identifier of the Stateful Check run."})
               :returns {"stateful-check/evaluate-step" "The Stateful Check analysis."
                         "status" "done"}}
 

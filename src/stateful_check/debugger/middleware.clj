@@ -141,12 +141,32 @@
 
 (defn- stateful-check-evaluate-step-reply
   "Evaluate a command execution step."
-  [{:keys [case run] :as msg}]
-  {:stateful-check/evaluate-step
-   (-> (swap-debugger! msg debugger/evaluate-step run case)
-       (debugger/get-run run)
-       (render/render-run)
-       (transform-value))})
+  [{:keys [id session case run transport] :as msg}]
+  (let [{:keys [exec]} (meta session)]
+    (exec id
+          (fn []
+            (with-bindings (assoc @session #'ie/*msg* msg)
+              ;; TODO: Using *out* and *err* from the session bindings hangs the
+              ;; REPL as soon as something is printed. Find a better way to do
+              ;; this.
+              (binding [*out* (java.io.StringWriter.)
+                        *err* (java.io.StringWriter.)]
+                (try
+                  (let [result (-> (swap-debugger! msg debugger/evaluate-step run case)
+                                   (debugger/get-run run)
+                                   (render/render-run)
+                                   (transform-value))
+                        err (str *err*)
+                        out (str *out*)]
+                    (when (pos? (count out))
+                      (t/send transport (response-for msg :out out)))
+                    (when (pos? (count err))
+                      (t/send transport (response-for msg :err err)))
+                    (t/send transport (response-for msg :stateful-check/evaluate-step result)))
+                  (catch Throwable e
+                    (.printStackTrace e))))))
+          (fn []
+            (t/send transport (response-for msg :status :done))))))
 
 (defn- stateful-check-print-reply
   "Handle a Stateful Check print NREPL operation."
@@ -179,14 +199,13 @@
   "Handle a Stateful Check NREPL `msg`."
   [handler msg]
   (case (:op msg)
+    "stateful-check/evaluate-step" (stateful-check-evaluate-step-reply msg)
     "stateful-check/run" (stateful-check-run-reply msg)
     (with-safe-transport handler msg
       "stateful-check/analysis" stateful-check-analysis-reply
       "stateful-check/analyze-test" stateful-check-analyze-test-reply
-      "stateful-check/evaluate-step" stateful-check-evaluate-step-reply
       "stateful-check/inspect" stateful-check-inspect-reply
       "stateful-check/print" stateful-check-print-reply
-      ;; "stateful-check/run" stateful-check-run-reply
       "stateful-check/scan" stateful-check-scan-reply
       "stateful-check/specifications" stateful-check-specifications-reply
       "stateful-check/stacktrace" stateful-check-stacktrace-reply)))

@@ -6,6 +6,9 @@
 (def records-failure-spec-id
   "stateful-check.debugger.test/records-failure-spec")
 
+(def records-error-spec-id
+  "stateful-check.debugger.test/records-error-spec")
+
 (def records-failure-test-id
   "stateful-check.debugger.test/test-records-failure")
 
