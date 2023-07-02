@@ -128,6 +128,30 @@
         (is (= [{:index 0, :real "id-0", :symbolic (get (root-var "2") :id), :name "id"}]
                (repl/get-arguments :case :smallest :handle "5")))))))
 
+(deftest test-run-specification-map
+  (repl/reset)
+  (let [run (repl/run-specification test/records-failure-spec spec-options)]
+    (is (s/valid? :stateful-check.debugger/run run))
+    (is (-> run :specification :id UUID/fromString))
+    (is (-> run :specification :id repl/specification)))
+  (let [run (repl/run-specification test/records-error-spec spec-options)]
+    (is (s/valid? :stateful-check.debugger/run run))
+    (is (-> run :specification :id UUID/fromString))
+    (is (-> run :specification :id repl/specification))))
+
+(deftest test-run-specification-var
+  (repl/reset)
+  (let [run (repl/run-specification #'test/records-failure-spec spec-options)]
+    (is (s/valid? :stateful-check.debugger/run run))
+    (is (= "stateful-check.debugger.test/records-failure-spec"
+           (-> run :specification :id)))
+    (is (-> run :specification :id repl/specification)))
+  (let [run (repl/run-specification #'test/records-error-spec spec-options)]
+    (is (s/valid? :stateful-check.debugger/run run))
+    (is (= "stateful-check.debugger.test/records-error-spec"
+           (-> run :specification :id)))
+    (is (-> run :specification :id repl/specification))))
+
 (deftest test-evaluate-step
   (repl/reset)
   (repl/run-specification spec-id spec-options)

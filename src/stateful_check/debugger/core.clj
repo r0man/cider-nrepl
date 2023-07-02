@@ -6,6 +6,7 @@
             [stateful-check.debugger.eval :as eval]
             [stateful-check.debugger.specs]
             [stateful-check.debugger.test-report :as test-report]
+            [stateful-check.specs]
             [stateful-check.symbolic-values :as sv])
   (:import [java.util UUID]
            [stateful_check.symbolic_values RootVar]))
@@ -195,9 +196,8 @@
         var (some-> id symbol name symbol)]
     (last (test-report/find-events (test-report debugger) ns var))))
 
-(defn run-specification
-  "Run the Stateful Check `specification` and add the analyzed results
-  to the `debugger`."
+(defn- run-specification-id
+  "Run a Stateful Check specification registered by `id`."
   [debugger id & [options]]
   (if-let [specification (specification debugger id)]
     (->> (assoc (stateful-check/run-specification specification options)
@@ -207,8 +207,40 @@
                     {:type :stateful-check/specification-not-found
                      :id id}))))
 
-(defn- find-specification [specifications ns var]
-  (some #(and (= ns (:ns %)) (= var (:var %)) %) specifications))
+(defn- run-specification-map
+  "Run a Stateful Check specification map."
+  [debugger specification & [options]]
+  (if (s/valid? :stateful-check/specification specification)
+    (let [specification (assoc specification :id (or (:id specification) (str (UUID/randomUUID))))]
+      (->> (assoc (stateful-check/run-specification specification options)
+                  :specification specification :options options)
+           (analyze-run (add-specification debugger specification))))
+    (throw (ex-info "Invalid Stateful Check specification"
+                    (merge (s/explain-data :stateful-check/specification specification)
+                           {:type :stateful-check/invalid-specification})))))
+
+(defn- run-specification-var
+  "Run a Stateful Check specification bound to a var."
+  [debugger var & [options]]
+  (let [specification (some-> var deref)]
+    (if (s/valid? :stateful-check/specification specification)
+      (let [specification (assoc specification :id (str (symbol var)))]
+        (run-specification-map debugger specification options))
+      (throw (ex-info "No Stateful Check specification bound to var"
+                      (merge (s/explain-data :stateful-check/specification specification)
+                             {:type :stateful-check/invalid-specification-var
+                              :var var}))))))
+
+(defn run-specification
+  "Run the Stateful Check `specification` and add the analyzed results
+  to the `debugger`."
+  [debugger specification & [options]]
+  (cond (s/valid? :stateful-check/specification specification)
+        (run-specification-map debugger specification options)
+        (string? specification)
+        (run-specification-id debugger specification options)
+        (instance? clojure.lang.Var specification)
+        (run-specification-var debugger specification options)))
 
 (defn- scan-vars
   "Scan all public vars for Stateful Check specifications."

@@ -2,6 +2,7 @@
   (:require [clojure.spec.alpha :as s]
             [stateful-check.symbolic-values])
   (:import [clojure.lang Var]
+           [stateful_check.runner CaughtException]
            [stateful_check.symbolic_values RootVar LookupVar]))
 
 ;; Symbolic Values
@@ -69,7 +70,10 @@
 ;; Evaluation
 
 (s/def :stateful-check.evaluation/result any?)
-(s/def :stateful-check.evaluation/result-str string?)
+
+(s/def :stateful-check.evaluation/result-str
+  ;; TODO: Should this always be a string?
+  (s/or :string string? :exception #(instance? CaughtException %)))
 
 (s/def :stateful-check.evaluation/command
   (s/cat :handle :stateful-check.symbolic-value/root
