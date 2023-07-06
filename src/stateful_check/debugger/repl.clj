@@ -29,11 +29,18 @@
   [& {:as query}]
   (debugger/get-run *debugger* (make-query query)))
 
-(defn evaluate-step
-  "Lookup an analysis in `*debugger*` according to `query`."
+(defn eval-step
+  "Evaluate the current command."
   [& {:as query}]
   (let [{:keys [case id]} (make-query query)]
-    (swap-debugger! debugger/evaluate-step id case)
+    (swap-debugger! debugger/eval-step id case)
+    (debugger/last-run *debugger*)))
+
+(defn eval-stop
+  "Stop the evaluation."
+  [& {:as query}]
+  (let [{:keys [case id]} (make-query query)]
+    (swap-debugger! debugger/eval-stop id case)
     (debugger/last-run *debugger*)))
 
 (defn get-env

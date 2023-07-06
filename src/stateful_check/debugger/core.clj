@@ -258,11 +258,20 @@
   [debugger]
   (-> debugger scan-vars scan-tests))
 
-(defn evaluate-step
+(defn eval-step
   "Evaluate a command execution step."
   [debugger run case]
   (if-let [run (get-run debugger run)]
-    (add-run debugger (eval/evaluate run case))
+    (add-run debugger (eval/eval-step run case))
+    (throw (ex-info "Stateful Check run not found"
+                    {:type :stateful-check/run-not-found
+                     :run run}))))
+
+(defn eval-stop
+  "Stop the evaluation."
+  [debugger run case]
+  (if-let [run (get-run debugger run)]
+    (add-run debugger (eval/eval-stop run case))
     (throw (ex-info "Stateful Check run not found"
                     {:type :stateful-check/run-not-found
                      :run run}))))

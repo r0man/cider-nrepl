@@ -99,12 +99,12 @@
   (let [run (-> {:op "stateful-check/run"
                  :specification test/records-failure-spec-id}
                 session/message :stateful-check/run :id)
-        {:keys [stateful-check/evaluate-step status]}
-        (session/message {:op "stateful-check/evaluate-step"
+        {:keys [stateful-check/eval-step status]}
+        (session/message {:op "stateful-check/eval-step"
                           :run run
                           :case "smallest"})]
     (is (= #{"done"} status))
-    (is (= run (:id evaluate-step)))
+    (is (= run (:id eval-step)))
 
     ;; (clojure.pprint/pprint
     ;;  (session/message {:op "stateful-check/evaluate-step"

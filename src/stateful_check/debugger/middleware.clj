@@ -139,7 +139,7 @@
       {:stateful-check/analysis (render/render-run analysis)}
       {:status :stateful-check/analysis-not-found})))
 
-(defn- stateful-check-evaluate-step-reply
+(defn- stateful-check-eval-step-reply
   "Evaluate a command execution step."
   [{:keys [id session case run transport] :as msg}]
   (let [{:keys [exec]} (meta session)]
@@ -152,7 +152,7 @@
               (binding [*out* (java.io.StringWriter.)
                         *err* (java.io.StringWriter.)]
                 (try
-                  (let [result (-> (swap-debugger! msg debugger/evaluate-step run case)
+                  (let [result (-> (swap-debugger! msg debugger/eval-step run case)
                                    (debugger/get-run run)
                                    (render/render-run)
                                    (transform-value))
@@ -162,7 +162,36 @@
                       (t/send transport (response-for msg :out out)))
                     (when (pos? (count err))
                       (t/send transport (response-for msg :err err)))
-                    (t/send transport (response-for msg :stateful-check/evaluate-step result)))
+                    (t/send transport (response-for msg :stateful-check/eval-step result)))
+                  (catch Throwable e
+                    (.printStackTrace e))))))
+          (fn []
+            (t/send transport (response-for msg :status :done))))))
+
+(defn- stateful-check-eval-stop-reply
+  "Stop the evaluation of a test run."
+  [{:keys [id session case run transport] :as msg}]
+  (let [{:keys [exec]} (meta session)]
+    (exec id
+          (fn []
+            (with-bindings (assoc @session #'ie/*msg* msg)
+              ;; TODO: Using *out* and *err* from the session bindings hangs the
+              ;; REPL as soon as something is printed. Find a better way to do
+              ;; this.
+              (binding [*out* (java.io.StringWriter.)
+                        *err* (java.io.StringWriter.)]
+                (try
+                  (let [result (-> (swap-debugger! msg debugger/eval-stop run case)
+                                   (debugger/get-run run)
+                                   (render/render-run)
+                                   (transform-value))
+                        err (str *err*)
+                        out (str *out*)]
+                    (when (pos? (count out))
+                      (t/send transport (response-for msg :out out)))
+                    (when (pos? (count err))
+                      (t/send transport (response-for msg :err err)))
+                    (t/send transport (response-for msg :stateful-check/eval-stop result)))
                   (catch Throwable e
                     (.printStackTrace e))))))
           (fn []
@@ -199,7 +228,8 @@
   "Handle a Stateful Check NREPL `msg`."
   [handler msg]
   (case (:op msg)
-    "stateful-check/evaluate-step" (stateful-check-evaluate-step-reply msg)
+    "stateful-check/eval-step" (stateful-check-eval-step-reply msg)
+    "stateful-check/eval-stop" (stateful-check-eval-stop-reply msg)
     "stateful-check/run" (stateful-check-run-reply msg)
     (with-safe-transport handler msg
       "stateful-check/analysis" stateful-check-analysis-reply

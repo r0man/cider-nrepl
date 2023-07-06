@@ -157,7 +157,7 @@
   (repl/run-specification spec-id spec-options)
   (is (= #{"init"} (repl/get-eval-state :case :first)))
   (testing "step to #<1>"
-    (repl/evaluate-step :case :first)
+    (repl/eval-step :case :first)
     (is (= #{"1"} (repl/get-eval-state :case :first)))
     (is (= {(root-var "setup") {}}
            (:evaluation (repl/get-bindings :case :first :handle "init"))
@@ -166,7 +166,7 @@
            (:evaluation (repl/get-state :case :first :handle "init"))
            (:real (repl/get-state :case :first :handle "init")))))
   (testing "step to #<2>"
-    (repl/evaluate-step :case :first)
+    (repl/eval-step :case :first)
     (is (= #{"2"} (repl/get-eval-state :case :first)))
     (is (= {(root-var "setup") {}
             (root-var "1") {:id "id--3", :value -3}}
@@ -176,7 +176,7 @@
            (:evaluation (repl/get-state :case :first :handle "1"))
            (:real (repl/get-state :case :first :handle "1")))))
   (testing "step to #<3>"
-    (repl/evaluate-step :case :first)
+    (repl/eval-step :case :first)
     (is (= #{"3"} (repl/get-eval-state :case :first)))
     (is (= {(root-var "setup") {}
             (root-var "1") {:id "id--3", :value -3}
@@ -188,7 +188,7 @@
            (:evaluation (repl/get-state :case :first :handle "2"))
            (:real (repl/get-state :case :first :handle "2")))))
   (testing "step to #<4>"
-    (repl/evaluate-step :case :first)
+    (repl/eval-step :case :first)
     (is (= #{"4"} (repl/get-eval-state :case :first)))
     (is (= {(root-var "setup") {}
             (root-var "1") {:id "id--3", :value -3}
@@ -202,7 +202,7 @@
            (:evaluation (repl/get-state :case :first :handle "3"))
            (:real (repl/get-state :case :first :handle "3")))))
   (testing "step to #<5>"
-    (repl/evaluate-step :case :first)
+    (repl/eval-step :case :first)
     (is (= #{"5"} (repl/get-eval-state :case :first)))
     (is (= {(root-var "setup") {}
             (root-var "1") {:id "id--3", :value -3}
@@ -218,11 +218,29 @@
            (:evaluation (repl/get-state :case :first :handle "4"))
            (:real (repl/get-state :case :first :handle "4")))))
   (testing "step to #<final>"
-    (repl/evaluate-step :case :first)
+    (repl/eval-step :case :first)
     (is (= #{"final"} (repl/get-eval-state :case :first))))
   (testing "step to back to #<init>"
-    (repl/evaluate-step :case :first)
+    (repl/eval-step :case :first)
     (is (= #{"init"} (repl/get-eval-state :case :first)))))
+
+(deftest test-evaluate-stop
+  (repl/reset)
+  (repl/run-specification spec-id spec-options)
+  (is (= #{"init"} (repl/get-eval-state :case :first)))
+  (testing "stop after to #<1>"
+    (repl/eval-step :case :first)
+    (repl/eval-stop :case :first)
+    (is (= #{"final"} (repl/get-eval-state :case :first))))
+  (testing "start again, and stop after to #<2>"
+    (repl/eval-step :case :first)
+    (is (= #{"init"} (repl/get-eval-state :case :first)))
+    (repl/eval-step :case :first)
+    (is (= #{"1"} (repl/get-eval-state :case :first)))
+    (repl/eval-step :case :first)
+    (is (= #{"2"} (repl/get-eval-state :case :first)))
+    (repl/eval-stop :case :first)
+    (is (= #{"final"} (repl/get-eval-state :case :first)))))
 
 (deftest test-reset
   (let [debugger (repl/reset)]

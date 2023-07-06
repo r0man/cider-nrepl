@@ -823,7 +823,7 @@ You can also request to compute the info directly by requesting the \"cider/get-
                         "status" "\"no-doc\" if there is no document matching to `ns` and `symbol`."}}}})
 
 (def-wrapper wrap-stateful-check cider.nrepl.middleware.stateful-check/handle-stateful-check
-  {:doc "A debugger for the stateful-check library."
+  {:doc "A debugger for Stateful Check specifications."
    :requires #{#'wrap-print #'session}
    :handles {"stateful-check/analysis"
              {:doc "Return a Stateful Check analysis for a test."
@@ -837,24 +837,34 @@ You can also request to compute the info directly by requesting the \"cider/get-
               :returns {"stateful-check/analyze-test" "The analysis of the test results."
                         "status" "done"}}
 
-             "stateful-check/evaluate-step"
-             {:doc "Evaluate a Stateful Check command execution step."
+             "stateful-check/eval-step"
+             {:doc "Evaluate a command of a Stateful Check run."
               :requires {"run" "The identifier of the run."}
               :optional (merge wrap-print-optional-arguments
                                {"case" "The \"first\" or \"smallest\" failing case."
                                 "run" "The identifier of the Stateful Check run."})
-              :returns {"stateful-check/evaluate-step" "The Stateful Check analysis."
+              :returns {"stateful-check/evaluate-step" "The Stateful Check run."
+                        "status" "done"}}
+
+             "stateful-check/eval-stop"
+             {:doc "Stop the evaluation of a Stateful Check run."
+              :requires {"run" "The identifier of the run."}
+              :optional (merge wrap-print-optional-arguments
+                               {"case" "The \"first\" or \"smallest\" failing case."
+                                "run" "The identifier of the Stateful Check run."})
+              :returns {"stateful-check/evaluate-stop" "The Stateful Check run."
                         "status" "done"}}
 
              "stateful-check/inspect"
-             {:doc "Inspect a Stateful Check test report object."
+             {:doc "Inspect an object of a Stateful Check run."
               :requires {"query" "The query for the object to inspect."}
               :returns {"value" "The inspected object."
                         "status" "done"}}
 
              "stateful-check/print"
-             {:doc "Print a Stateful Check test report object."
+             {:doc "Print an object of a Stateful Check run."
               :requires {"query" "The query for the object to print."}
+              :optional wrap-print-optional-arguments
               :returns {"value" "The printed object."
                         "status" "done"}}
 

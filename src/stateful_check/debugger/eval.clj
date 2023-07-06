@@ -35,6 +35,18 @@
   (-> (update result-data :environments clear-environments)
       (update :state-machine state-machine/update-next-state :reset)))
 
+(defn- setup-result
+  [{:keys [environments] :as result-data}]
+  (get-in environments [(sv/->RootVar "init") :bindings :evaluation (sv/->RootVar "setup")] ))
+
+(defn- stop
+  [{:keys [specification] :as result-data}]
+  (when-let [cleanup (:cleanup specification)]
+    (if (:setup specification)
+      (cleanup (setup-result result-data))
+      (cleanup)))
+  (update result-data :state-machine state-machine/update-next-state :stop))
+
 (defn- previous-handle
   [{:keys [environments sequential parallel]} current-handle]
   (let [{:keys [index thread]} (get environments current-handle)]
@@ -114,7 +126,7 @@
     (-> (reduce add-evaluation result-data evaluations)
         (update :state-machine state-machine/update-next-state :pass))))
 
-(defn- evaluate-failed-case [result-data]
+(defn- eval-step* [result-data]
   (let [current-state (-> result-data :state-machine :state)
         next-result-data (cond (= #{"init"} current-state)
                                (start result-data)
@@ -124,7 +136,22 @@
                                (execute-commands result-data))]
     next-result-data))
 
-(defn evaluate [run case]
+(defn- eval-stop* [result-data]
+  (let [current-state (-> result-data :state-machine :state)
+        next-result-data (cond (= #{"init"} current-state)
+                               result-data
+                               (= #{"final"} current-state)
+                               result-data
+                               (set? current-state)
+                               (stop result-data))]
+    next-result-data))
+
+(defn eval-step [run case]
   (if (= "first" (some-> case name))
-    (update run :result-data evaluate-failed-case)
-    (update-in run [:shrunk :result-data] evaluate-failed-case)))
+    (update run :result-data eval-step*)
+    (update-in run [:shrunk :result-data] eval-step*)))
+
+(defn eval-stop [run case]
+  (if (= "first" (some-> case name))
+    (update run :result-data eval-stop*)
+    (update-in run [:shrunk :result-data] eval-stop*)))
