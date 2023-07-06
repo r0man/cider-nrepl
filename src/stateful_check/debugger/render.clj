@@ -116,6 +116,13 @@
   {:sequential (render-sequential-executions result-data)
    :parallel (render-parallel-executions result-data)})
 
+(defn- render-state-machine
+  "Render the `state-machine`."
+  [state-machine]
+  (cond-> state-machine
+    (:state state-machine)
+    (update :state vec)))
+
 (defn evaluating?
   "Render a failing test case."
   [{:keys [environments] :as result-data}]
@@ -125,6 +132,7 @@
   "Render a failing test case."
   [result-data]
   (-> (select-keys result-data [:specification :options :state-machine])
+      (update :state-machine render-state-machine)
       (assoc :eval? (evaluating? result-data))
       (assoc :executions (render-executions result-data))))
 
