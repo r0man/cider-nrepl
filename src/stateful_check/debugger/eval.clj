@@ -108,16 +108,20 @@
       (assoc :result result))))
 
 (defn- add-evaluation
-  [result-data {:keys [arguments bindings error handle state result]}]
+  [result-data {:keys [arguments bindings error handle state result] :as execution}]
   (cond-> result-data
     true
     (assoc-in [:environments handle :bindings :evaluation] bindings)
     true
     (assoc-in [:environments handle :state :evaluation] state)
-    error
+    (contains? execution :error)
     (assoc-in [:environments handle :error :evaluation] error)
-    result
-    (assoc-in [:environments handle :result :evaluation] result)))
+    (not (contains? execution :error))
+    (update-in [:environments handle :error] dissoc :evaluation)
+    (contains? execution :result)
+    (assoc-in [:environments handle :result :evaluation] result)
+    (not (contains? execution :result))
+    (update-in [:environments handle :result] dissoc :evaluation)))
 
 (defn- execute-commands
   [{:keys [state-machine] :as result-data}]
