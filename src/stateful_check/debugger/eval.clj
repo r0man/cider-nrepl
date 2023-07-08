@@ -1,5 +1,6 @@
 (ns stateful-check.debugger.eval
   (:require [stateful-check.command-utils :as u]
+            [stateful-check.debugger.analyzer :as analyzer]
             [stateful-check.debugger.state-machine :as state-machine]
             [stateful-check.generator :as g]
             [stateful-check.runner :as r]
@@ -14,6 +15,7 @@
              [handle (-> environment
                          (update :bindings dissoc :evaluation)
                          (update :error dissoc :evaluation)
+                         (update :failures dissoc :evaluation)
                          (update :result dissoc :evaluation)
                          (update :state dissoc :evaluation))])))
 
@@ -26,7 +28,7 @@
                 (if setup
                   (initial-state setup-result)
                   (initial-state)))]
-    (-> result-data
+    (-> (update result-data :environments clear-environments)
         (assoc-in [:environments (sv/->RootVar "init") :bindings :evaluation] bindings)
         (assoc-in [:environments (sv/->RootVar "init") :state :evaluation] state)
         (update :state-machine state-machine/update-next-state :start))))
@@ -101,23 +103,33 @@
              :handle handle
              :state next-state}
       failure
-      (assoc :failure failure)
+      (assoc :failures [(analyzer/analyze-failure [0 failure])])
       (instance? CaughtException result)
       (assoc :error (:exception result))
       (not (instance? CaughtException result))
       (assoc :result result))))
 
 (defn- add-evaluation
-  [result-data {:keys [arguments bindings error handle state result] :as execution}]
+  [result-data {:keys [bindings error failures handle state result] :as execution}]
+  ;; TODO: Add arguments
   (cond-> result-data
+    ;; Bindings
     true
     (assoc-in [:environments handle :bindings :evaluation] bindings)
+    ;; State
     true
     (assoc-in [:environments handle :state :evaluation] state)
+    ;; Error
     (contains? execution :error)
     (assoc-in [:environments handle :error :evaluation] error)
     (not (contains? execution :error))
     (update-in [:environments handle :error] dissoc :evaluation)
+    ;; Failure
+    (seq failures)
+    (assoc-in [:environments handle :failures :evaluation] failures)
+    (not (seq failures))
+    (update-in [:environments handle :failures] dissoc :evaluation)
+    ;; Result
     (contains? execution :result)
     (assoc-in [:environments handle :result :evaluation] result)
     (not (contains? execution :result))

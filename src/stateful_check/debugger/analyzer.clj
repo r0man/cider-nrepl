@@ -3,7 +3,8 @@
             [stateful-check.debugger.state-machine :as state-machine]
             [stateful-check.generator :as g]
             [stateful-check.symbolic-values :as sv])
-  (:import [java.util Base64 UUID]
+  (:import [clojure.lang Var]
+           [java.util Base64 UUID]
            [stateful_check.runner CaughtException]))
 
 (defn- find-argument-list [command num-args]
@@ -18,8 +19,10 @@
 
 (defn- analyze-command
   "Analyze the Stateful Check `cmd` map."
-  [cmd]
-  (let [meta-data (some-> cmd :command meta)]
+  [{:keys [command] :as cmd}]
+  (let [meta-data (or (meta command)
+                      (and (instance? Var command)
+                           (-> command deref meta)))]
     (cond-> cmd
       meta-data
       (assoc :meta meta-data))))
@@ -42,17 +45,17 @@
                {:error exception
                 :line (some-> exception .getStackTrace first .getLineNumber)})))))
 
-(defn- analyze-failure
+(defn analyze-failure
   "Analyze a postcondition failure."
   [[index {:keys [events] :as failure}]]
   (cond-> (assoc failure :index index)
     (seq events)
     (update :events #(mapv analyze-event (map-indexed vector %)))))
 
-(defn- analyze-failures
+(defn analyze-failures
   "Analyze all postcondition failures."
   [failures]
-  (mapv analyze-failure (map-indexed vector failures)))
+  {:real (mapv analyze-failure (map-indexed vector failures))})
 
 (def ^:private mutated-rexeg
   #"(?s)(.*)(\n\s+>> object may have been mutated later into (.+) <<\n)")

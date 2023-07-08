@@ -97,7 +97,7 @@
         environments (-> debugger debugger/last-run :result-data :environments)]
     (testing "environment #1"
       (let [env (get environments (sv/->RootVar "1"))]
-        (is (= [{:index 0 :real -3 :symbolic -3 :name "0"}]
+        (is (= [{:index 0 :real -3 :symbolic -3 :name "value"}]
                (:arguments env)))
         (is (= {(sv/->RootVar "setup") {}
                 (sv/->RootVar "1") {:id "id--3" :value -3}}

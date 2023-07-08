@@ -51,13 +51,13 @@
     (is (s/valid? :stateful-check.debugger/run run))
     (testing "first failing case"
       (testing "arguments"
-        (is (= [{:index 0, :real -3, :symbolic -3, :name "0"}]
+        (is (= [{:index 0, :real -3, :symbolic -3, :name "value"}]
                (repl/get-arguments :case :first :handle "1")))
-        (is (= [{:index 0, :real 2, :symbolic 2, :name "0"}]
+        (is (= [{:index 0, :real 2, :symbolic 2, :name "value"}]
                (repl/get-arguments :case :first :handle "2")))
-        (is (= [{:index 0, :real -2, :symbolic -2, :name "0"}]
+        (is (= [{:index 0, :real -2, :symbolic -2, :name "value"}]
                (repl/get-arguments :case :first :handle "3")))
-        (is (= [{:index 0, :real -4, :symbolic -4, :name "0"}]
+        (is (= [{:index 0, :real -4, :symbolic -4, :name "value"}]
                (repl/get-arguments :case :first :handle "4")))
         (is (= [{:index 0, :real "id--4", :symbolic (get (root-var "4") :id), :name "id"}]
                (repl/get-arguments :case :first :handle "5"))))
@@ -119,11 +119,11 @@
                (repl/get-bindings :case :first :handle "5")))))
     (testing "smallest failing case"
       (testing "arguments"
-        (is (= [{:index 0, :real 0, :symbolic 0, :name "0"}]
+        (is (= [{:index 0, :real 0, :symbolic 0, :name "value"}]
                (repl/get-arguments :case :smallest :handle "2")))
-        (is (= [{:index 0, :real -1, :symbolic -1, :name "0"}]
+        (is (= [{:index 0, :real -1, :symbolic -1, :name "value"}]
                (repl/get-arguments :case :smallest :handle "3")))
-        (is (= [{:index 0, :real 0, :symbolic 0, :name "0"}]
+        (is (= [{:index 0, :real 0, :symbolic 0, :name "value"}]
                (repl/get-arguments :case :smallest :handle "4")))
         (is (= [{:index 0, :real "id-0", :symbolic (get (root-var "2") :id), :name "id"}]
                (repl/get-arguments :case :smallest :handle "5")))))))
@@ -219,7 +219,29 @@
            (:real (repl/get-state :case :first :handle "4")))))
   (testing "step to #<final>"
     (repl/eval-step :case :first)
-    (is (= #{"final"} (repl/get-eval-state :case :first))))
+    (is (= #{"final"} (repl/get-eval-state :case :first)))
+    (is (= {(root-var "setup") {}
+            (root-var "1") {:id "id--3", :value -3}
+            (root-var "2") {:id "id-2", :value 2}
+            (root-var "3") {:id "id--2", :value "boom"}
+            (root-var "4") {:id "id--4", :value "boom"}
+            (root-var "5") {:id "id--4", :value "boom"}}
+           (:evaluation (repl/get-bindings :case :first :handle "5"))
+           (:real (repl/get-bindings :case :first :handle "5"))))
+    (is (= {"id--3" {:id "id--3", :value -3},
+            "id-2" {:id "id-2", :value 2},
+            "id--2" {:id "id--2", :value -2}
+            "id--4" {:id "id--4", :value -4}}
+           (:evaluation (repl/get-state :case :first :handle "5"))
+           (:real (repl/get-state :case :first :handle "5"))))
+    (let [{:keys [failures]} (repl/get-env :case :first :handle "5")]
+      (is (= [{:actual {:id "id--4", :value "boom"},
+               :expected {:id "id--4", :value -4},
+               :index 0}]
+             (->> failures :evaluation first :events
+                  (map #(select-keys % [:actual :expected :index])))
+             (->> failures :real first :events
+                  (map #(select-keys % [:actual :expected :index])))))))
   (testing "step to back to #<init>"
     (repl/eval-step :case :first)
     (is (= #{"init"} (repl/get-eval-state :case :first)))))

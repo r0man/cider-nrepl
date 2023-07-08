@@ -72,6 +72,13 @@
     (seq (:events failure))
     (update :events #(mapv render-event %))))
 
+(defn- render-failures [failures]
+  (cond-> failures
+    (contains? failures :evaluation)
+    (update :evaluation #(mapv render-failure %))
+    (contains? failures :real)
+    (update :real #(mapv render-failure %))))
+
 (defn- render-binding [bindings]
   (into {} (for [[handle value] bindings]
              [(pr-str handle)
@@ -94,7 +101,7 @@
       (update :bindings render-bindings)
       (update :command select-keys [:name])
       (update :error render-error)
-      (update :failures #(mapv render-failure %))
+      (update :failures render-failures)
       (update :handle pr-str)
       (update :result render-result)))
 
