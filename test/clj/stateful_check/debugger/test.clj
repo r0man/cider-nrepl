@@ -32,7 +32,7 @@
 
 (def store-record-error-spec
   {:args (fn [_] [gen/int])
-   :command store-record-error
+   :command #'store-record-error
    :next-state (fn [state [value] record]
                  (assoc state (:id record)
                         {:id (:id record)
@@ -40,7 +40,7 @@
 
 (def store-record-failure-spec
   {:args (fn [_] [gen/int])
-   :command store-record-failure
+   :command #'store-record-failure
    :next-state (fn [state [value] record]
                  (assoc state (:id record)
                         {:id (:id record)
