@@ -57,28 +57,27 @@
 (def ^:private mutated-rexeg
   #"(?s)(.*)(\n\s+>> object may have been mutated later into (.+) <<\n)")
 
-;; (defn- analyze-result
-;;   "Analyze the execution `result` and `result-str`."
-;;   [options result result-str]
-;;   (let [assume-immutable-results? (-> options :run :assume-immutable-results true?)
-;;         matches (when (string? result-str)
-;;                   (re-matches mutated-rexeg result-str))]
-;;     (cond-> {:value result :string-value result-str}
-;;       (instance? CaughtException result)
-;;       (assoc :error (:exception result))
-;;       (instance? CaughtException result)
-;;       (dissoc :value)
-;;       (not assume-immutable-results?)
-;;       ;; TODO: Can't detect this ourselves since a message has been appended to
-;;       ;; result-str by stateful-check.
-;;       (assoc :mutated (some? (seq matches)))
-;;       ;; TODO: Would be nice to get mutation info as data, like :message, :mutated-into object
-;;       (and (not assume-immutable-results?) (seq matches))
-;;       (assoc :string-value (nth matches 1) :value (nth matches 3)))))
+(defn- analyze-result
+  "Analyze the execution `result`."
+  [handle result result-str]
+  (let [matches (when (string? result-str)
+                  (re-matches mutated-rexeg result-str))]
+    (cond-> {:symbolic handle}
+      (not (instance? CaughtException result))
+      (assoc :real result)
+      (seq matches)
+      (assoc :real-str (nth matches 1))
+      (and (not (seq matches))
+           (string? result-str))
+      (assoc :real-str result-str)
+      (seq matches)
+      (assoc :real-mutated (nth matches 3))
+      (or (seq matches) (not= result-str (pr-str result)))
+      (assoc :real-mutated? true))))
 
 (defn- analyze-sequential-environment
   "Return a map from a command handle to execution frame."
-  [{:keys [failures options]} cmds-and-traces state bindings & [thread]]
+  [{:keys [failures]} cmds-and-traces state bindings & [thread]]
   (first (reduce (fn [[env state bindings]
                       [index [[handle cmd-obj & symbolic-args] result-str result]]]
                    (let [real-args (sv/get-real-value symbolic-args (:real bindings))
@@ -105,22 +104,14 @@
                                         :command command
                                         :handle handle
                                         :index index
-                                        :result {:symbolic handle}
-                                        :result-str {:symbolic (pr-str handle)}
+                                        :result (analyze-result handle result result-str)
                                         :state next-state}
                                  (seq failures)
                                  (assoc :failures (analyze-failures failures))
                                  (nat-int? thread)
                                  (assoc :thread thread)
-
                                  (instance? CaughtException result)
-                                 (assoc-in [:error :real] (:exception result))
-
-                                 (not (instance? CaughtException result))
-                                 (assoc-in [:result :real] result)
-
-                                 (not (instance? CaughtException result))
-                                 (assoc-in [:result-str :real] result-str))]
+                                 (assoc-in [:error :real] (:exception result)))]
                      [(assoc env handle frame) next-state next-bindings]))
                  [{} state bindings] (map-indexed vector cmds-and-traces))))
 

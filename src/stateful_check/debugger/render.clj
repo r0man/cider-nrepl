@@ -26,8 +26,11 @@
 (defn- render-result
   "Render the command execution `result`."
   [result]
-  (into {} (for [[key result] result]
-             [key (render-value result)])))
+  (cond-> result
+    (contains? result :real)
+    (update :real render-value)
+    (contains? result :symbolic)
+    (update :symbolic pr-str)))
 
 (defn- render-argument
   "Render the command execution `argument`."
