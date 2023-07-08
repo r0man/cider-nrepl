@@ -27,6 +27,8 @@
   "Render the command execution `result`."
   [result]
   (cond-> result
+    (contains? result :evaluation)
+    (update :evaluation render-value)
     (contains? result :real)
     (update :real render-value)
     (contains? result :symbolic)
