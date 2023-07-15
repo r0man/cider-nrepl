@@ -47,6 +47,17 @@
                    :stateful-check.debugger.bindings/symbolic]
           :opt-un [:stateful-check.debugger.bindings/evaluation]))
 
+;; Debugger Error
+
+(s/def :stateful-check.debugger.error/evaluation #(instance? Throwable %))
+(s/def :stateful-check.debugger.error/real #(instance? Throwable %))
+(s/def :stateful-check.debugger.error/symbolic #(instance? Throwable %))
+
+(s/def :stateful-check.debugger/error
+  (s/keys :opt-un [:stateful-check.debugger.error/evaluation
+                   :stateful-check.debugger.error/symbolic
+                   :stateful-check.debugger.error/real]))
+
 ;; Debugger Result
 
 (s/def :stateful-check.debugger.result/evaluation any?)
@@ -63,6 +74,7 @@
 (s/def :stateful-check.debugger.environment/arguments :stateful-check.debugger/arguments)
 (s/def :stateful-check.debugger.environment/bindings :stateful-check.debugger/bindings)
 (s/def :stateful-check.debugger.environment/command :stateful-check/command)
+(s/def :stateful-check.debugger.environment/error :stateful-check.debugger/error)
 (s/def :stateful-check.debugger.environment/handle :stateful-check.symbolic-value/root)
 (s/def :stateful-check.debugger.environment/index nat-int?)
 (s/def :stateful-check.debugger.environment/result :stateful-check.debugger/result)
@@ -72,6 +84,7 @@
                    :stateful-check.debugger.environment/handle]
           :opt-un [:stateful-check.debugger.environment/arguments
                    :stateful-check.debugger.environment/command
+                   :stateful-check.debugger.environment/error
                    :stateful-check.debugger.environment/index
                    :stateful-check.debugger.environment/result]))
 
