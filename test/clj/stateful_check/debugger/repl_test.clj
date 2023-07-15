@@ -1,12 +1,15 @@
 (ns stateful-check.debugger.repl-test
   (:require [clojure.set :as set]
             [clojure.spec.alpha :as s]
+            [clojure.spec.test.alpha :as stest]
             [clojure.test :refer [deftest is testing]]
             [stateful-check.debugger.core :as debugger]
             [stateful-check.debugger.repl :as repl]
             [stateful-check.debugger.test :as test]
             [stateful-check.symbolic-values :as sv])
   (:import [java.util UUID]))
+
+(stest/instrument)
 
 (def ^:private spec-id
   "stateful-check.debugger.test/records-failure-spec")
