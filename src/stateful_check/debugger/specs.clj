@@ -47,6 +47,17 @@
                    :stateful-check.debugger.bindings/symbolic]
           :opt-un [:stateful-check.debugger.bindings/evaluation]))
 
+;; Debugger Result
+
+(s/def :stateful-check.debugger.result/evaluation any?)
+(s/def :stateful-check.debugger.result/real any?)
+(s/def :stateful-check.debugger.result/symbolic any?)
+
+(s/def :stateful-check.debugger/result
+  (s/keys :req-un [:stateful-check.debugger.result/symbolic]
+          :opt-un [:stateful-check.debugger.result/evaluation
+                   :stateful-check.debugger.result/real]))
+
 ;; Debugger Environment
 
 (s/def :stateful-check.debugger.environment/arguments :stateful-check.debugger/arguments)
@@ -54,13 +65,15 @@
 (s/def :stateful-check.debugger.environment/command :stateful-check/command)
 (s/def :stateful-check.debugger.environment/handle :stateful-check.symbolic-value/root)
 (s/def :stateful-check.debugger.environment/index nat-int?)
+(s/def :stateful-check.debugger.environment/result :stateful-check.debugger/result)
 
 (s/def :stateful-check.debugger/environment
   (s/keys :req-un [:stateful-check.debugger.environment/bindings
                    :stateful-check.debugger.environment/handle]
           :opt-un [:stateful-check.debugger.environment/arguments
                    :stateful-check.debugger.environment/command
-                   :stateful-check.debugger.environment/index]))
+                   :stateful-check.debugger.environment/index
+                   :stateful-check.debugger.environment/result]))
 
 (s/def :stateful-check.debugger/environments
   (s/map-of :stateful-check.symbolic-value/root :stateful-check.debugger/environment))
