@@ -38,14 +38,14 @@
 
 ;; Debugger Binding
 
-(s/def :stateful-check.debugger.binding/evaluation :stateful-check/bindings)
-(s/def :stateful-check.debugger.binding/real :stateful-check/bindings)
-(s/def :stateful-check.debugger.binding/symbolic :stateful-check/bindings)
+(s/def :stateful-check.debugger.bindings/evaluation :stateful-check/bindings)
+(s/def :stateful-check.debugger.bindings/real :stateful-check/bindings)
+(s/def :stateful-check.debugger.bindings/symbolic :stateful-check/bindings)
 
 (s/def :stateful-check.debugger/bindings
-  (s/keys :req-un [:stateful-check.debugger.binding/real
-                   :stateful-check.debugger.binding/symbolic]
-          :opt-un [:stateful-check.debugger.binding/evaluation]))
+  (s/keys :req-un [:stateful-check.debugger.bindings/real
+                   :stateful-check.debugger.bindings/symbolic]
+          :opt-un [:stateful-check.debugger.bindings/evaluation]))
 
 ;; Debugger Environment
 
