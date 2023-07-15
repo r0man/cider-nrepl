@@ -87,13 +87,15 @@
 ;; Debugger
 
 (s/def :stateful-check.debugger/last-runs
-  (s/coll-of string? :kind vector?))
+  (s/coll-of :stateful-check.debugger.run/id :kind vector?))
 
 (s/def :stateful-check.debugger/runs
-  (s/map-of string? :stateful-check.debugger/run))
+  (s/map-of :stateful-check.debugger.run/id
+            :stateful-check.debugger/run))
 
 (s/def :stateful-check.debugger/specifications
-  (s/map-of string? :stateful-check.debugger/specification))
+  (s/map-of :stateful-check.debugger.specification/id
+            :stateful-check.debugger/specification))
 
 (s/def :stateful-check/debugger
   (s/keys :req-un [:stateful-check.debugger/last-runs
