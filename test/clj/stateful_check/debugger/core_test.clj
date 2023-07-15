@@ -2,13 +2,11 @@
   (:require [clojure.set :as set]
             [clojure.spec.alpha :as s]
             [clojure.spec.test.alpha :as stest]
-            [clojure.string :as str]
             [clojure.test :refer [deftest is testing]]
             [stateful-check.core :as stateful-check]
             [stateful-check.debugger.core :as debugger]
             [stateful-check.debugger.test :as test]
-            [stateful-check.symbolic-values :as sv]
-            [orchard.query :as q])
+            [stateful-check.symbolic-values :as sv])
   (:import [java.util UUID]))
 
 (stest/instrument)
