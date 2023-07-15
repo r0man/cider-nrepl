@@ -223,7 +223,7 @@
     (if (s/valid? :stateful-check/specification specification)
       (let [specification (assoc specification :id (str (symbol var)))]
         (run-specification-map debugger specification options))
-      (error/no-specification-bound specification var))))
+      (error/no-specification-bound var specification))))
 
 (defn run-specification
   "Run the Stateful Check `specification` and add the analyzed results
