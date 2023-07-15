@@ -3,6 +3,7 @@
   (:require [clojure.spec.alpha :as s]
             [stateful-check.core :as stateful-check]
             [stateful-check.debugger.analyzer :as analyzer]
+            [stateful-check.debugger.error :as error]
             [stateful-check.debugger.eval :as eval]
             [stateful-check.debugger.specs]
             [stateful-check.debugger.test-report :as test-report]
@@ -54,7 +55,7 @@
     (string? handle)
     (or (parse-handle handle)
         (sv/->RootVar handle))
-    :else (throw (ex-info "Invalid command handle" {:handle handle}))))
+    :else (throw (error/invalid-handle handle))))
 
 (defn runs
   "Return all runs of the `debugger`."
@@ -203,9 +204,7 @@
     (->> (assoc (stateful-check/run-specification specification options)
                 :specification specification :options options)
          (analyze-run debugger))
-    (throw (ex-info "Stateful Check specification not found"
-                    {:type :stateful-check/specification-not-found
-                     :id id}))))
+    (error/specification-not-found id)))
 
 (defn- run-specification-map
   "Run a Stateful Check specification map."
@@ -215,9 +214,7 @@
       (->> (assoc (stateful-check/run-specification specification options)
                   :specification specification :options options)
            (analyze-run (add-specification debugger specification))))
-    (throw (ex-info "Invalid Stateful Check specification"
-                    (merge (s/explain-data :stateful-check/specification specification)
-                           {:type :stateful-check/invalid-specification})))))
+    (throw (error/invalid-specification specification))))
 
 (defn- run-specification-var
   "Run a Stateful Check specification bound to a var."
@@ -226,10 +223,7 @@
     (if (s/valid? :stateful-check/specification specification)
       (let [specification (assoc specification :id (str (symbol var)))]
         (run-specification-map debugger specification options))
-      (throw (ex-info "No Stateful Check specification bound to var"
-                      (merge (s/explain-data :stateful-check/specification specification)
-                             {:type :stateful-check/invalid-specification-var
-                              :var var}))))))
+      (error/no-specification-bound specification var))))
 
 (defn run-specification
   "Run the Stateful Check `specification` and add the analyzed results
@@ -263,18 +257,14 @@
   [debugger run case]
   (if-let [run (get-run debugger run)]
     (add-run debugger (eval/eval-step run case))
-    (throw (ex-info "Stateful Check run not found"
-                    {:type :stateful-check/run-not-found
-                     :run run}))))
+    (throw (error/run-not-found run))))
 
 (defn eval-stop
   "Stop the evaluation."
   [debugger run case]
   (if-let [run (get-run debugger run)]
     (add-run debugger (eval/eval-stop run case))
-    (throw (ex-info "Stateful Check run not found"
-                    {:type :stateful-check/run-not-found
-                     :run run}))))
+    (throw (error/run-not-found run))))
 
 (defn print
   "Print the `debugger`.

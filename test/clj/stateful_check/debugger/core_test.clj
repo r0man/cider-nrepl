@@ -76,12 +76,13 @@
         debugger (debugger/analyze-test-run debugger event)]
     (is (s/valid? :stateful-check/debugger debugger))))
 
-(deftest test-last-results
+(deftest test-last-run
   (is (nil? (debugger/last-run debugger)))
   (let [debugger (debugger/scan debugger)]
     (is (nil? (debugger/last-run debugger)))
-    (let [debugger (debugger/run-specification debugger example-id)]
-      (is (debugger/last-run debugger)))))
+    (let [debugger (debugger/run-specification debugger example-id)
+          run (debugger/last-run debugger)]
+      (is (s/valid? :stateful-check/run run)))))
 
 (deftest test-print
   (let [debugger (debugger/scan debugger)
@@ -91,28 +92,29 @@
 
 (deftest test-run-specfication
   (let [debugger (debugger/scan debugger)
-        debugger (debugger/run-specification debugger example-id test/records-spec-options)
-        environments (-> debugger debugger/last-run :result-data :environments)]
-    (testing "environment #1"
-      (let [env (get environments (sv/->RootVar "1"))]
-        (is (= [{:index 0 :real -3 :symbolic -3 :name "value"}]
-               (:arguments env)))
-        (is (= {(sv/->RootVar "setup") {}
-                (sv/->RootVar "1") {:id "id--3" :value -3}}
-               (-> env :bindings :real)))
-        (is (= {(sv/->RootVar "setup") (sv/->RootVar "setup")
-                (sv/->RootVar "1") (sv/->RootVar "1")}
-               (-> env :bindings :symbolic)))
-        (is (= (sv/->RootVar "1") (:handle env)))
-        (is (= 0 (:index env)))
-        (is (= {:real {:id "id--3" :value -3}
-                :real-str "{:id \"id--3\", :value -3}"
-                :symbolic (sv/->RootVar "1")}
-               (:result env)))
-        (is (= {:real {"id--3" {:id "id--3" :value -3}}
-                :symbolic {(get (sv/->RootVar "1") :id)
-                           {:id (get (sv/->RootVar "1") :id) :value -3}}}
-               (:state env)))))
+        debugger (debugger/run-specification debugger example-id test/records-spec-options)]
+    (is (s/valid? :stateful-check/debugger debugger))
+    (let [environments (-> debugger debugger/last-run :result-data :environments)]
+      (testing "environment #1"
+        (let [env (get environments (sv/->RootVar "1"))]
+          (is (= [{:index 0 :real -3 :symbolic -3 :name "value"}]
+                 (:arguments env)))
+          (is (= {(sv/->RootVar "setup") {}
+                  (sv/->RootVar "1") {:id "id--3" :value -3}}
+                 (-> env :bindings :real)))
+          (is (= {(sv/->RootVar "setup") (sv/->RootVar "setup")
+                  (sv/->RootVar "1") (sv/->RootVar "1")}
+                 (-> env :bindings :symbolic)))
+          (is (= (sv/->RootVar "1") (:handle env)))
+          (is (= 0 (:index env)))
+          (is (= {:real {:id "id--3" :value -3}
+                  :real-str "{:id \"id--3\", :value -3}"
+                  :symbolic (sv/->RootVar "1")}
+                 (:result env)))
+          (is (= {:real {"id--3" {:id "id--3" :value -3}}
+                  :symbolic {(get (sv/->RootVar "1") :id)
+                             {:id (get (sv/->RootVar "1") :id) :value -3}}}
+                 (:state env))))))
     (is (s/valid? :stateful-check/debugger debugger))))
 
 (deftest test-scan
