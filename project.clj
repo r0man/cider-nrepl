@@ -115,7 +115,7 @@
                                    [ch.qos.logback/logback-classic "1.3.7"]
                                    [org.clojure/test.check "1.1.1"]
                                    [org.apache.httpcomponents/httpclient "4.5.13" :exclusions [commons-logging]]
-                                   [org.clojars.czan/stateful-check "0.4.4-SNAPSHOT" :exclusions [org.clojure/clojure]]
+                                   [org.clojars.czan/stateful-check "0.4.5.SNAPSHOT" :exclusions [org.clojure/clojure]]
                                    [leiningen-core "2.9.10" :exclusions [org.clojure/clojure
                                                                          commons-codec
                                                                          com.google.code.findbugs/jsr305]]
