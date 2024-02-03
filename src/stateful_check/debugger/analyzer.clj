@@ -41,9 +41,10 @@
            (when (#{:fail} t)
              {:actual actual})
            (when (#{:error} t)
-             (let [exception actual]
+             (let [^Throwable exception actual
+                   ^StackTraceElement frame (some-> exception .getStackTrace first)]
                {:error exception
-                :line (some-> exception .getStackTrace first .getLineNumber)})))))
+                :line (some-> frame .getLineNumber)})))))
 
 (defn analyze-failure
   "Analyze a postcondition failure."

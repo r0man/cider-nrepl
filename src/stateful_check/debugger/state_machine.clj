@@ -1,13 +1,18 @@
-(ns stateful-check.debugger.state-machine)
+(ns stateful-check.debugger.state-machine
+  (:require [stateful-check.symbolic-values])
+  (:import [stateful_check.symbolic_values RootVar]))
 
 (def ^:private init-state #{"init"})
 (def ^:private final-state #{"final"})
 
+(defn- var-name [^RootVar var]
+  (.-name var))
+
 (defn- sequential-state [executions index]
-  (some->> (ffirst (nth executions index nil)) .-name vector set))
+  (some->> (ffirst (nth executions index nil)) var-name vector set))
 
 (defn- parallel-state [executions index]
-  (set (map #(.-name %) (keep #(ffirst (nth % index nil)) executions))))
+  (set (map var-name (keep #(ffirst (nth % index nil)) executions))))
 
 (defn- last-sequential-state [sequential]
   (sequential-state sequential (dec (count sequential))))
