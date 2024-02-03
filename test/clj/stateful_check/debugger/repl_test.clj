@@ -284,11 +284,11 @@
   (let [id "stateful-check.debugger.test/records-failure-spec"
         specification (repl/specification id)]
     (is (s/valid? :stateful-check/specification specification))
-    (is {:id "stateful-check.debugger.test/records-failure-spec"
-         :ns 'stateful-check.debugger.test
-         :type :var
-         :var 'records-failure-spec}
-        (select-keys specification [:id :ns :var :type]))))
+    (is (= {:id "stateful-check.debugger.test/records-failure-spec"
+            :ns 'stateful-check.debugger.test
+            :type :var
+            :var 'records-failure-spec}
+           (select-keys specification [:id :ns :var :type])))))
 
 (deftest test-specifications
   (repl/reset)
