@@ -1,5 +1,6 @@
 (ns stateful-check.specs
   (:require [clojure.spec.alpha :as s]
+            [stateful-check.runner]
             [stateful-check.symbolic-values])
   (:import [clojure.lang Var]
            [stateful_check.runner CaughtException]
