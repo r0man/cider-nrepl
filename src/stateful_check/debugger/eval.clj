@@ -39,7 +39,7 @@
 
 (defn- setup-result
   [{:keys [environments] :as result-data}]
-  (get-in environments [(sv/->RootVar "init") :bindings :evaluation (sv/->RootVar "setup")] ))
+  (get-in environments [(sv/->RootVar "init") :bindings :evaluation (sv/->RootVar "setup")]))
 
 (defn- stop
   [{:keys [specification] :as result-data}]
