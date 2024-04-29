@@ -3,6 +3,7 @@
   {:author "r0man"
    :added "0.47.2"}
   (:require [cider.nrepl.middleware.inspect :as middleware.inspect]
+            [cider.nrepl.middleware.util :as util]
             [cider.nrepl.middleware.util.error-handling :refer [with-safe-transport]]
             [datomic.client.api :as d]
             [haystack.analyzer :as analyzer]
@@ -33,9 +34,14 @@
 (defn create-database-sync-reply
   "Create a new database."
   [msg]
-  (let [client (client msg)]
-    {:cider.datomic/create-databases
-     (d/create-database client (create-database-params msg))}))
+  (let [client (client msg)
+        database (create-database-params msg)]
+    (prn database)
+    (util/transform-value
+     {:cider.datomic/create-database
+      (d/create-database client database)})))
+
+;; (create-database-sync-reply {:cider.datomic/db-name "test"})
 
 ;; List databases.
 
@@ -49,10 +55,6 @@
   (let [client (client msg)]
     {:cider.datomic/list-databases
      (d/list-databases client (list-databases-params msg))}))
-
-;; (create-database-sync-reply {:cider.datomic/db-name "foo"})
-;; (create-database-sync-reply {:cider.datomic/db-name "bar"})
-;; (list-databases-sync-reply {})
 
 (defn handle-datomic
   "Handle Datomic operations."

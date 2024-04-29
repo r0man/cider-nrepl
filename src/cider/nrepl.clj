@@ -518,7 +518,13 @@ if applicable, and re-render the updated value."
   {:doc "Middleware that handles Datomic operations."
    :requires #{#'session #'wrap-print}
    :handles
-   {"cider.datomic/list-databases"
+   {"cider.datomic/create-database"
+    {:doc "Lost datomic databases."
+     :requires {"client" "The Datomic client specification."}
+     :returns {"status" "done"
+               "cider.datomic/create-database" "The list of databases."}}
+
+    "cider.datomic/list-databases"
     {:doc "Lost datomic databases."
      :requires {"client" "The Datomic client specification."}
      :returns {"status" "done"
