@@ -81,6 +81,7 @@
   :profiles {:provided {:dependencies [[org.clojure/clojure "1.10.3"]
                                        [org.clojure/clojurescript "1.11.60" :scope "provided"]
                                        [com.cognitect/transit-clj "1.0.333"]
+                                       [com.datomic/local "1.0.277"]
                                        [com.fasterxml.jackson.core/jackson-core "2.17.0"]
                                        [commons-codec "1.16.1"]
                                        [com.cognitect/transit-java "1.0.371"]
