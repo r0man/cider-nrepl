@@ -11,6 +11,7 @@
     cider.nrepl/wrap-clojuredocs
     cider.nrepl/wrap-complete
     cider.nrepl/wrap-content-type
+    cider.nrepl/wrap-datomic
     cider.nrepl/wrap-debug
     cider.nrepl/wrap-enlighten
     cider.nrepl/wrap-format

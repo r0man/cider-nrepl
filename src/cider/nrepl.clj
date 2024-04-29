@@ -514,6 +514,16 @@ if applicable, and re-render the updated value."
      :returns {"status" "done"
                "cider/log-threads" "A map from thread name to event frequency."}}}})
 
+(def-wrapper wrap-datomic cider.nrepl.middleware.datomic/handle-datomic
+  {:doc "Middleware that handles Datomic operations."
+   :requires #{#'session #'wrap-print}
+   :handles
+   {"cider.datomic/list-databases"
+    {:doc "Lost datomic databases."
+     :requires {"client" "The Datomic client specification."}
+     :returns {"status" "done"
+               "cider.datomic/list-databases" "The list of databases."}}}})
+
 (def-wrapper wrap-macroexpand cider.nrepl.middleware.macroexpand/handle-macroexpand
   (cljs/requires-piggieback
    {:doc "Macroexpansion middleware."
