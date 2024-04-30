@@ -1,21 +1,9 @@
 (ns cider.nrepl.middleware.datomic
   "Datomic NREPL middleware."
-  {:author "r0man"
-   :added "0.47.2"}
-  (:require [cider.nrepl.middleware.inspect :as middleware.inspect]
-            [cider.nrepl.middleware.util :as util]
+  {:author "r0man", :added "0.47.2"}
+  (:require [cider.nrepl.middleware.util :as util]
             [cider.nrepl.middleware.util.error-handling :refer [with-safe-transport]]
-            [datomic.client.api :as d]
-            [haystack.analyzer :as analyzer]
-            [haystack.parser.clojure.throwable :as throwable]
-            [logjam.event :as event]
-            [logjam.framework :as framework]
-            [nrepl.middleware.print :as print]
-            [nrepl.misc :refer [response-for]]
-            [nrepl.transport :as transport]
-            [orchard.inspect :as orchard.inspect])
-  (:import (java.io StringWriter)
-           (java.util UUID)))
+            [datomic.client.api :as d]))
 
 (defn- connection-spec [msg]
   {:server-type :datomic-local
@@ -25,7 +13,7 @@
 (defn- client [msg]
   (d/client (connection-spec msg)))
 
-;; Create database.
+;; Create database
 
 (defn- create-database-params
   [{:cider.datomic/keys [db-name]}]
@@ -35,13 +23,25 @@
   "Create a new database."
   [msg]
   (let [client (client msg)
-        database (create-database-params msg)]
-    (prn database)
+        params (create-database-params msg)]
     (util/transform-value
      {:cider.datomic/create-database
-      (d/create-database client database)})))
+      (d/create-database client params)})))
 
-;; (create-database-sync-reply {:cider.datomic/db-name "test"})
+;; Delete database
+
+(defn- delete-database-params
+  [{:cider.datomic/keys [db-name]}]
+  {:db-name db-name})
+
+(defn delete-database-sync-reply
+  "Delete a Datomic database."
+  [msg]
+  (let [client (client msg)
+        params (delete-database-params msg)]
+    (util/transform-value
+     {:cider.datomic/delete-database
+      (d/delete-database client params)})))
 
 ;; List databases.
 
@@ -52,15 +52,18 @@
 (defn list-databases-sync-reply
   "List all databases."
   [msg]
-  (let [client (client msg)]
-    {:cider.datomic/list-databases
-     (d/list-databases client (list-databases-params msg))}))
+  (let [client (client msg)
+        params (list-databases-params msg)]
+    ;; (prn "LIST")
+    ;; (clojure.pprint/pprint (dissoc msg :session))
+    (util/transform-value
+     {:cider.datomic/list-databases
+      (d/list-databases client params)})))
 
 (defn handle-datomic
   "Handle Datomic operations."
-  [handler {:keys [session] :as msg}]
-  ;; (when-not (contains? (meta session) ::frameworks)
-  ;;   (alter-meta! session assoc ::frameworks (framework/resolve-frameworks)))
+  [handler msg]
   (with-safe-transport handler msg
     "cider.datomic/create-database" create-database-sync-reply
+    "cider.datomic/delete-database" delete-database-sync-reply
     "cider.datomic/list-databases" list-databases-sync-reply))

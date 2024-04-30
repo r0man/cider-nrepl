@@ -520,13 +520,19 @@ if applicable, and re-render the updated value."
    :handles
    {"cider.datomic/create-database"
     {:doc "Lost datomic databases."
-     :requires {"client" "The Datomic client specification."}
+     :requires {"client" "The Datomic client."}
      :returns {"status" "done"
-               "cider.datomic/create-database" "The list of databases."}}
+               "cider.datomic/create-database" "The status of the operation."}}
+
+    "cider.datomic/delete-database"
+    {:doc "Delete a Datomic databases."
+     :requires {"client" "The Datomic client."}
+     :returns {"status" "done"
+               "cider.datomic/delete-database" "The status of the operation."}}
 
     "cider.datomic/list-databases"
     {:doc "Lost datomic databases."
-     :requires {"client" "The Datomic client specification."}
+     :requires {"client" "The Datomic client."}
      :returns {"status" "done"
                "cider.datomic/list-databases" "The list of databases."}}}})
 
