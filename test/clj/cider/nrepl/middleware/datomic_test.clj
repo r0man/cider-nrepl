@@ -39,7 +39,7 @@
 (def client
   {:server-type :datomic-local
    :storage-dir :mem
-   :system "ci"})
+   :system "default"})
 
 (defn- create-database
   [client db-name]
