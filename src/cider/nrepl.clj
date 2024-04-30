@@ -520,21 +520,29 @@ if applicable, and re-render the updated value."
    :handles
    {"cider.datomic/create-database"
     {:doc "Lost datomic databases."
-     :requires {"client" "The Datomic client."}
+     :requires {"cider.datomic/client" "The Datomic client."}
      :returns {"status" "done"
                "cider.datomic/create-database" "The status of the operation."}}
 
     "cider.datomic/delete-database"
     {:doc "Delete a Datomic databases."
-     :requires {"client" "The Datomic client."}
+     :requires {"cider.datomic/client" "The Datomic client."}
      :returns {"status" "done"
                "cider.datomic/delete-database" "The status of the operation."}}
 
     "cider.datomic/list-databases"
-    {:doc "Lost datomic databases."
-     :requires {"client" "The Datomic client."}
+    {:doc "List Datomic databases."
+     :requires {"cider.datomic/client" "The Datomic client."}
      :returns {"status" "done"
-               "cider.datomic/list-databases" "The list of databases."}}}})
+               "cider.datomic/list-databases" "The list of databases."}}
+
+    "cider.datomic/transact"
+    {:doc "Submit a Datomic transaction."
+     :requires {"cider.datomic/client" "The Datomic client."
+                "cider.datomic/db-name" "The database name."
+                "cider.datomic/tx-data" "The transaction data."}
+     :returns {"status" "done"
+               "cider.datomic/transact" "The transaction result."}}}})
 
 (def-wrapper wrap-macroexpand cider.nrepl.middleware.macroexpand/handle-macroexpand
   (cljs/requires-piggieback

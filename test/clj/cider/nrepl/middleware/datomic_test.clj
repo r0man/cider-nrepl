@@ -1,8 +1,25 @@
 (ns cider.nrepl.middleware.datomic-test
   (:require [cider.nrepl.test-session :as session]
-            [clojure.test :refer [deftest is use-fixtures]]))
+            [clojure.test :refer [deftest is use-fixtures]]
+            [clojure.edn :as edn]))
 
 (use-fixtures :each session/session-fixture)
+
+(def movie-schema
+  [{:db/ident :movie/title
+    :db/valueType :db.type/string
+    :db/cardinality :db.cardinality/one
+    :db/doc "The title of the movie"}
+
+   {:db/ident :movie/genre
+    :db/valueType :db.type/string
+    :db/cardinality :db.cardinality/one
+    :db/doc "The genre of the movie"}
+
+   {:db/ident :movie/release-year
+    :db/valueType :db.type/long
+    :db/cardinality :db.cardinality/one
+    :db/doc "The year the movie was released in theaters"}])
 
 (def client
   {:server-type :datomic-local
@@ -26,6 +43,13 @@
   (session/message {:op "cider.datomic/list-databases"
                     "cider.datomic/client" client}))
 
+(defn- transact
+  [client db-name tx-data]
+  (session/message {:op "cider.datomic/transact"
+                    "cider.datomic/client" client
+                    "cider.datomic/db-name" db-name
+                    "cider.datomic/tx-data" (pr-str tx-data)}))
+
 (deftest test-create-database
   (delete-database client "foo")
   (let [response (create-database client "foo")]
@@ -45,10 +69,18 @@
 (deftest test-list-databases
   (delete-database client "foo")
   (let [response (list-databases client)]
-    (clojure.pprint/pprint response)
     (is (= #{"done"} (:status response)))
     (is (= [] (:cider.datomic/list-databases response))))
   (create-database client "foo")
   (let [response (list-databases client)]
     (is (= #{"done"} (:status response)))
     (is (= ["foo"] (:cider.datomic/list-databases response)))))
+
+(deftest test-transact
+  (create-database client "foo")
+  (let [response (transact client "foo" movie-schema)]
+    (is (= #{"done"} (:status response)))
+    (let [{:keys [db-after db-before tx-data] :as result} (:cider.datomic/transact response)]
+      (is (pos-int? (:basisT db-after)))
+      (is (pos-int? (:basisT db-before)))
+      (is (string? tx-data)))))
