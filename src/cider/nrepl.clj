@@ -542,7 +542,15 @@ if applicable, and re-render the updated value."
                 "cider.datomic/db-name" "The database name."
                 "cider.datomic/tx-data" "The transaction data."}
      :returns {"status" "done"
-               "cider.datomic/transact" "The transaction result."}}}})
+               "cider.datomic/transact" "The transaction result."}}
+
+    "cider.datomic/query"
+    {:doc "Submit a Datomic query."
+     :requires {"cider.datomic/client" "The Datomic client."
+                "cider.datomic/db-name" "The database name."
+                "cider.datomic/query" "The Datomic query."}
+     :returns {"status" "done"
+               "cider.datomic/query" "The query result."}}}})
 
 (def-wrapper wrap-macroexpand cider.nrepl.middleware.macroexpand/handle-macroexpand
   (cljs/requires-piggieback

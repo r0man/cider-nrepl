@@ -37,7 +37,17 @@
   [{:cider.datomic/keys [db-name] :as msg}]
   (d/connect (client msg) {:db-name db-name}))
 
-(defn- tx-data [msg]
+(defn- db [msg]
+  (d/db (connect msg)))
+
+(defn- query
+  "Extract the query from `msg`."
+  [msg]
+  (some-> msg :cider.datomic/query edn/read-string))
+
+(defn- tx-data
+  "Extract the transaction data from `msg`."
+  [msg]
   (some-> msg :cider.datomic/tx-data edn/read-string))
 
 ;; Create database
@@ -90,8 +100,6 @@
 (defn- transact-params [msg]
   {:tx-data (tx-data msg)})
 
-;; (connect my-msg)
-
 (defn transact-sync-reply
   "Submit a transaction."
   [msg]
@@ -103,6 +111,20 @@
      {:cider.datomic/transact
       (update result :tx-data pr-str)})))
 
+;; Query
+
+(defn- query-params [msg]
+  {:tx-data (tx-data msg)})
+
+(defn query-sync-reply
+  "Submit a queryion."
+  [msg]
+  (let [client (client msg)
+        result (d/q (query msg) (db msg))]
+    (util/transform-value
+     {:cider.datomic/query
+      (pr-str result)})))
+
 (defn handle-datomic
   "Handle Datomic operations."
   [handler msg]
@@ -110,4 +132,5 @@
     "cider.datomic/create-database" create-database-sync-reply
     "cider.datomic/delete-database" delete-database-sync-reply
     "cider.datomic/list-databases" list-databases-sync-reply
-    "cider.datomic/transact" transact-sync-reply))
+    "cider.datomic/transact" transact-sync-reply
+    "cider.datomic/query" query-sync-reply))

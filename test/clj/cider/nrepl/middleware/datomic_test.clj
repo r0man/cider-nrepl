@@ -21,6 +21,21 @@
     :db/cardinality :db.cardinality/one
     :db/doc "The year the movie was released in theaters"}])
 
+(def first-movies
+  [{:movie/title "The Goonies"
+    :movie/genre "action/adventure"
+    :movie/release-year 1985}
+   {:movie/title "Commando"
+    :movie/genre "thriller/action"
+    :movie/release-year 1985}
+   {:movie/title "Repo Man"
+    :movie/genre "punk dystopia"
+    :movie/release-year 1984}])
+
+(def all-titles-q
+  '[:find ?movie-title
+    :where [_ :movie/title ?movie-title]])
+
 (def client
   {:server-type :datomic-local
    :storage-dir :mem
@@ -49,6 +64,13 @@
                     "cider.datomic/client" client
                     "cider.datomic/db-name" db-name
                     "cider.datomic/tx-data" (pr-str tx-data)}))
+
+(defn- query
+  [client db-name query]
+  (session/message {:op "cider.datomic/query"
+                    "cider.datomic/client" client
+                    "cider.datomic/db-name" db-name
+                    "cider.datomic/query" (pr-str query)}))
 
 (deftest test-create-database
   (delete-database client "foo")
@@ -84,3 +106,15 @@
       (is (pos-int? (:basisT db-after)))
       (is (pos-int? (:basisT db-before)))
       (is (string? tx-data)))))
+
+(deftest test-query
+  (create-database client "foo")
+  (transact client "foo" movie-schema)
+  (transact client "foo" first-movies)
+  (let [response (query client "foo" all-titles-q)]
+    (is (= #{"done"} (:status response)))
+    (let [result (:cider.datomic/query response)]
+      (is (= [["Commando"]
+              ["The Goonies"]
+              ["Repo Man"]]
+             (edn/read-string result))))))
