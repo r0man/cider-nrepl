@@ -6,32 +6,20 @@
             [clojure.edn :as edn]
             [datomic.client.api :as d]))
 
-(defn- client-server-type
-  "Extract the client server type from a message."
-  [msg]
-  (some-> msg :cider.datomic/client :server-type keyword))
-
-(defn- client-storage-dir
-  "Extract the client storage directory from a message."
-  [msg]
-  (some-> msg :cider.datomic/client :storage-dir keyword))
-
-(defn- client-system
-  "Extract the client system from a message."
-  [msg]
-  (some-> msg :cider.datomic/client :system))
-
-(defn- client-spec
+(defn- client-params
   "Extract the client spec from a message."
-  [msg]
-  {:server-type (client-server-type msg)
-   :storage-dir (client-storage-dir msg)
-   :system (client-system msg)})
+  [{:cider.datomic/keys [client]}]
+  (let [{:keys [endpoint server-type storage-dir system region]} client]
+    (cond-> {:server-type (keyword server-type)
+             :storage-dir (keyword storage-dir)
+             :system system}
+      endpoint (assoc :endpoint endpoint)
+      region (assoc :region region))))
 
 (defn- client
   "Return the Datomic client for `msg.`"
   [msg]
-  (d/client (client-spec msg)))
+  (d/client (client-params msg)))
 
 (defn- connect
   [{:cider.datomic/keys [db-name] :as msg}]
@@ -39,11 +27,6 @@
 
 (defn- db [msg]
   (d/db (connect msg)))
-
-(defn- query
-  "Extract the query from `msg`."
-  [msg]
-  (some-> msg :cider.datomic/query edn/read-string))
 
 (defn- tx-data
   "Extract the transaction data from `msg`."
@@ -114,13 +97,13 @@
 ;; Query
 
 (defn- query-params [msg]
-  {:tx-data (tx-data msg)})
+  (some-> msg :cider.datomic/query edn/read-string))
 
 (defn query-sync-reply
   "Submit a queryion."
   [msg]
   (let [client (client msg)
-        result (d/q (query msg) (db msg))]
+        result (d/q (query-params msg) (db msg))]
     (util/transform-value
      {:cider.datomic/query
       (pr-str result)})))
